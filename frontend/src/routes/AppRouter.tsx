@@ -10,7 +10,11 @@ import { LogoutPage } from '@/pages/auth/LogoutPage';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AdminRoute } from '@/routes/AdminRoute';
 
-//* context (Main Layout: ทุกหน้าจะเห็น Navbar ยกเว้นหน้า Login/Register ถ้าต้องการแยก)
+// Import หน้าเกี่ยวกับ Photo ทั้งหมด
+import { PhotoListPage } from '@/pages/photo/PhotoListPage'; 
+import { UploadPhotoPage } from '@/pages/photo/UploadPhotoPage';
+import { EditPhotoPage } from '@/pages/photo/EditPhotoPage'; // ✅ นำเข้าหน้าแก้ไข
+
 const AppLayout = () => (
   <>
     <AppNavbar />
@@ -30,20 +34,23 @@ const router = createBrowserRouter([
       { path: 'register', element: <RegisterPage /> },
       { path: 'logout', element: <LogoutPage /> },
       
-      //* context (เส้นทางที่ต้องล็อกอินก่อนเข้าถึง)
+      //* เส้นทางสำหรับสมาชิกทั่วไป (ต้อง Login)
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'photos', element: <div className="container py-5"><h3>แกลเลอรี่ (Coming Soon)</h3></div> },
+          { path: 'photos', element: <PhotoListPage /> },
+          { path: 'photos/upload', element: <UploadPhotoPage /> }, 
           { path: 'activities', element: <div className="container py-5"><h3>กิจกรรม (Coming Soon)</h3></div> },
         ]
       },
 
-      //* context (เส้นทางเฉพาะ Admin)
+      //* ✅ เส้นทางเฉพาะ Admin และ President เท่านั้น
       {
         element: <AdminRoute />,
         children: [
           { path: 'admin', element: <div className="container py-5"><h3>ระบบจัดการหลังบ้าน (Admin Only)</h3></div> },
+          // ย้ายมาไว้ที่นี่เพื่อให้ปลอดภัยจากการเข้าถึงโดยตรงผ่าน URL
+          { path: 'photos/edit/:id', element: <EditPhotoPage /> }, 
         ]
       }
     ]

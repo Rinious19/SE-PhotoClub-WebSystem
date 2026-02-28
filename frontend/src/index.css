@@ -1,0 +1,14 @@
+/* frontend/src/index.css */
+
+body {
+  background-color: #121212; /* พื้นหลังดำมินิมอล */
+  color: #ffffff; /* ตัวหนังสือสีขาว */
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #121212; }
+::-webkit-scrollbar-thumb { background: #333333; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555555; }
