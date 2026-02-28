@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 //* context (Middleware พื้นฐาน)
-app.use(cors()); // อนุญาตให้ Frontend ยิง API มาได้
+app.use(cors()); // อนุญาตให้ Frontend ยิง API มาได้    
 app.use(express.json()); // รับข้อมูลแบบ JSON
 
 // เชื่อมต่อ Module Auth

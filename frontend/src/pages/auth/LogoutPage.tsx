@@ -27,7 +27,7 @@ export const LogoutPage = () => {
     <Container className="d-flex flex-column align-items-center justify-content-center text-center" style={{ minHeight: '80vh' }}>
       <Spinner animation="border" variant="secondary" className="mb-4" style={{ width: '3rem', height: '3rem' }} />
       <h4 className="fw-medium text-secondary">กำลังออกจากระบบ...</h4>
-      <p className="text-muted small">ไว้พบกันใหม่ 📸 SE PhotoClub</p>
+      <p className="text-muted small">ไว้พบกันใหม่ SE PhotoClub</p>
     </Container>
   );
 };
