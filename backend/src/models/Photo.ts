@@ -1,8 +1,9 @@
 export interface Photo {
   id?: number;
   title: string;
+  event_date?: string;
   description?: string;
-  image_url: string;
+  image_url: Buffer | string;
   user_id: number;
   
   // ✅ เพิ่ม 4 บรรทัดนี้เข้าไป เพื่อให้ TypeScript รู้จักฟิลด์ใหม่ที่เราเพิ่งสร้างใน Database
