@@ -1,43 +1,78 @@
 // backend/src/repositories/PhotoRepository.ts
 
-import { pool } from '../config/Database';
-import type { Photo } from '../models/Photo';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { pool } from '../config/Database'; // ✅ นำเข้า pool ถูกต้องแล้ว
+import { Photo } from '../models/Photo';
 
 interface PhotoRow extends RowDataPacket, Photo {}
 
 export class PhotoRepository {
-  async create(photo: Photo): Promise<Photo> {
-    const [result] = await pool.execute<ResultSetHeader>(
-      'INSERT INTO photos (title, description, image_url, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
-      // ✅ จุดที่แก้ไข: เพิ่ม || null ต่อท้าย photo.description
-      [photo.title, photo.description || null, photo.image_url, photo.user_id]
+
+  // --- [1. สร้างรูปภาพใหม่] ---
+  async create(data: Photo): Promise<any> {
+    // ✅ เปลี่ยนจาก db.query เป็น pool.query และใส่ <ResultSetHeader> เพื่อให้รู้ว่าจะมี .insertId
+    const [result] = await pool.query<ResultSetHeader>(
+      `INSERT INTO photos (title, description, image_url, user_id, created_by) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [data.title, data.description, data.image_url, data.user_id, data.created_by]
     );
-    
-    return { ...photo, id: result.insertId };
+    return { id: result.insertId, ...data }; // ❌ ไม่ต้องใช้ (result as any) แล้ว
   }
-  // ฟังก์ชันลบรูปภาพจากฐานข้อมูล
-  async delete(id: number): Promise<boolean> {
-    const [result] = await pool.execute<ResultSetHeader>(
-      'DELETE FROM photos WHERE id = ?',
-      [id]
-    );
-    // ถ้า affectedRows > 0 แปลว่าลบสำเร็จ
+
+  // --- [2. อัปเดตข้อมูล] ---
+  async update(id: number, data: Partial<Photo>): Promise<boolean> {
+    let query = `UPDATE photos SET title = ?, description = ?, updated_by = ?`;
+    let params: any[] = [data.title, data.description, data.updated_by];
+
+    // ถ้ามีการส่งไฟล์รูปใหม่มาด้วย ให้เพิ่มคำสั่งอัปเดต image_url
+    if (data.image_url) {
+      query += `, image_url = ?`;
+      params.push(data.image_url);
+    }
+
+    query += ` WHERE id = ? AND deleted_at IS NULL`;
+    params.push(id);
+
+    // ✅ เปลี่ยนเป็น pool.query
+    const [result] = await pool.query<ResultSetHeader>(query, params);
     return result.affectedRows > 0;
   }
 
-  async update(id: number, photo: Partial<Photo>): Promise<boolean> {
-    const [result] = await pool.execute<ResultSetHeader>(
-      'UPDATE photos SET title = ?, description = ?, image_url = ?, updated_at = NOW() WHERE id = ?',
-      [photo.title ?? null, photo.description ?? null, photo.image_url ?? null, id]
+  // --- [3. ระบบ Soft Delete (ลบลงถังขยะ)] ---
+  async softDelete(photoId: number, userId: number): Promise<boolean> {
+    // ✅ เปลี่ยนเป็น pool.query
+    const [result] = await pool.query<ResultSetHeader>(
+      `UPDATE photos 
+       SET deleted_at = NOW(), deleted_by = ? 
+       WHERE id = ? AND deleted_at IS NULL`,
+      [userId, photoId]
     );
     return result.affectedRows > 0;
   }
 
+  // --- [4. ระบบบันทึกประวัติ (Audit Log)] ---
+  async logAction(photoId: number, action: string, userId: number, details: string): Promise<void> {
+    // ✅ เปลี่ยนเป็น pool.query
+    await pool.query(
+      `INSERT INTO photo_audit_logs (photo_id, action, user_id, details) 
+       VALUES (?, ?, ?, ?)`,
+      [photoId, action, userId, details]
+    );
+  }
+
+  // --- [5. ดึงเฉพาะรูปภาพที่ยังไม่ถูกลบ] ---
+  async findAllActive(): Promise<Photo[]> {
+    // ✅ เปลี่ยนเป็น pool.query และระบุชนิดเป็น <PhotoRow[]> 
+    const [rows] = await pool.query<PhotoRow[]>(
+      `SELECT * FROM photos WHERE deleted_at IS NULL ORDER BY created_at DESC`
+    );
+    return rows; // ❌ ไม่ต้องใช้ (rows as Photo[]) แล้ว
+  }
+
+  // ฟังก์ชัน findAll เดิม (สำหรับ Admin ดูรูปทั้งหมดรวมถึงที่ลบไปแล้ว)
   async findAll(): Promise<Photo[]> {
-    const [rows] = await pool.execute<PhotoRow[]>(
-      'SELECT * FROM photos ORDER BY created_at DESC'
-    );
+    // ✅ เปลี่ยนเป็น pool.query
+    const [rows] = await pool.query<PhotoRow[]>(`SELECT * FROM photos ORDER BY created_at DESC`);
     return rows;
   }
 }

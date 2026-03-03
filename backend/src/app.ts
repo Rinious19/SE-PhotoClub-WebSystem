@@ -1,6 +1,7 @@
 //? Main: Server Entry Point
 //@ ไฟล์หลักสำหรับรัน Server Express
 
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/AuthRoutes';
@@ -13,6 +14,9 @@ const PORT = process.env.PORT || 5000;
 //* context (Middleware พื้นฐาน)
 app.use(cors()); // อนุญาตให้ Frontend ยิง API มาได้    
 app.use(express.json()); // รับข้อมูลแบบ JSON
+
+// อนุญาตให้เข้าถึงโฟลเดอร์ uploads ผ่าน URL ที่ขึ้นต้นด้วย /uploads ได้
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // เชื่อมต่อ Module Auth
 app.use('/api/auth', authRoutes);

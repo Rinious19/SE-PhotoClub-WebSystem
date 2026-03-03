@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Spinner, Alert, Button } from 'react-bootstrap';
+import { Container, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { PhotoCard } from '../../components/photo/PhotoCard';
 import { PhotoService } from '../../services/PhotoService';
 import { Link } from 'react-router-dom';

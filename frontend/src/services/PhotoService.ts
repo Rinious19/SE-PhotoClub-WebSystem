@@ -19,14 +19,14 @@ export const PhotoService = {
 
   // ฟังก์ชันลบรูปภาพ (ยิงไปที่ ADMIN_API_URL)
   delete: async (id: number, token: string) => {
-    const response = await axios.delete(`${ADMIN_API_URL}/delete/${id}`, {
+    const response = await axios.delete(`${API_URL}/delete/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return response.data;
   },
 // ฟังก์ชันแก้ไขรูปภาพ
   update: async (id: number, photoData: any, token: string) => {
-    const response = await axios.put(`${ADMIN_API_URL}/update/${id}`, photoData, {
+    const response = await axios.put(`${API_URL}/${id}`, photoData, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return response.data;
