@@ -14,7 +14,6 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // อนุญาตให้ Frontend ยิง API มาได้    
 app.use(express.json()); // รับข้อมูลแบบ JSON
 
-app.use('/api/auth', authRoutes);
 app.use('/api/photos', photoRoutes);//เปิดใช้งาน Route /api/photos
 
 // อนุญาตให้ดึงไฟล์จากโฟลเดอร์ uploads ได้

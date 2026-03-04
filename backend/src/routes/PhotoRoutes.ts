@@ -9,12 +9,10 @@ const router = Router();
 // --- [1. โซนสาธารณะ (Public Routes)] ---
 router.get("/", PhotoController.getPhotos);
 
-// --- [2. โซนสงวนสิทธิ์ (Protected Routes)] ---
-
-// ✅ เปลี่ยนจาก "/" เป็น "/upload" ให้ตรงกับหน้าบ้าน
+// 🔒 แบบนี้ถูก: เฉพาะ Admin/President ที่ต้องมี Token ถึงจะอัปโหลดได้
 router.post(
   "/", 
-  AuthMiddleware, 
+  AuthMiddleware, // 👮 ตัวตรวจ Token จะทำงานเฉพาะตอนที่มีการ POST เท่านั้น
   RoleMiddleware(["ADMIN", "CLUB_PRESIDENT"]),
   upload.single("image"), 
   PhotoController.uploadPhoto

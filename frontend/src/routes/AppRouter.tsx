@@ -34,22 +34,23 @@ const router = createBrowserRouter([
       { path: 'register', element: <RegisterPage /> },
       { path: 'logout', element: <LogoutPage /> },
       
-      //* เส้นทางสำหรับสมาชิกทั่วไป (ต้อง Login)
+      // ✅ ย้ายมาไว้ตรงนี้ (โซนสาธารณะ) เพื่อให้ Guest ดูได้
+      { path: 'photos', element: <PhotoListPage /> }, 
+
+      //* เส้นทางสำหรับสมาชิกที่ต้อง Login (เช่น การอัปโหลด)
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'photos', element: <PhotoListPage /> },
           { path: 'photos/upload', element: <UploadPhotoPage /> }, 
           { path: 'activities', element: <div className="container py-5"><h3>กิจกรรม (Coming Soon)</h3></div> },
         ]
       },
 
-      //* ✅ เส้นทางเฉพาะ Admin และ President เท่านั้น
+      //* ✅ เส้นทางเฉพาะ Admin และ President
       {
         element: <AdminRoute />,
         children: [
           { path: 'admin', element: <div className="container py-5"><h3>ระบบจัดการหลังบ้าน (Admin Only)</h3></div> },
-          // ย้ายมาไว้ที่นี่เพื่อให้ปลอดภัยจากการเข้าถึงโดยตรงผ่าน URL
           { path: 'photos/edit/:id', element: <EditPhotoPage /> }, 
         ]
       }
