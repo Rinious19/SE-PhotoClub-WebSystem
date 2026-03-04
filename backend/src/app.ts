@@ -11,8 +11,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 //* context (Middleware พื้นฐาน)
-app.use(cors()); // อนุญาตให้ Frontend ยิง API มาได้    
-app.use(express.json()); // รับข้อมูลแบบ JSON
+app.use(cors()); // อนุญาตให้ Frontend ยิง API มาได้  
+  
+// แก้ไข 2 บรรทัดนี้เพื่อรองรับไฟล์ขนาดใหญ่ (เช่น 10MB)
+app.use(express.json({ limit: '10mb' })); 
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 app.use('/api/photos', photoRoutes);//เปิดใช้งาน Route /api/photos
 

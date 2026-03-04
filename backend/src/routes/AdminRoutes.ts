@@ -16,7 +16,7 @@ router.delete(
 router.put(
   '/update/:id', 
   AuthMiddleware as RequestHandler, 
-  RoleMiddleware(['Admin', 'President']) as RequestHandler, 
+  RoleMiddleware(['ADMIN', 'CLUB_PRESIDENT']) as RequestHandler, 
   PhotoController.updatePhoto as RequestHandler
 );
 
