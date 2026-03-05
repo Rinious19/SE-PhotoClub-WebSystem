@@ -13,5 +13,12 @@ export const pool = mysql.createPool({
   database: process.env.DB_NAME || 'photoclub_db',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+
+  // ✅ แก้ Timezone Bug (สำคัญมาก):
+  // dateStrings: true → บอก mysql2 ให้คืนค่า DATE/DATETIME เป็น string "YYYY-MM-DD"
+  //               แทนที่จะแปลงเป็น JavaScript Date object ซึ่งทำให้ timezone เพี้ยน
+  // timezone: 'local' → ให้ driver ใช้ local timezone ของ server (UTC+7) แทน UTC
+  dateStrings: true,
+  timezone: 'local',
 });

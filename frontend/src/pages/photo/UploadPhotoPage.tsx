@@ -1,43 +1,66 @@
+//? Page: Upload Photo Page
+//@ อัปโหลดรูปภาพ — รองรับหลายรูปพร้อมกัน
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Container, Card, Form, Button, Row, Col, Spinner, Modal } from 'react-bootstrap';
+import { Container, Card, Form, Button, Row, Col, Spinner, Modal, ProgressBar, Badge, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { PhotoService } from '../../services/PhotoService';
-import { EventService } from '../../services/EventService'; 
+import { EventService } from '../../services/EventService';
 import { AlertModal } from '../../components/common/AlertModal';
 import { useAuth } from '@/hooks/useAuth';
+import { isAdminOrPresident } from '@/utils/roleChecker';
+
+// ✅ แก้ Timezone Bug: ใช้ local date แทน toISOString() ที่เป็น UTC
+// toISOString() → UTC ทำให้วันเพี้ยนเมื่ออยู่ใน timezone UTC+7
+const getLocalDateStr = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD ตาม local timezone จริงๆ
+};
 
 export const UploadPhotoPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ✅ ใช้ getLocalDateStr() แทน toISOString() เพื่อป้องกันวันเพี้ยน
+  const todayStr = getLocalDateStr();
 
   // --- [States หลัก] ---
   const [events, setEvents] = useState<any[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [formData, setFormData] = useState({ title: '', event_date: '', description: '' });
 
-  // --- [States สำหรับ UI & Modal] ---
+  // --- [States Upload] ---
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [modalConfig, setModalConfig] = useState({
+    show: false, title: '', message: '', variant: 'success' as 'success' | 'danger', isSuccess: false,
+  });
+
+  // --- [States Modal สร้าง Event] ---
   const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [newEventData, setNewEventData] = useState({ name: '', date: '' });
-  const [modalConfig, setModalConfig] = useState({ show: false, title: '', message: '', variant: 'success' as 'success' | 'danger', isSuccess: false });
+  const [addError, setAddError] = useState<string | null>(null);
 
-  // --- [1. Load Events จาก Database] ---
+  // --- [1. Load Events] ---
   const loadEvents = async () => {
     try {
       const res = await EventService.getAll();
       setEvents(res.data || []);
-    } catch (err) { console.error("Failed to load events"); }
+    } catch { console.error("Failed to load events"); }
   };
 
   useEffect(() => { loadEvents(); }, []);
 
-  // ปิด Dropdown เมื่อคลิกข้างนอก
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsDropdownOpen(false);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsDropdownOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -50,96 +73,169 @@ export const UploadPhotoPage: React.FC = () => {
 
   const isValidEvent = events.some(ev => ev.event_name === formData.title);
 
-  // --- [3. ฟังก์ชันสร้าง Event ใหม่ลง Database] ---
+  // --- [3. เลือกไฟล์] ---
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setSelectedFiles(files);
+    setPreviewUrls(files.map(f => URL.createObjectURL(f)));
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // --- [4. สร้าง Event ใหม่] ---
   const handleCreateEvent = async () => {
-    if (!newEventData.name || !newEventData.date) {
-      alert("กรุณากรอกข้อมูลกิจกรรมให้ครบถ้วน");
+    if (!newEventData.name.trim() || !newEventData.date) {
+      setAddError("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
     try {
+      setAddError(null);
       const token = localStorage.getItem('token');
-      const res = await EventService.create({ 
-        event_name: newEventData.name, 
-        event_date: newEventData.date 
-      }, token!);
-
+      const res = await EventService.create(
+        { event_name: newEventData.name.trim(), event_date: newEventData.date },
+        token!
+      );
       if (res.success) {
-        // อัปเดตรายการในหน้าจอทันที
         await loadEvents();
-        // เลือกกิจกรรมที่เพิ่งสร้างให้เลย
-        setFormData({ ...formData, title: newEventData.name, event_date: newEventData.date });
+        setFormData({ ...formData, title: newEventData.name.trim(), event_date: newEventData.date });
         setShowAddEventModal(false);
         setNewEventData({ name: '', date: '' });
       }
-    } catch (err: any) {
-      alert(err.response?.data?.message || "ไม่สามารถสร้างกิจกรรมได้ (ชื่ออาจซ้ำ)");
+    } catch {
+      setAddError("ไม่สามารถสร้างกิจกรรมได้ (ชื่ออาจซ้ำ)");
     }
   };
 
-  // --- [4. ฟังก์ชันอัปโหลดรูปภาพ] ---
+  // --- [5. อัปโหลดรูปภาพ] ---
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !isValidEvent) return;
+    if (!selectedFiles.length || !isValidEvent) return;
     setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const data = new FormData();
-      data.append('image', selectedFile);
-      data.append('title', formData.title);
-      data.append('event_date', formData.event_date);
-      data.append('description', formData.description);
-
-      const res = await PhotoService.upload(data, token!);
-      if (res.success) {
-        setModalConfig({ show: true, title: 'สำเร็จ!', message: 'อัปโหลดรูปภาพเรียบร้อย', variant: 'success', isSuccess: true });
-      }
-    } catch (err: any) {
-      setModalConfig({ show: true, title: 'ผิดพลาด', message: 'อัปโหลดไม่สำเร็จ', variant: 'danger', isSuccess: false });
-    } finally { setLoading(false); }
+    setUploadProgress(0);
+    const token = localStorage.getItem('token');
+    let successCount = 0, failCount = 0;
+    for (let i = 0; i < selectedFiles.length; i++) {
+      try {
+        const data = new FormData();
+        data.append('image', selectedFiles[i]);
+        data.append('title', formData.title);
+        data.append('event_date', formData.event_date);
+        data.append('description', formData.description);
+        const res = await PhotoService.upload(data, token!);
+        if (res.success) successCount++;
+        else failCount++;
+      } catch { failCount++; }
+      setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
+    }
+    setLoading(false);
+    setModalConfig({
+      show: true,
+      title: failCount === 0 ? 'อัปโหลดสำเร็จ!' : 'อัปโหลดบางส่วน',
+      message: `สำเร็จ ${successCount} รูป${failCount > 0 ? ` / ล้มเหลว ${failCount} รูป` : ''}`,
+      variant: successCount > 0 ? 'success' : 'danger',
+      isSuccess: successCount > 0,
+    });
   };
 
+  // ===================== RENDER =====================
   return (
     <Container className="py-5">
-      <Card className="shadow-sm border-0 p-4 mx-auto" style={{ maxWidth: '900px' }}>
+      <Card className="shadow-sm border-0 p-4 mx-auto" style={{ maxWidth: '960px' }}>
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h3 className="fw-bold mb-0">📸 อัปโหลดรูปภาพใหม่</h3>
-          {user?.role === 'ADMIN' && (
-            <Button variant="primary" size="sm" onClick={() => setShowAddEventModal(true)}>+ สร้างกิจกรรมใหม่</Button>
+          {isAdminOrPresident(user) && (
+            <Button variant="outline-primary" size="sm" className="rounded-pill px-3"
+              onClick={() => { setAddError(null); setNewEventData({ name: '', date: '' }); setShowAddEventModal(true); }}>
+              + สร้างกิจกรรมใหม่
+            </Button>
           )}
         </div>
 
         <Form onSubmit={handleUpload}>
           <Row>
-            <Col md={5} className="text-center mb-4">
-              <div className="border rounded p-3 bg-light d-flex align-items-center justify-content-center" 
-                   style={{ minHeight: '300px', cursor: 'pointer' }} 
-                   onClick={() => document.getElementById('fileInput')?.click()}>
-                {previewUrl ? <img src={previewUrl} className="img-fluid rounded" style={{ maxHeight: '350px' }} alt="preview" /> : 
-                <div className="text-secondary"><i className="bi bi-image fs-1 d-block"></i>คลิกเพื่อเลือกรูปภาพ</div>}
+            {/* ===== ซ้าย: เลือกรูป ===== */}
+            <Col md={5} className="mb-4">
+              <div
+                className="border rounded p-3 bg-light d-flex flex-column align-items-center justify-content-center mb-3"
+                style={{ minHeight: '200px', cursor: 'pointer', borderStyle: 'dashed', borderColor: '#adb5bd' }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <span style={{ fontSize: '2.5rem' }}>🖼️</span>
+                <p className="text-secondary mb-0 text-center small mt-2">
+                  คลิกเพื่อเลือกรูปภาพ<br />
+                  <span className="text-muted">(เลือกได้หลายรูปพร้อมกัน)</span>
+                </p>
+                <Form.Control
+                  ref={fileInputRef} type="file" accept="image/*"
+                  multiple hidden onChange={handleFileChange}
+                />
               </div>
-              <Form.Control id="fileInput" type="file" accept="image/*" hidden onChange={(e: any) => {
-                const file = e.target.files[0];
-                if (file) { setSelectedFile(file); setPreviewUrl(URL.createObjectURL(file)); }
-              }} />
+
+              {previewUrls.length > 0 && (
+                <div>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <small className="fw-bold text-secondary">
+                      เลือกแล้ว <Badge bg="primary" className="rounded-pill">{selectedFiles.length}</Badge> รูป
+                    </small>
+                    <Button variant="link" size="sm" className="text-danger p-0"
+                      onClick={() => { setSelectedFiles([]); setPreviewUrls([]); }}>
+                      ล้างทั้งหมด
+                    </Button>
+                  </div>
+                  <Row xs={3} className="g-2">
+                    {previewUrls.map((url, idx) => (
+                      <Col key={idx}>
+                        <div className="position-relative">
+                          <img src={url} alt={`preview-${idx}`} className="img-fluid rounded"
+                            style={{ height: '80px', width: '100%', objectFit: 'cover' }} />
+                          <Button variant="danger" size="sm"
+                            className="position-absolute top-0 end-0 p-0 lh-1"
+                            style={{ width: '20px', height: '20px', fontSize: '10px', borderRadius: '50%' }}
+                            onClick={() => removeFile(idx)}>✕</Button>
+                        </div>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              )}
             </Col>
 
+            {/* ===== ขวา: ฟอร์มข้อมูล ===== */}
             <Col md={7}>
+              {/* Dropdown เลือก Event */}
               <Form.Group className="mb-3 position-relative" ref={dropdownRef}>
                 <Form.Label className="fw-bold">เลือกกิจกรรม (Event)</Form.Label>
                 <div className="input-group">
-                  <Form.Control type="text" placeholder="ค้นหาชื่อกิจกรรม..." value={formData.title}
+                  <Form.Control
+                    type="text" placeholder="ค้นหาชื่อกิจกรรม..."
+                    value={formData.title} required
                     onChange={(e) => { setFormData({ ...formData, title: e.target.value }); setIsDropdownOpen(true); }}
-                    onFocus={() => setIsDropdownOpen(true)} required
+                    onFocus={() => setIsDropdownOpen(true)}
                   />
-                  <Button variant="outline-secondary" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>{isDropdownOpen ? '▲' : '▼'}</Button>
+                  <Button variant="outline-secondary" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
+                    {isDropdownOpen ? '▲' : '▼'}
+                  </Button>
                 </div>
 
+                {/* Dropdown List — แสดงแค่ชื่อ+วันที่ ไม่มีปุ่มลบแล้ว */}
                 {isDropdownOpen && filteredEvents.length > 0 && (
-                  <div className="position-absolute w-100 shadow-lg border rounded bg-white mt-1" style={{ zIndex: 1000, maxHeight: '200px', overflowY: 'auto' }}>
-                    {filteredEvents.map((ev, index) => (
-                      <div key={index} className="p-3 border-bottom d-flex justify-content-between align-items-center" style={{ cursor: 'pointer' }}
-                        onClick={() => { setFormData({ ...formData, title: ev.event_name, event_date: ev.event_date.split('T')[0] }); setIsDropdownOpen(false); }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+                  <div className="position-absolute w-100 shadow-lg border rounded bg-white mt-1"
+                    style={{ zIndex: 1050, maxHeight: '220px', overflowY: 'auto' }}>
+                    {filteredEvents.map((ev) => (
+                      <div
+                        key={ev.id}
+                        className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center"
+                        style={{ cursor: 'pointer' }}
+                        onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#f0f4ff')}
+                        onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#fff')}
+                        onClick={() => {
+                          setFormData({ ...formData, title: ev.event_name, event_date: ev.event_date.split('T')[0] });
+                          setIsDropdownOpen(false);
+                        }}
                       >
                         <span className="fw-bold text-primary">{ev.event_name}</span>
                         <span className="text-muted small">{ev.event_date.split('T')[0]}</span>
@@ -147,22 +243,54 @@ export const UploadPhotoPage: React.FC = () => {
                     ))}
                   </div>
                 )}
-                {!isValidEvent && formData.title !== "" && <Form.Text className="text-danger">* โปรดเลือกจากกิจกรรมที่มีอยู่ในฐานข้อมูล</Form.Text>}
+
+                {isDropdownOpen && filteredEvents.length === 0 && formData.title && (
+                  <div className="position-absolute w-100 border rounded bg-white mt-1 p-3 text-muted small"
+                    style={{ zIndex: 1050 }}>
+                    ไม่พบกิจกรรมที่ตรงกัน
+                  </div>
+                )}
+
+                {!isValidEvent && formData.title !== '' && (
+                  <Form.Text className="text-danger">* โปรดเลือกจากกิจกรรมที่มีอยู่ในฐานข้อมูล</Form.Text>
+                )}
               </Form.Group>
 
+              {/* ช่องวันที่ — แสดงแค่วันที่ ไม่มีปุ่มแก้ไขแล้ว */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-bold text-secondary">วันที่จัดกิจกรรม (ล็อกตามระบบ)</Form.Label>
-                <Form.Control type="date" value={formData.event_date} readOnly className="bg-light" tabIndex={-1} />
+                <Form.Control
+                  type="date" value={formData.event_date}
+                  readOnly className="bg-light" tabIndex={-1}
+                />
+                {isValidEvent && (
+                  <Form.Text className="text-muted">กิจกรรม: <strong>{formData.title}</strong></Form.Text>
+                )}
               </Form.Group>
 
               <Form.Group className="mb-4">
                 <Form.Label className="fw-bold">คำอธิบายรูปภาพ</Form.Label>
-                <Form.Control as="textarea" rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                <Form.Control
+                  as="textarea" rows={3}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
               </Form.Group>
 
+              {/* Progress Bar */}
+              {loading && uploadProgress > 0 && (
+                <div className="mb-3">
+                  <small className="text-muted">กำลังอัปโหลด {uploadProgress}%</small>
+                  <ProgressBar now={uploadProgress} animated striped variant="primary" />
+                </div>
+              )}
+
               <div className="d-grid gap-2">
-                <Button variant="success" type="submit" className="fw-bold py-2" disabled={loading || !selectedFile || !isValidEvent}>
-                  {loading ? "กำลังอัปโหลด..." : "🚀 อัปโหลดรูปลงระบบ"}
+                <Button variant="success" type="submit" className="fw-bold py-2"
+                  disabled={loading || selectedFiles.length === 0 || !isValidEvent}>
+                  {loading
+                    ? <><Spinner size="sm" className="me-1" />กำลังอัปโหลด...</>
+                    : `🚀 อัปโหลด ${selectedFiles.length > 1 ? `${selectedFiles.length} รูป` : 'รูปภาพ'}`}
                 </Button>
                 <Button variant="light" onClick={() => navigate('/photos')}>ยกเลิก</Button>
               </div>
@@ -171,27 +299,40 @@ export const UploadPhotoPage: React.FC = () => {
         </Form>
       </Card>
 
-      {/* --- [Modal สร้าง Event ใหม่ลงฐานข้อมูล] --- */}
+      {/* ===== Modal สร้าง Event ใหม่ ===== */}
       <Modal show={showAddEventModal} onHide={() => setShowAddEventModal(false)} centered>
-        <Modal.Header closeButton><Modal.Title className="fw-bold text-primary">เพิ่มกิจกรรมใหม่ในระบบ</Modal.Title></Modal.Header>
+        <Modal.Header closeButton>
+          <Modal.Title className="fw-bold text-primary">เพิ่มกิจกรรมใหม่</Modal.Title>
+        </Modal.Header>
         <Modal.Body>
+          {addError && <Alert variant="danger" className="mb-3">{addError}</Alert>}
           <Form.Group className="mb-3">
-            <Form.Label>ชื่อกิจกรรม</Form.Label>
-            <Form.Control type="text" placeholder="เช่น ทริปถ่ายนกเขาใหญ่" value={newEventData.name} onChange={(e) => setNewEventData({...newEventData, name: e.target.value})} />
+            <Form.Label className="fw-medium">ชื่อกิจกรรม <span className="text-danger">*</span></Form.Label>
+            <Form.Control type="text" placeholder="เช่น ทริปถ่ายภาพเขาใหญ่"
+              value={newEventData.name}
+              onChange={(e) => setNewEventData({ ...newEventData, name: e.target.value })} />
           </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>วันที่จัดกิจกรรม</Form.Label>
-            <Form.Control type="date" value={newEventData.date} onChange={(e) => setNewEventData({...newEventData, date: e.target.value})} />
+          <Form.Group>
+            <Form.Label className="fw-medium">วันที่จัดกิจกรรม <span className="text-danger">*</span></Form.Label>
+            {/* ✅ max ใช้ getLocalDateStr() แทน toISOString() */}
+            <Form.Control type="date" max={todayStr}
+              value={newEventData.date}
+              onChange={(e) => setNewEventData({ ...newEventData, date: e.target.value })} />
+            <Form.Text className="text-muted">เลือกได้เฉพาะวันนี้หรือวันที่ผ่านมา</Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowAddEventModal(false)}>ยกเลิก</Button>
-          <Button variant="primary" onClick={handleCreateEvent}>บันทึกลงฐานข้อมูล</Button>
+          <Button variant="primary" onClick={handleCreateEvent}>บันทึก</Button>
         </Modal.Footer>
       </Modal>
 
-      <AlertModal show={modalConfig.show} title={modalConfig.title} message={modalConfig.message} variant={modalConfig.variant}
-        onClose={() => { setModalConfig({ ...modalConfig, show: false }); if (modalConfig.isSuccess) navigate('/photos'); }} />
+      <AlertModal show={modalConfig.show} title={modalConfig.title}
+        message={modalConfig.message} variant={modalConfig.variant}
+        onClose={() => {
+          setModalConfig({ ...modalConfig, show: false });
+          if (modalConfig.isSuccess) navigate('/photos');
+        }} />
     </Container>
   );
 };
