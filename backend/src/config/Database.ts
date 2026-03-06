@@ -14,11 +14,7 @@ export const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-
-  // ✅ แก้ Timezone Bug (สำคัญมาก):
-  // dateStrings: true → บอก mysql2 ให้คืนค่า DATE/DATETIME เป็น string "YYYY-MM-DD"
-  //               แทนที่จะแปลงเป็น JavaScript Date object ซึ่งทำให้ timezone เพี้ยน
-  // timezone: 'local' → ให้ driver ใช้ local timezone ของ server (UTC+7) แทน UTC
+  // ✅ แก้ Timezone Bug
   dateStrings: true,
   timezone: 'local',
 });

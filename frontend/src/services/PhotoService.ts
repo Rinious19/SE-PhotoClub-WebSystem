@@ -1,28 +1,34 @@
 // frontend/src/services/PhotoService.ts
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/photos'; 
-const ADMIN_API_URL = 'http://localhost:5000/api/admin'; 
+const API_URL = 'http://localhost:5000/api/photos';
 
 export const PhotoService = {
-  // ดึงข้อมูลรูปภาพทั้งหมด
+  // ดึงรูปทั้งหมด (legacy)
   getAll: async () => {
     const response = await axios.get(API_URL);
     return response.data;
   },
-  
-  // ฟังก์ชันอัปโหลดรูปภาพใหม่
+
+  // ✅ ดึง Folders แบบ paginated (Lazy Load folders)
+  getGrouped: async (page: number = 1) => {
+    const response = await axios.get(`${API_URL}/grouped`, { params: { page } });
+    return response.data;
+  },
+
+  // ✅ ดึงรูปใน Event เดียว แบบ paginated (Lazy Load photos)
+  getByEvent: async (eventName: string, page: number = 1) => {
+    const response = await axios.get(`${API_URL}/by-event/${encodeURIComponent(eventName)}`, { params: { page } });
+    return response.data;
+  },
+
   upload: async (data: FormData, token: string) => {
     const response = await axios.post(API_URL, data, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data', // 🌟 จำเป็นสำหรับการส่งไฟล์
-      },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
   },
 
-  // ฟังก์ชันลบรูปภาพ (Soft Delete)
   delete: async (id: number, token: string) => {
     const response = await axios.delete(`${API_URL}/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -30,15 +36,10 @@ export const PhotoService = {
     return response.data;
   },
 
-  // 🌟 ฟังก์ชันแก้ไขรูปภาพ (ปรับปรุงให้รองรับ FormData)
   update: async (id: number, data: FormData, token: string) => {
-    // แก้ไข: เพิ่ม 'Content-Type': 'multipart/form-data' เพื่อให้ส่งไฟล์ภาพใหม่ได้
     const response = await axios.put(`${API_URL}/${id}`, data, {
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data', // 🌟 สำคัญมากสำหรับระบบ BLOB
-      }
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
     });
     return response.data;
-  }
+  },
 };

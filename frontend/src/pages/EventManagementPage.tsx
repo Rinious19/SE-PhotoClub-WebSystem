@@ -7,6 +7,7 @@ import { Container, Row, Col, Card, Button, Badge, Modal, Form, Spinner, Alert, 
 import { EventService } from '@/services/EventService';
 import { DateRangeFilter, emptyDateFilter, matchesDateFilter } from '@/components/common/DateRangeFilter';
 import type { DateFilter } from '@/components/common/DateRangeFilter';
+import { CustomDatePicker } from '@/components/common/CustomDatePicker';
 
 const getLocalDateStr = () => {
   const d = new Date();
@@ -91,7 +92,7 @@ export const EventManagementPage: React.FC = () => {
       await EventService.update(editTarget.id, { event_name: editData.name.trim(), event_date: editData.date }, localStorage.getItem('token')!);
       setShowEditModal(false);
       await loadEvents();
-    } catch { setEditError('แก้ไขไม่สำเร็จ ชื่อกิจกรรมนี้ถูกใช้ไปแล้ว'); }
+    } catch { setEditError('แก้ไขกิจกรรมไม่สำเร็จ'); }
     finally { setEditing(false); }
   };
 
@@ -239,8 +240,14 @@ export const EventManagementPage: React.FC = () => {
           </Form.Group>
           <Form.Group>
             <Form.Label className="fw-medium">วันที่จัดกิจกรรม <span className="text-danger">*</span></Form.Label>
-            <Form.Control type="date" max={todayStr}
-              value={newEventData.date} onChange={(e) => setNewEventData({ ...newEventData, date: e.target.value })} />
+            <div>
+              <CustomDatePicker
+                value={newEventData.date}
+                max={todayStr}
+                onChange={(v) => setNewEventData({ ...newEventData, date: v })}
+                placeholder="DD/MM/YYYY"
+              />
+            </div>
             <Form.Text className="text-muted">เลือกได้เฉพาะวันนี้หรือวันที่ผ่านมา</Form.Text>
           </Form.Group>
         </Modal.Body>
@@ -266,8 +273,14 @@ export const EventManagementPage: React.FC = () => {
           </Form.Group>
           <Form.Group>
             <Form.Label className="fw-medium">วันที่จัดกิจกรรม <span className="text-danger">*</span></Form.Label>
-            <Form.Control type="date" max={todayStr} value={editData.date}
-              onChange={(e) => setEditData({ ...editData, date: e.target.value })} />
+            <div>
+              <CustomDatePicker
+                value={editData.date}
+                max={todayStr}
+                onChange={(v) => setEditData({ ...editData, date: v })}
+                placeholder="DD/MM/YYYY"
+              />
+            </div>
             <Form.Text className="text-muted">เลือกได้เฉพาะวันนี้หรือวันที่ผ่านมา</Form.Text>
           </Form.Group>
         </Modal.Body>

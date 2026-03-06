@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { PhotoService } from '../../services/PhotoService';
 import { EventService } from '../../services/EventService';
 import { AlertModal } from '../../components/common/AlertModal';
+import { CustomDatePicker } from '@/components/common/CustomDatePicker';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdminOrPresident } from '@/utils/roleChecker';
 
@@ -41,7 +42,9 @@ export const UploadPhotoPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [modalConfig, setModalConfig] = useState({
     show: false, title: '', message: '', variant: 'success' as 'success' | 'danger', isSuccess: false,
+    failedFiles: [] as { name: string; reason: string }[],
   });
+  const [showFailDetail, setShowFailDetail] = useState(false);
 
   // --- [States Modal สร้าง Event] ---
   const [showAddEventModal, setShowAddEventModal] = useState(false);
@@ -118,6 +121,7 @@ export const UploadPhotoPage: React.FC = () => {
     setUploadProgress(0);
     const token = localStorage.getItem('token');
     let successCount = 0, failCount = 0;
+    const failedFiles: { name: string; reason: string }[] = [];
     for (let i = 0; i < selectedFiles.length; i++) {
       try {
         const data = new FormData();
@@ -127,8 +131,11 @@ export const UploadPhotoPage: React.FC = () => {
         data.append('description', formData.description);
         const res = await PhotoService.upload(data, token!);
         if (res.success) successCount++;
-        else failCount++;
-      } catch { failCount++; }
+        else { failCount++; failedFiles.push({ name: selectedFiles[i].name, reason: res.message || 'ไม่ทราบสาเหตุ' }); }
+      } catch (err: any) {
+        failCount++;
+        failedFiles.push({ name: selectedFiles[i].name, reason: err?.response?.data?.message || err?.message || 'ไม่ทราบสาเหตุ' });
+      }
       setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
     }
     setLoading(false);
@@ -138,6 +145,7 @@ export const UploadPhotoPage: React.FC = () => {
       message: `สำเร็จ ${successCount} รูป${failCount > 0 ? ` / ล้มเหลว ${failCount} รูป` : ''}`,
       variant: successCount > 0 ? 'success' : 'danger',
       isSuccess: successCount > 0,
+      failedFiles,
     });
   };
 
@@ -314,10 +322,14 @@ export const UploadPhotoPage: React.FC = () => {
           </Form.Group>
           <Form.Group>
             <Form.Label className="fw-medium">วันที่จัดกิจกรรม <span className="text-danger">*</span></Form.Label>
-            {/* ✅ max ใช้ getLocalDateStr() แทน toISOString() */}
-            <Form.Control type="date" max={todayStr}
-              value={newEventData.date}
-              onChange={(e) => setNewEventData({ ...newEventData, date: e.target.value })} />
+            <div>
+              <CustomDatePicker
+                value={newEventData.date}
+                max={todayStr}
+                onChange={(v) => setNewEventData({ ...newEventData, date: v })}
+                placeholder="DD/MM/YYYY"
+              />
+            </div>
             <Form.Text className="text-muted">เลือกได้เฉพาะวันนี้หรือวันที่ผ่านมา</Form.Text>
           </Form.Group>
         </Modal.Body>
@@ -327,12 +339,46 @@ export const UploadPhotoPage: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      <AlertModal show={modalConfig.show} title={modalConfig.title}
-        message={modalConfig.message} variant={modalConfig.variant}
-        onClose={() => {
-          setModalConfig({ ...modalConfig, show: false });
-          if (modalConfig.isSuccess) navigate('/photos');
-        }} />
+      {/* ===== Modal ผลการอัปโหลด ===== */}
+      <Modal show={modalConfig.show} onHide={() => { setModalConfig({ ...modalConfig, show: false }); setShowFailDetail(false); if (modalConfig.isSuccess) navigate('/photos'); }} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className={`fw-bold ${modalConfig.variant === 'success' ? 'text-success' : 'text-warning'}`}>
+            {modalConfig.variant === 'success' ? '✅' : '⚠️'} {modalConfig.title}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center py-3">
+          <p className="fs-5 mb-3">{modalConfig.message}</p>
+
+          {/* ปุ่มสาเหตุ — แสดงเฉพาะมีรูปล้มเหลว */}
+          {modalConfig.failedFiles.length > 0 && (
+            <Button variant="outline-danger" size="sm" className="rounded-pill px-3 mb-2"
+              onClick={() => setShowFailDetail(v => !v)}>
+              {showFailDetail ? '▲ ซ่อนสาเหตุ' : '▼ สาเหตุ'}
+            </Button>
+          )}
+
+          {/* รายละเอียด error */}
+          {showFailDetail && modalConfig.failedFiles.length > 0 && (
+            <div className="text-start mt-2 border rounded p-2" style={{ maxHeight: 220, overflowY: 'auto', background: '#fff8f8' }}>
+              <p className="text-danger fw-bold small mb-2">รูปที่อัปโหลดไม่สำเร็จ ({modalConfig.failedFiles.length} รูป)</p>
+              {modalConfig.failedFiles.map((f, i) => (
+                <div key={i} className="mb-2 pb-2 border-bottom">
+                  <div className="fw-medium small text-truncate" style={{ maxWidth: '100%' }} title={f.name}>
+                    📄 {f.name}
+                  </div>
+                  <div className="text-danger small">⚠️ {f.reason}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant={modalConfig.variant === 'success' ? 'success' : 'primary'}
+            onClick={() => { setModalConfig({ ...modalConfig, show: false }); setShowFailDetail(false); if (modalConfig.isSuccess) navigate('/photos'); }}>
+            ตกลง
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };

@@ -14,6 +14,7 @@ import { AdminRoute } from '@/routes/AdminRoute';
 import { PhotoListPage } from '@/pages/photo/PhotoListPage';
 import { UploadPhotoPage } from '@/pages/photo/UploadPhotoPage';
 import { EditPhotoPage } from '@/pages/photo/EditPhotoPage';
+import { EventPhotosPage } from '@/pages/photo/EventPhotosPage';
 
 // ✅ หน้ากิจกรรม 2 หน้า แยก role
 import { ActivitiesPage } from '@/pages/ActivitiesPage';                     // Public — Coming Soon
@@ -40,6 +41,8 @@ const router = createBrowserRouter([
 
       // โซนสาธารณะ (Guest ดูได้)
       { path: 'photos', element: <PhotoListPage /> },
+      // ✅ หน้าดูรูปในกิจกรรม — สาธารณะ
+      { path: 'photos/event/:eventName', element: <EventPhotosPage /> },
       // ✅ หน้ากิจกรรมสาธารณะ — Coming Soon
       { path: 'activities', element: <ActivitiesPage /> },
 
