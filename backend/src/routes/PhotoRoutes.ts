@@ -10,7 +10,10 @@ const router = Router();
 // ดึง Folders (Grouped by Event) — lazy load ด้วย ?page=N
 router.get("/grouped", PhotoController.getGroupedByEvent);
 
-// ดึงรูปใน Event เดียว — lazy load ด้วย ?page=N
+// ดึง faculty/academic_year options ใน event (สำหรับ filter dropdown)
+router.get("/filters/:eventName", PhotoController.getFiltersForEvent);
+
+// ดึงรูปใน Event เดียว — lazy load + กรองด้วย ?category=xxx
 router.get("/by-event/:eventName", PhotoController.getPhotosByEvent);
 
 // ดึงรูปทั้งหมด (legacy)

@@ -17,8 +17,11 @@ export const PhotoService = {
   },
 
   // ✅ ดึงรูปใน Event เดียว แบบ paginated (Lazy Load photos)
-  getByEvent: async (eventName: string, page: number = 1) => {
-    const response = await axios.get(`${API_URL}/by-event/${encodeURIComponent(eventName)}`, { params: { page } });
+  getByEvent: async (eventName: string, page: number = 1, faculty?: string, academicYear?: string) => {
+    const params: any = { page };
+    if (faculty)      params.faculty       = faculty;
+    if (academicYear) params.academic_year = academicYear;
+    const response = await axios.get(`${API_URL}/by-event/${encodeURIComponent(eventName)}`, { params });
     return response.data;
   },
 

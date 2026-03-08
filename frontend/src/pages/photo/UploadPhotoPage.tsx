@@ -6,10 +6,10 @@ import { Container, Card, Form, Button, Row, Col, Spinner, Modal, ProgressBar, B
 import { useNavigate } from 'react-router-dom';
 import { PhotoService } from '../../services/PhotoService';
 import { EventService } from '../../services/EventService';
-import { AlertModal } from '../../components/common/AlertModal';
 import { CustomDatePicker } from '@/components/common/CustomDatePicker';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdminOrPresident } from '@/utils/roleChecker';
+import { parseApiError } from '@/utils/apiError';
 
 // ✅ แก้ Timezone Bug: ใช้ local date แทน toISOString() ที่เป็น UTC
 // toISOString() → UTC ทำให้วันเพี้ยนเมื่ออยู่ใน timezone UTC+7
@@ -35,7 +35,7 @@ export const UploadPhotoPage: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [formData, setFormData] = useState({ title: '', event_date: '', description: '' });
+  const [formData, setFormData] = useState({ title: '', event_date: '', description: '', faculty: '', academic_year: '' });
 
   // --- [States Upload] ---
   const [loading, setLoading] = useState(false);
@@ -56,7 +56,10 @@ export const UploadPhotoPage: React.FC = () => {
     try {
       const res = await EventService.getAll();
       setEvents(res.data || []);
-    } catch { console.error("Failed to load events"); }
+    } catch (err: any) {
+      console.error('loadEvents failed:', err);
+      // ไม่ block UI เพียงแต่ log ไว้ — dropdown จะว่างเปล่า
+    }
   };
 
   useEffect(() => { loadEvents(); }, []);
@@ -108,8 +111,15 @@ export const UploadPhotoPage: React.FC = () => {
         setShowAddEventModal(false);
         setNewEventData({ name: '', date: '' });
       }
-    } catch {
-      setAddError("ไม่สามารถสร้างกิจกรรมได้ (ชื่ออาจซ้ำ)");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      if (msg?.includes('มีอยู่') || err?.response?.status === 400) {
+        setAddError(msg || `ชื่อกิจกรรม "${newEventData.name}" มีอยู่ในระบบแล้ว`);
+      } else if (!err?.response) {
+        setAddError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ');
+      } else {
+        setAddError(msg || 'ไม่สามารถสร้างกิจกรรมได้ กรุณาลองใหม่อีกครั้ง');
+      }
     }
   };
 
@@ -129,12 +139,20 @@ export const UploadPhotoPage: React.FC = () => {
         data.append('title', formData.title);
         data.append('event_date', formData.event_date);
         data.append('description', formData.description);
+        if (formData.faculty)       data.append('faculty',       formData.faculty);
+        if (formData.academic_year) data.append('academic_year', formData.academic_year);
         const res = await PhotoService.upload(data, token!);
         if (res.success) successCount++;
-        else { failCount++; failedFiles.push({ name: selectedFiles[i].name, reason: res.message || 'ไม่ทราบสาเหตุ' }); }
+        else { failCount++; failedFiles.push({ name: selectedFiles[i].name, reason: res.message || 'เซิร์ฟเวอร์ปฏิเสธไฟล์นี้' }); }
       } catch (err: any) {
         failCount++;
-        failedFiles.push({ name: selectedFiles[i].name, reason: err?.response?.data?.message || err?.message || 'ไม่ทราบสาเหตุ' });
+        // 409 = รูปซ้ำ แสดงข้อความเฉพาะ
+        const status = err?.response?.status;
+        const serverMsg = err?.response?.data?.message;
+        const reason = status === 409
+          ? `🔁 ${serverMsg || 'รูปนี้มีอยู่ใน Event นี้แล้ว'}`
+          : parseApiError(err, 'อัปโหลดไม่สำเร็จ');
+        failedFiles.push({ name: selectedFiles[i].name, reason });
       }
       setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
     }
@@ -216,7 +234,7 @@ export const UploadPhotoPage: React.FC = () => {
             <Col md={7}>
               {/* Dropdown เลือก Event */}
               <Form.Group className="mb-3 position-relative" ref={dropdownRef}>
-                <Form.Label className="fw-bold">เลือกกิจกรรม (Event)</Form.Label>
+                <Form.Label className="fw-bold">เลือก Event</Form.Label>
                 <div className="input-group">
                   <Form.Control
                     type="text" placeholder="ค้นหาชื่อกิจกรรม..."
@@ -229,7 +247,7 @@ export const UploadPhotoPage: React.FC = () => {
                   </Button>
                 </div>
 
-                {/* Dropdown List — แสดงแค่ชื่อ+วันที่ ไม่มีปุ่มลบแล้ว */}
+                {/* Dropdown List */}
                 {isDropdownOpen && filteredEvents.length > 0 && (
                   <div className="position-absolute w-100 shadow-lg border rounded bg-white mt-1"
                     style={{ zIndex: 1050, maxHeight: '220px', overflowY: 'auto' }}>
@@ -264,7 +282,47 @@ export const UploadPhotoPage: React.FC = () => {
                 )}
               </Form.Group>
 
-              {/* ช่องวันที่ — แสดงแค่วันที่ ไม่มีปุ่มแก้ไขแล้ว */}
+              {/* ✅ Category: คณะ + ปีการศึกษา — ย้ายมาต่อจาก Event */}
+              <Row className="mb-3">
+                <Col md={7}>
+                  <Form.Group>
+                    <Form.Label className="fw-bold">คณะ</Form.Label>
+                    <Form.Select
+                      value={formData.faculty}
+                      onChange={(e) => setFormData({ ...formData, faculty: e.target.value })}
+                    >
+                      <option value="">-- ไม่ระบุ --</option>
+                      <option>มหาวิทยาลัย</option>
+                      <option>คณะวิศวกรรมศาสตร์</option>
+                      <option>ครุศาสตร์อุตสาหกรรม</option>
+                      <option>วิทยาศาสตร์ประยุกต์</option>
+                      <option>เทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล</option>
+                      <option>ศิลปศาสตร์ประยุกต์</option>
+                      <option>สถาปัตยกรรมและการออกแบบ</option>
+                      <option>พัฒนาธุรกิจและอุตสาหกรรม</option>
+                      <option>วิทยาลัยเทคโนโลยีอุตสาหกรรม</option>
+                      <option>วิทยาลัยนานาชาติ</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={5}>
+                  <Form.Group>
+                    <Form.Label className="fw-bold">ปีการศึกษา</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="เช่น 2567"
+                      maxLength={4}
+                      value={formData.academic_year}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setFormData({ ...formData, academic_year: v });
+                      }}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              {/* ช่องวันที่ */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-bold text-secondary">วันที่จัดกิจกรรม (ล็อกตามระบบ)</Form.Label>
                 <Form.Control

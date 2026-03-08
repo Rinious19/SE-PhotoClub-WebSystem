@@ -4,23 +4,28 @@
 //  ✅ ปุ่มแก้ไข/ลบ สำหรับ Admin/President
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Container, Row, Col, Spinner, Alert, Button, Modal, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Spinner, Alert, Button, Modal, Badge, Form } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { PhotoService } from '../../services/PhotoService';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdminOrPresident } from '@/utils/roleChecker';
+import { parseApiError } from '@/utils/apiError';
 
-// แปลง Buffer → data URL
-const toDataUrl = (imageUrl: any): string => {
+// ✅ แปลง image_url เป็น src URL โดยตรง
+const BASE_URL = 'http://localhost:5000';
+const getImageUrl = (imageUrl: any): string => {
   if (!imageUrl) return '';
-  if (typeof imageUrl === 'string' && imageUrl.startsWith('data:')) return imageUrl;
-  if (imageUrl?.data) {
-    const bytes = new Uint8Array(imageUrl.data);
-    let binary = '';
-    bytes.forEach(b => binary += String.fromCharCode(b));
-    return `data:image/jpeg;base64,${btoa(binary)}`;
+  if (typeof imageUrl === 'string') {
+    return imageUrl.startsWith('http') ? imageUrl : `${BASE_URL}${imageUrl}`;
   }
-  return '';
+  // fallback: BLOB เก่า (migration period)
+  try {
+    const arr = new Uint8Array(imageUrl.data || imageUrl);
+    let bin = '';
+    arr.forEach(b => { bin += String.fromCharCode(b); });
+    return `data:image/jpeg;base64,${btoa(bin)}`;
+  } catch { return ''; }
 };
 
 // LazyImage — โหลดรูปเฉพาะเมื่อเข้า viewport
@@ -88,12 +93,18 @@ export const EventPhotosPage: React.FC = () => {
   const decodedName = decodeURIComponent(eventName || '');
 
   const [photos, setPhotos] = useState<any[]>([]);
-  const [page, setPage] = useState(1);
+  const pageRef = useRef(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+
+  // ✅ Faculty + Academic Year filter
+  const [faculties, setFaculties] = useState<string[]>([]);
+  const [academicYears, setAcademicYears] = useState<string[]>([]);
+  const [selectedFaculty, setSelectedFaculty] = useState<string>('');
+  const [selectedYear, setSelectedYear] = useState<string>('');
 
   // Lightbox
   const [lightboxPhoto, setLightboxPhoto] = useState<any | null>(null);
@@ -102,19 +113,40 @@ export const EventPhotosPage: React.FC = () => {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
 
-  const fetchPage = useCallback(async (pageNum: number) => {
+  // โหลด faculty/academic_year filter options
+  useEffect(() => {
+    axios.get(`/api/photos/filters/${encodeURIComponent(decodedName)}`)
+      .then(r => {
+        setFaculties(r.data.data?.faculties || []);
+        setAcademicYears(r.data.data?.academicYears || []);
+      })
+      .catch(() => {});
+  }, [decodedName]);
+
+  const fetchPage = useCallback(async (pageNum: number, faculty = selectedFaculty, year = selectedYear) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
     try {
-      const res = await PhotoService.getByEvent(decodedName, pageNum);
+      const res = await PhotoService.getByEvent(decodedName, pageNum, faculty || undefined, year || undefined);
       if (res.success) {
         setPhotos(prev => pageNum === 1 ? res.data : [...prev, ...res.data]);
         setHasMore(res.pagination.hasMore);
         setTotal(res.pagination.total);
       }
-    } catch { setError('โหลดรูปภาพไม่สำเร็จ'); }
+    } catch (err: any) { setError(parseApiError(err, 'โหลดรูปภาพไม่สำเร็จ')); }
     finally { loadingRef.current = false; setLoadingMore(false); setInitialLoading(false); }
-  }, [decodedName]);
+  }, [decodedName, selectedFaculty, selectedYear]);
+
+  // reset เมื่อเปลี่ยน filter
+  const applyFilter = (faculty: string, year: string) => {
+    setSelectedFaculty(faculty);
+    setSelectedYear(year);
+    setPhotos([]);
+    setHasMore(true);
+    setInitialLoading(true);
+    pageRef.current = 1;
+    setTimeout(() => fetchPage(1, faculty, year), 0);
+  };
 
   useEffect(() => { fetchPage(1); }, [fetchPage]);
 
@@ -124,11 +156,8 @@ export const EventPhotosPage: React.FC = () => {
       ([entry]) => {
         if (entry.isIntersecting && hasMore && !loadingRef.current) {
           setLoadingMore(true);
-          setPage(prev => {
-            const next = prev + 1;
-            fetchPage(next);
-            return next;
-          });
+          pageRef.current += 1;
+          fetchPage(pageRef.current);
         }
       },
       { threshold: 0.1 }
@@ -139,13 +168,18 @@ export const EventPhotosPage: React.FC = () => {
   }, [hasMore, fetchPage]);
 
   const handleDelete = async (photoId: number) => {
-    if (!confirm('ยืนยันการลบรูปนี้?')) return;
+    if (!confirm('ยืนยันการลบรูปนี้? การลบไม่สามารถกู้คืนได้')) return;
     try {
       const token = localStorage.getItem('token');
       await PhotoService.delete(photoId, token!);
       setPhotos(prev => prev.filter(p => p.id !== photoId));
       setTotal(prev => prev - 1);
-    } catch { alert('ลบไม่สำเร็จ'); }
+      setError(null);
+    } catch (err: any) {
+      const msg = parseApiError(err, 'ลบรูปภาพไม่สำเร็จ');
+      setError(`❌ ลบรูปภาพ ID ${photoId} ไม่สำเร็จ — ${msg}`);
+      setTimeout(() => setError(null), 6000);
+    }
   };
 
   return (
@@ -159,10 +193,52 @@ export const EventPhotosPage: React.FC = () => {
         <div>
           <h2 className="fw-bold mb-0">📂 {decodedName}</h2>
           {!initialLoading && (
-            <p className="text-muted small mb-0">{total} รูปภาพ</p>
+            <p className="text-muted small mb-0">{total} รูปภาพ{selectedFaculty ? ` · ${selectedFaculty}` : ''}{selectedYear ? ` · ${selectedYear}` : ''}</p>
           )}
         </div>
       </div>
+
+      {/* ✅ Faculty + Academic Year Filter */}
+      {(faculties.length > 0 || academicYears.length > 0) && (
+        <div className="bg-light rounded-3 p-3 mb-4">
+          <Row className="g-2 align-items-end">
+            {faculties.length > 0 && (
+              <Col md={6}>
+                <Form.Label className="fw-medium small text-secondary mb-1">🏛️ คณะ</Form.Label>
+                <Form.Select
+                  size="sm"
+                  value={selectedFaculty}
+                  onChange={(e) => applyFilter(e.target.value, selectedYear)}
+                >
+                  <option value="">-- ทุกคณะ --</option>
+                  {faculties.map(f => <option key={f} value={f}>{f}</option>)}
+                </Form.Select>
+              </Col>
+            )}
+            {academicYears.length > 0 && (
+              <Col md={4}>
+                <Form.Label className="fw-medium small text-secondary mb-1">📅 ปีการศึกษา</Form.Label>
+                <Form.Select
+                  size="sm"
+                  value={selectedYear}
+                  onChange={(e) => applyFilter(selectedFaculty, e.target.value)}
+                >
+                  <option value="">-- ทุกปี --</option>
+                  {academicYears.map(y => <option key={y} value={y}>{y}</option>)}
+                </Form.Select>
+              </Col>
+            )}
+            {(selectedFaculty || selectedYear) && (
+              <Col md={2}>
+                <Button size="sm" variant="outline-danger" className="w-100"
+                  onClick={() => applyFilter('', '')}>
+                  ล้าง
+                </Button>
+              </Col>
+            )}
+          </Row>
+        </div>
+      )}
 
       {/* Initial loading */}
       {initialLoading && (
@@ -187,7 +263,7 @@ export const EventPhotosPage: React.FC = () => {
           {photos.map(photo => (
             <Col key={photo.id}>
               <LazyImage
-                src={toDataUrl(photo.image_url)}
+                src={getImageUrl(photo.thumbnail_url || photo.image_url)}
                 alt={photo.title}
                 onClick={() => setLightboxPhoto(photo)}
                 canEdit={canEdit}
@@ -228,7 +304,7 @@ export const EventPhotosPage: React.FC = () => {
         <Modal.Body className="p-2 text-center">
           {lightboxPhoto && (
             <img
-              src={toDataUrl(lightboxPhoto.image_url)}
+              src={getImageUrl(lightboxPhoto.image_url)}
               alt={lightboxPhoto.title}
               style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: 8 }}
             />

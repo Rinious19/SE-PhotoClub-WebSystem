@@ -21,7 +21,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use('/api/photos', photoRoutes);
 
-// อนุญาตให้ดึงไฟล์จากโฟลเดอร์ uploads ได้
+// ✅ Serve static files: รูปเต็ม + thumbnail
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.use('/api/events', eventRoutes);

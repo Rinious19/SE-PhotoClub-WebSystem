@@ -17,8 +17,8 @@ import { EditPhotoPage } from '@/pages/photo/EditPhotoPage';
 import { EventPhotosPage } from '@/pages/photo/EventPhotosPage';
 
 // ✅ หน้ากิจกรรม 2 หน้า แยก role
-import { ActivitiesPage } from '@/pages/ActivitiesPage';                     // Public — Coming Soon
-import { EventManagementPage } from '@/pages/EventManagementPage';           // Admin/President only
+import { ActivitiesPage } from '@/pages/activity/ActivitiesPage';                     // Public — Coming Soon
+import { EventManagementPage } from '@/pages/activity/EventManagementPage';           // Admin/President only
 
 const AppLayout = () => (
   <>

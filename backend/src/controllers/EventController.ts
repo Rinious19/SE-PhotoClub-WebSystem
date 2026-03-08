@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { EventRepository } from "../repositories/EventRepository";
+import { sendError } from "../utils/errorHandler";
 
 const eventRepo = new EventRepository();
 
@@ -10,7 +11,7 @@ export class EventController {
       const events = await eventRepo.findAll();
       res.status(200).json({ success: true, data: events });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      sendError(res, error, 'โหลดรายการกิจกรรมไม่สำเร็จ');
     }
   }
 
@@ -18,56 +19,80 @@ export class EventController {
   static async createEvent(req: Request, res: Response): Promise<void> {
     try {
       const { event_name, event_date } = req.body;
-      if (!event_name || !event_date) {
-        res.status(400).json({ success: false, message: "กรุณากรอกข้อมูลให้ครบ" });
+      if (!event_name?.trim()) {
+        res.status(400).json({ success: false, message: 'กรุณากรอกชื่อกิจกรรม' });
         return;
       }
-      const newEvent = await eventRepo.create({ event_name, event_date });
+      if (!event_date) {
+        res.status(400).json({ success: false, message: 'กรุณาเลือกวันที่จัดกิจกรรม' });
+        return;
+      }
+      const newEvent = await eventRepo.create({ event_name: event_name.trim(), event_date });
       res.status(201).json({ success: true, data: newEvent });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: "อาจมีชื่อกิจกรรมนี้อยู่แล้ว" });
+      if (error?.errno === 1062) {
+        res.status(400).json({ success: false, message: `ชื่อกิจกรรม "${req.body.event_name}" มีอยู่ในระบบแล้ว` });
+        return;
+      }
+      sendError(res, error, 'เพิ่มกิจกรรมไม่สำเร็จ');
     }
   }
 
   // แก้ไขกิจกรรม (cascade update photos)
   static async updateEvent(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = Number(req.params.id);
       const { event_name, event_date } = req.body;
-      if (!event_name || !event_date) {
-        res.status(400).json({ success: false, message: "กรุณากรอกข้อมูลให้ครบ" });
+      if (!event_name?.trim()) {
+        res.status(400).json({ success: false, message: 'กรุณากรอกชื่อกิจกรรม' });
         return;
       }
-      const updated = await eventRepo.update(Number(id), { event_name, event_date });
+      if (!event_date) {
+        res.status(400).json({ success: false, message: 'กรุณาเลือกวันที่จัดกิจกรรม' });
+        return;
+      }
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, message: 'ID กิจกรรมไม่ถูกต้อง' });
+        return;
+      }
+      const updated = await eventRepo.update(id, { event_name: event_name.trim(), event_date });
       res.status(200).json({ success: true, data: updated });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      if (error?.errno === 1062) {
+        res.status(400).json({ success: false, message: `ชื่อกิจกรรม "${req.body.event_name}" มีอยู่ในระบบแล้ว` });
+        return;
+      }
+      sendError(res, error, 'แก้ไขกิจกรรมไม่สำเร็จ');
     }
   }
 
   // ✅ ลบกิจกรรม (cascade delete photos)
   static async deleteEvent(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
-      await eventRepo.delete(Number(id));
-      res.status(200).json({ success: true, message: "ลบกิจกรรมและรูปภาพที่เกี่ยวข้องสำเร็จ" });
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, message: 'ID กิจกรรมไม่ถูกต้อง' });
+        return;
+      }
+      await eventRepo.delete(id);
+      res.status(200).json({ success: true, message: 'ลบกิจกรรมและรูปภาพที่เกี่ยวข้องสำเร็จ' });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      sendError(res, error, 'ลบกิจกรรมไม่สำเร็จ');
     }
   }
 
-  // ✅ นับจำนวนรูปที่ผูกกับ event (ใช้แสดงใน confirm modal)
+  // ✅ นับจำนวนรูปที่ผูกกับ event
   static async getPhotoCount(req: Request, res: Response): Promise<void> {
     try {
       const { event_name } = req.query;
       if (!event_name) {
-        res.status(400).json({ success: false, message: "กรุณาระบุชื่อกิจกรรม" });
+        res.status(400).json({ success: false, message: 'กรุณาระบุชื่อกิจกรรม' });
         return;
       }
       const count = await eventRepo.countPhotosByEventName(event_name as string);
       res.status(200).json({ success: true, count });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      sendError(res, error, 'โหลดจำนวนรูปไม่สำเร็จ');
     }
   }
 }

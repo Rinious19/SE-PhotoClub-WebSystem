@@ -4,24 +4,28 @@
 //  ✅ ค้นหาด้วยชื่อ Event และวันที่
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { Container, Row, Col, Spinner, Alert, Form, InputGroup, Button, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Spinner, Alert, Form, InputGroup, Button } from 'react-bootstrap';
 import { useNavigate, Link } from 'react-router-dom';
 import { PhotoService } from '../../services/PhotoService';
 import { useAuth } from '@/hooks/useAuth';
 import { DateRangeFilter, emptyDateFilter, matchesDateFilter } from '@/components/common/DateRangeFilter';
 import type { DateFilter } from '@/components/common/DateRangeFilter';
+import { parseApiError } from '@/utils/apiError';
 
-// แปลง Buffer/base64 → data URL
-const toDataUrl = (imageUrl: any): string => {
+// ✅ แปลง image_url เป็น src URL โดยตรง (ไม่ต้อง base64 อีกต่อไป)
+const BASE_URL = 'http://localhost:5000';
+const getImageUrl = (imageUrl: any): string => {
   if (!imageUrl) return '';
-  if (typeof imageUrl === 'string' && imageUrl.startsWith('data:')) return imageUrl;
-  if (imageUrl?.data) {
-    const bytes = new Uint8Array(imageUrl.data);
-    let binary = '';
-    bytes.forEach(b => binary += String.fromCharCode(b));
-    return `data:image/jpeg;base64,${btoa(binary)}`;
+  if (typeof imageUrl === 'string') {
+    return imageUrl.startsWith('http') ? imageUrl : `${BASE_URL}${imageUrl}`;
   }
-  return '';
+  // fallback: BLOB เก่า (migration period)
+  try {
+    const arr = new Uint8Array(imageUrl.data || imageUrl);
+    let bin = '';
+    arr.forEach(b => { bin += String.fromCharCode(b); });
+    return `data:image/jpeg;base64,${btoa(bin)}`;
+  } catch { return ''; }
 };
 
 // FolderCard component
@@ -36,26 +40,26 @@ const FolderCard: React.FC<{ folder: any; onClick: () => void }> = ({ folder, on
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 12px 28px rgba(0,0,0,.13)'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}
     >
-      <div style={{ borderRadius: 14, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 12px rgba(0,0,0,.08)', border: '1px solid #f0f0f0' }}>
+      <div style={{ borderRadius: 14, background: '#fff', boxShadow: '0 2px 12px rgba(0,0,0,.08)', border: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column' }}>
         {/* Preview grid */}
-        <div style={{ position: 'relative', height: 160, background: '#f8f9fa', display: 'grid', gridTemplateColumns: previews.length >= 3 ? '2fr 1fr' : '1fr', gridTemplateRows: '1fr 1fr', gap: 2, padding: 2 }}>
+        <div style={{ position: 'relative', height: 160, background: '#f8f9fa', flexShrink: 0, borderRadius: '14px 14px 0 0', overflow: 'hidden', display: 'grid', gridTemplateColumns: previews.length >= 3 ? '2fr 1fr' : previews.length === 2 ? '1fr 1fr' : '1fr', gridTemplateRows: previews.length >= 3 ? '1fr 1fr' : '1fr', gap: 2, padding: 2 }}>
           {previews.length === 0 && (
             <div style={{ gridColumn: '1/-1', gridRow: '1/-1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>📁</div>
           )}
           {previews.length === 1 && (
-            <img src={toDataUrl(previews[0].image_url)} alt="" style={{ gridColumn: '1/-1', gridRow: '1/-1', width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+            <img src={getImageUrl(previews[0].thumbnail_url || previews[0].image_url)} alt="" style={{ gridColumn: '1/-1', gridRow: '1/-1', width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
           )}
           {previews.length === 2 && (
             <>
-              <img src={toDataUrl(previews[0].image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px 0 0 8px' }} />
-              <img src={toDataUrl(previews[1].image_url)} alt="" style={{ gridRow: '1/-1', width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 8px 8px 0' }} />
+              <img src={getImageUrl(previews[0].thumbnail_url || previews[0].image_url)} alt="" style={{ gridColumn: '1', gridRow: '1 / -1', width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={getImageUrl(previews[1].thumbnail_url || previews[1].image_url)} alt="" style={{ gridColumn: '2', gridRow: '1 / -1', width: '100%', height: '100%', objectFit: 'cover' }} />
             </>
           )}
           {previews.length >= 3 && (
             <>
-              <img src={toDataUrl(previews[0].image_url)} alt="" style={{ gridRow: '1/-1', width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px 0 0 8px' }} />
-              <img src={toDataUrl(previews[1].image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 8px 0 0' }} />
-              <img src={toDataUrl(previews[2].image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 0 8px 0' }} />
+              <img src={getImageUrl(previews[0].thumbnail_url || previews[0].image_url)} alt="" style={{ gridColumn: '1', gridRow: '1/-1', width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px 0 0 8px' }} />
+              <img src={getImageUrl(previews[1].thumbnail_url || previews[1].image_url)} alt="" style={{ gridColumn: '2', gridRow: '1', width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 8px 0 0' }} />
+              <img src={getImageUrl(previews[2].thumbnail_url || previews[2].image_url)} alt="" style={{ gridColumn: '2', gridRow: '2', width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 0 8px 0' }} />
             </>
           )}
           {/* Count badge */}
@@ -74,6 +78,20 @@ const FolderCard: React.FC<{ folder: any; onClick: () => void }> = ({ folder, on
               📅 {new Date(folder.event_date + 'T12:00:00').toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
             </div>
           )}
+          {(folder.faculty || folder.academic_year) && (
+            <div style={{ marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {folder.faculty && (
+                <span style={{ fontSize: 11, background: '#e8f4fd', color: '#1a6fa8', borderRadius: 20, padding: '2px 8px', fontWeight: 500 }}>
+                  🏛 {folder.faculty}
+                </span>
+              )}
+              {folder.academic_year && (
+                <span style={{ fontSize: 11, background: '#f0fdf4', color: '#166534', borderRadius: 20, padding: '2px 8px', fontWeight: 500 }}>
+                  📚 ปี {folder.academic_year}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -87,7 +105,7 @@ export const PhotoListPage: React.FC = () => {
   const canUpload = user?.role === 'ADMIN' || user?.role === 'CLUB_PRESIDENT';
 
   const [folders, setFolders] = useState<any[]>([]);
-  const [page, setPage] = useState(1);
+  const pageRef = useRef(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -97,6 +115,8 @@ export const PhotoListPage: React.FC = () => {
   // Search
   const [searchName, setSearchName] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilter>(emptyDateFilter());
+  const [filterFaculty, setFilterFaculty] = useState('');
+  const [filterYear, setFilterYear] = useState('');
 
   // Sentinel ref สำหรับ IntersectionObserver
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -112,7 +132,7 @@ export const PhotoListPage: React.FC = () => {
         setHasMore(res.pagination.hasMore);
         setTotalFolders(res.pagination.total);
       }
-    } catch { setError('โหลดข้อมูลไม่สำเร็จ'); }
+    } catch (err: any) { setError(parseApiError(err, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ')); }
     finally { loadingRef.current = false; setLoadingMore(false); setInitialLoading(false); }
   }, []);
 
@@ -125,11 +145,8 @@ export const PhotoListPage: React.FC = () => {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loadingRef.current) {
           setLoadingMore(true);
-          setPage(prev => {
-            const next = prev + 1;
-            fetchPage(next);
-            return next;
-          });
+          pageRef.current += 1;
+          fetchPage(pageRef.current);
         }
       },
       { threshold: 0.1 }
@@ -142,14 +159,16 @@ export const PhotoListPage: React.FC = () => {
   // Filter ฝั่ง client
   const filteredFolders = useMemo(() => {
     return folders.filter(f => {
-      const nameMatch = f.event_name.toLowerCase().includes(searchName.toLowerCase());
-      const dateMatch = matchesDateFilter(f.event_date || '', dateFilter);
-      return nameMatch && dateMatch;
+      const nameMatch    = f.event_name.toLowerCase().includes(searchName.toLowerCase());
+      const dateMatch    = matchesDateFilter(f.event_date || '', dateFilter);
+      const facultyMatch = !filterFaculty || f.faculty === filterFaculty;
+      const yearMatch    = !filterYear    || (f.academic_year || '').includes(filterYear);
+      return nameMatch && dateMatch && facultyMatch && yearMatch;
     });
-  }, [folders, searchName, dateFilter]);
+  }, [folders, searchName, dateFilter, filterFaculty, filterYear]);
 
-  const hasFilter = searchName !== '' || dateFilter.from !== '' || dateFilter.to !== '';
-  const clearAll = () => { setSearchName(''); setDateFilter(emptyDateFilter()); };
+  const hasFilter = searchName !== '' || dateFilter.from !== '' || dateFilter.to !== '' || filterFaculty !== '' || filterYear !== '';
+  const clearAll = () => { setSearchName(''); setDateFilter(emptyDateFilter()); setFilterFaculty(''); setFilterYear(''); };
 
   return (
     <Container className="py-5">
@@ -172,11 +191,11 @@ export const PhotoListPage: React.FC = () => {
         )}
       </div>
 
-      {/* Search */}
+      {/* Search + Filter */}
       {!initialLoading && !error && folders.length > 0 && (
         <div className="bg-light rounded-4 p-3 mb-4">
           <Row className="g-3 align-items-start">
-            <Col md={5}>
+            <Col md={4}>
               <Form.Label className="fw-medium small text-secondary mb-1">ชื่อกิจกรรม (Event)</Form.Label>
               <InputGroup>
                 <InputGroup.Text className="bg-white border-end-0">🔍</InputGroup.Text>
@@ -185,9 +204,34 @@ export const PhotoListPage: React.FC = () => {
                 {searchName && <Button variant="outline-secondary" onClick={() => setSearchName('')}>✕</Button>}
               </InputGroup>
             </Col>
-            <Col md={5}>
+            <Col md={3}>
               <Form.Label className="fw-medium small text-secondary mb-1">กรองตามวันที่จัดกิจกรรม</Form.Label>
               <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+            </Col>
+            <Col md={3}>
+              <Form.Label className="fw-medium small text-secondary mb-1">คณะ / ปีการศึกษา</Form.Label>
+              <Row className="g-2">
+                <Col xs={7}>
+                  <Form.Select size="sm" value={filterFaculty} onChange={(e) => setFilterFaculty(e.target.value)}>
+                    <option value="">-- ทุกคณะ --</option>
+                    <option>มหาวิทยาลัย</option>
+                    <option>คณะวิศวกรรมศาสตร์</option>
+                    <option>ครุศาสตร์อุตสาหกรรม</option>
+                    <option>วิทยาศาสตร์ประยุกต์</option>
+                    <option>เทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล</option>
+                    <option>ศิลปศาสตร์ประยุกต์</option>
+                    <option>สถาปัตยกรรมและการออกแบบ</option>
+                    <option>พัฒนาธุรกิจและอุตสาหกรรม</option>
+                    <option>วิทยาลัยเทคโนโลยีอุตสาหกรรม</option>
+                    <option>วิทยาลัยนานาชาติ</option>
+                  </Form.Select>
+                </Col>
+                <Col xs={5}>
+                  <Form.Control size="sm" placeholder="ปี เช่น 2567" maxLength={4}
+                    value={filterYear}
+                    onChange={(e) => setFilterYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+                </Col>
+              </Row>
             </Col>
             <Col md={2} className="d-flex align-items-end">
               <Button variant="outline-danger" className="w-100" onClick={clearAll} disabled={!hasFilter}>ล้างทั้งหมด</Button>
