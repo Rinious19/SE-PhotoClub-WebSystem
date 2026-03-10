@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Modal, Form, Spinner, Alert, InputGroup } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import { EventService } from '@/services/EventService';
 import { DateRangeFilter, emptyDateFilter, matchesDateFilter } from '@/components/common/DateRangeFilter';
 import type { DateFilter } from '@/components/common/DateRangeFilter';
@@ -17,6 +18,7 @@ const getLocalDateStr = () => {
 
 export const EventManagementPage: React.FC = () => {
   const todayStr = getLocalDateStr();
+  const navigate = useNavigate();
 
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,11 +79,16 @@ export const EventManagementPage: React.FC = () => {
       setShowAddModal(false);
       await loadEvents();
     } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      if (err?.response?.status === 400) {
+      const status = err?.response?.status;
+      const msg    = err?.response?.data?.message || err?.message || '';
+      if (status === 401 || msg.toLowerCase().includes('unauthorized')) {
+        setSaveError('หมดเวลาเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่');
+      } else if (status === 400) {
         setSaveError(msg || 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
+      } else if (status === 409) {
+        setSaveError(msg || 'ชื่อกิจกรรมนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น');
       } else {
-        setSaveError(parseApiError(err, 'เพิ่มกิจกรรมไม่สำเร็จ'));
+        setSaveError(parseApiError(err, 'เพิ่มกิจกรรมไม่สำเร็จ — กรุณาลองใหม่อีกครั้ง'));
       }
     }
     finally { setSaving(false); }
@@ -249,7 +256,18 @@ export const EventManagementPage: React.FC = () => {
           <Modal.Title className="fw-bold text-primary">เพิ่มกิจกรรมใหม่</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {saveError && <Alert variant="danger">{saveError}</Alert>}
+          {saveError && (
+            <Alert variant="danger">
+              {saveError}
+              {saveError.includes('หมดเวลา') && (
+                <div className="mt-2">
+                  <Button size="sm" variant="danger" onClick={() => { setShowAddModal(false); navigate('/login'); }}>
+                    ไปหน้าเข้าสู่ระบบ →
+                  </Button>
+                </div>
+              )}
+            </Alert>
+          )}
           <Form.Group className="mb-3">
             <Form.Label className="fw-medium">ชื่อกิจกรรม <span className="text-danger">*</span></Form.Label>
             <Form.Control type="text" placeholder="เช่น ทริปถ่ายภาพเขาใหญ่"

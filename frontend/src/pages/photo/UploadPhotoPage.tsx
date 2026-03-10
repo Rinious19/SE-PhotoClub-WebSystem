@@ -26,12 +26,32 @@ export const UploadPhotoPage: React.FC = () => {
   const { user } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const yearSelectRef = useRef<HTMLSelectElement>(null);
+
+  const YEARS = ['2568', '2567'];
+
+  // Mouse wheel บน year select (non-passive)
+  useEffect(() => {
+    const el = yearSelectRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const idx = YEARS.indexOf((el as HTMLSelectElement).value);
+      if (e.deltaY > 0 && idx < YEARS.length - 1)
+        setFormData(f => ({ ...f, academic_year: YEARS[idx + 1] }));
+      else if (e.deltaY < 0 && idx > 0)
+        setFormData(f => ({ ...f, academic_year: YEARS[idx - 1] }));
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, []);
 
   // ✅ ใช้ getLocalDateStr() แทน toISOString() เพื่อป้องกันวันเพี้ยน
   const todayStr = getLocalDateStr();
 
   // --- [States หลัก] ---
   const [events, setEvents] = useState<any[]>([]);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -59,6 +79,8 @@ export const UploadPhotoPage: React.FC = () => {
     } catch (err: any) {
       console.error('loadEvents failed:', err);
       // ไม่ block UI เพียงแต่ log ไว้ — dropdown จะว่างเปล่า
+    } finally {
+      setEventsLoaded(true);
     }
   };
 
@@ -78,6 +100,10 @@ export const UploadPhotoPage: React.FC = () => {
   }, [events, formData.title]);
 
   const isValidEvent = events.some(ev => ev.event_name === formData.title);
+
+  // ✅ ตรวจสอบสถานะ dropdown ว่าควรแสดง "ไม่มี Event" หรือไม่
+  // — แสดงเมื่อ: dropdown เปิด + โหลดเสร็จแล้ว + ไม่มีผลลัพธ์เลย
+  const showNoEventMessage = isDropdownOpen && eventsLoaded && filteredEvents.length === 0;
 
   // --- [3. เลือกไฟล์] ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,7 +273,7 @@ export const UploadPhotoPage: React.FC = () => {
                   </Button>
                 </div>
 
-                {/* Dropdown List */}
+                {/* ✅ Dropdown List — มีผลลัพธ์ */}
                 {isDropdownOpen && filteredEvents.length > 0 && (
                   <div className="position-absolute w-100 shadow-lg border rounded bg-white mt-1"
                     style={{ zIndex: 1050, maxHeight: '220px', overflowY: 'auto' }}>
@@ -270,10 +296,25 @@ export const UploadPhotoPage: React.FC = () => {
                   </div>
                 )}
 
-                {isDropdownOpen && filteredEvents.length === 0 && formData.title && (
+                {/* ✅ ไม่มี Event เลยในระบบ (title ว่าง) */}
+                {isDropdownOpen && eventsLoaded && events.length === 0 && (
+                  <div className="position-absolute w-100 shadow border rounded bg-white mt-1 p-3 text-center"
+                    style={{ zIndex: 1050 }}>
+                    <span style={{ fontSize: '1.4rem' }}>📭</span>
+                    <p className="mb-1 fw-bold text-secondary small mt-1">ไม่มี Event</p>
+                    <p className="mb-0 text-muted" style={{ fontSize: '12px' }}>
+                      {isAdminOrPresident(user)
+                        ? 'กดปุ่ม "+ สร้างกิจกรรมใหม่" เพื่อเพิ่ม Event แรก'
+                        : 'ยังไม่มีกิจกรรมในระบบ'}
+                    </p>
+                  </div>
+                )}
+
+                {/* ✅ พิมพ์ค้นหาแล้วไม่พบ (มี event อยู่แต่ไม่ตรง) */}
+                {isDropdownOpen && eventsLoaded && events.length > 0 && filteredEvents.length === 0 && formData.title && (
                   <div className="position-absolute w-100 border rounded bg-white mt-1 p-3 text-muted small"
                     style={{ zIndex: 1050 }}>
-                    ไม่พบกิจกรรมที่ตรงกัน
+                    ไม่พบกิจกรรมที่ตรงกับ "<strong>{formData.title}</strong>"
                   </div>
                 )}
 
@@ -308,16 +349,14 @@ export const UploadPhotoPage: React.FC = () => {
                 <Col md={5}>
                   <Form.Group>
                     <Form.Label className="fw-bold">ปีการศึกษา</Form.Label>
-                    <Form.Control
-                      type="text"
-                      placeholder="เช่น 2567"
-                      maxLength={4}
+                    <Form.Select
+                      ref={yearSelectRef}
                       value={formData.academic_year}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, '').slice(0, 4);
-                        setFormData({ ...formData, academic_year: v });
-                      }}
-                    />
+                      onChange={(e) => setFormData({ ...formData, academic_year: e.target.value })}
+                    >
+                      <option value="">-- ไม่ระบุ --</option>
+                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                    </Form.Select>
                   </Form.Group>
                 </Col>
               </Row>

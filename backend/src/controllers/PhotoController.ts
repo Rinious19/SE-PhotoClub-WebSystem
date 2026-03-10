@@ -45,7 +45,7 @@ export class PhotoController {
 
       const isDuplicate = await photoRepo.findDuplicateHash(title.trim(), fileHash);
       if (isDuplicate) {
-        fs.unlinkSync(req.file.path); // ลบไฟล์ที่เพิ่งอัปโหลด
+        fs.unlinkSync(req.file.path);
         res.status(409).json({
           success: false,
           message: `รูปภาพ "${req.file.originalname}" มีอยู่ใน Event นี้แล้ว`,
@@ -72,7 +72,6 @@ export class PhotoController {
       await photoRepo.logAction(photo.id, 'UPLOAD', userId, `อัปโหลดรูป: ${title}`);
       res.status(201).json({ success: true, data: photo });
     } catch (error: any) {
-      // ลบไฟล์ถ้า DB error
       if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
       sendError(res, error, 'อัปโหลดรูปภาพไม่สำเร็จ');
     }
@@ -130,7 +129,7 @@ export class PhotoController {
     }
   }
 
-  // --- [3. ลบรูป (Soft Delete)] ---
+  // --- [3. ลบรูป (Hard Delete — ลบทั้ง DB และไฟล์บน disk)] ---
   static async deletePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const photoId = parseInt(req.params.id as string, 10);
@@ -145,17 +144,24 @@ export class PhotoController {
         return;
       }
 
-      // ดึงข้อมูล path ก่อน softDelete (findById ใช้ WHERE deleted_at IS NULL)
+      //@ ดึงข้อมูล path ก่อนลบ เพื่อใช้ลบไฟล์บน disk
       const photo = await photoRepo.findById(photoId);
+      if (!photo) {
+        res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${photoId}` });
+        return;
+      }
 
-      const isDeleted = await photoRepo.softDelete(photoId, userId);
+      //@ บันทึก audit log ก่อนลบ เพราะ FK constraint ทำให้ insert หลังลบไม่ได้
+      await photoRepo.logAction(photoId, 'DELETE', userId, 'ลบรูปภาพถาวร');
+
+      //@ ลบออกจาก DB จริง
+      const isDeleted = await photoRepo.hardDelete(photoId);
       if (isDeleted) {
-        // ลบไฟล์จาก disk หลัง softDelete สำเร็จ
-        if (photo) deletePhotoFiles(photo.image_url, photo.thumbnail_url);
-        await photoRepo.logAction(photoId, 'DELETE', userId, 'ลบรูปภาพ');
+        //@ ลบไฟล์บน disk หลัง DB สำเร็จ
+        deletePhotoFiles(photo.image_url, photo.thumbnail_url);
         res.status(200).json({ success: true, message: 'ลบรูปภาพสำเร็จ' });
       } else {
-        res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${photoId} หรือถูกลบไปแล้ว` });
+        res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${photoId}` });
       }
     } catch (error: any) {
       sendError(res, error, 'ลบรูปภาพไม่สำเร็จ');
@@ -172,7 +178,9 @@ export class PhotoController {
     }
   }
 
-  // ✅ --- [5. ดึง Folders (Grouped by Event)] ---
+  // ✅ --- [5. ดึง Folders (Grouped by Event + Faculty + AcademicYear)] ---
+  //  — แต่ละ folder มี key = (event_name, faculty, academic_year)
+  //  — ส่ง faculty และ academic_year กลับไปใน data เพื่อให้ frontend navigate ได้ถูก folder
   static async getGroupedByEvent(req: Request, res: Response): Promise<void> {
     try {
       const page   = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -195,7 +203,7 @@ export class PhotoController {
     }
   }
 
-  // ✅ --- [6. ดึงรูปใน Event แบบ Pagination + filter category] ---
+  // ✅ --- [6. ดึงรูปใน Event แบบ Pagination + filter (faculty, academic_year)] ---
   static async getPhotosByEvent(req: Request, res: Response): Promise<void> {
     try {
       const eventName     = decodeURIComponent(req.params.eventName as string);

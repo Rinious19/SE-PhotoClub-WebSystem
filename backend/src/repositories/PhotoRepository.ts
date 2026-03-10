@@ -46,16 +46,16 @@ export class PhotoRepository {
     return result.affectedRows > 0;
   }
 
-  // --- [3. Soft Delete] ---
-  async softDelete(photoId: number, userId: number): Promise<boolean> {
+  // --- [3. Hard Delete — ลบออกจาก DB จริง ไม่มี soft delete] ---
+  async hardDelete(photoId: number): Promise<boolean> {
     const [result] = await pool.query<ResultSetHeader>(
-      `UPDATE photos SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL`,
-      [userId, photoId],
+      `DELETE FROM photos WHERE id = ?`,
+      [photoId],
     );
     return result.affectedRows > 0;
   }
 
-  // --- [4. ดึงรูปทั้งหมด (ไม่ได้ใช้แล้ว แต่คงไว้เพื่อ backward compat)] ---
+  // --- [4. ดึงรูปทั้งหมด (backward compat)] ---
   async findAllActive(): Promise<any[]> {
     const [rows] = await pool.query<RowDataPacket[]>(`
       SELECT id, title,
@@ -77,40 +77,47 @@ export class PhotoRepository {
     return rows[0] || null;
   }
 
-  // ✅ --- [6. ดึงรูปแบบ Grouped by Event (สำหรับหน้า Folder)] ---
+  // ✅ --- [6. ดึงรูปแบบ Grouped by (Event + Faculty + AcademicYear) สำหรับหน้า Folder] ---
+  //  — Event เดียวกัน + คณะ/ปีต่างกัน → แยก folder คนละ folder
+  //  — NULL faculty/academic_year ถือเป็น group ของตัวเอง
   async findGroupedByEvent(limit: number, offset: number): Promise<any[]> {
-    // Step 1: ดึง event groups พร้อม faculty/academic_year ที่พบมากที่สุด
+    // Step 1: ดึง folder groups โดย GROUP BY (title, faculty, academic_year)
     const [groups] = await pool.query<RowDataPacket[]>(`
       SELECT
-        title                                        AS event_name,
-        DATE_FORMAT(MIN(event_date), '%Y-%m-%d')     AS event_date,
-        COUNT(*)                                     AS photo_count,
-        MIN(created_at)                              AS first_upload,
-        (SELECT faculty FROM photos p2
-         WHERE p2.title = photos.title AND p2.deleted_at IS NULL AND p2.faculty IS NOT NULL
-         GROUP BY p2.faculty ORDER BY COUNT(*) DESC LIMIT 1)      AS faculty,
-        (SELECT academic_year FROM photos p3
-         WHERE p3.title = photos.title AND p3.deleted_at IS NULL AND p3.academic_year IS NOT NULL
-         GROUP BY p3.academic_year ORDER BY COUNT(*) DESC LIMIT 1) AS academic_year
+        title                                          AS event_name,
+        DATE_FORMAT(MIN(event_date), '%Y-%m-%d')       AS event_date,
+        COUNT(*)                                       AS photo_count,
+        MIN(created_at)                                AS first_upload,
+        COALESCE(faculty, '')                          AS faculty,
+        COALESCE(academic_year, '')                    AS academic_year
       FROM photos
       WHERE deleted_at IS NULL
-      GROUP BY title
+      GROUP BY title, COALESCE(faculty, ''), COALESCE(academic_year, '')
       ORDER BY first_upload DESC
       LIMIT ? OFFSET ?
     `, [limit, offset]);
 
     if (groups.length === 0) return [];
 
-    // Step 2: ดึง 3 รูปแรกต่อ event
+    // Step 2: ดึง 3 รูปแรกต่อ folder (match ทั้ง title + faculty + academic_year)
     const result = await Promise.all(
       groups.map(async (g: any) => {
+        // สร้าง WHERE clause ที่ตรงกับ NULL ได้ด้วย
+        const facultyCondition      = g.faculty      ? `AND faculty = ?`       : `AND (faculty IS NULL OR faculty = '')`;
+        const academicYearCondition = g.academic_year ? `AND academic_year = ?` : `AND (academic_year IS NULL OR academic_year = '')`;
+        const params: any[] = [g.event_name];
+        if (g.faculty)       params.push(g.faculty);
+        if (g.academic_year) params.push(g.academic_year);
+
         const [previews] = await pool.query<RowDataPacket[]>(`
           SELECT id, image_url, thumbnail_url
           FROM photos
           WHERE deleted_at IS NULL AND title = ?
+            ${facultyCondition}
+            ${academicYearCondition}
           ORDER BY id ASC
           LIMIT 3
-        `, [g.event_name]);
+        `, params);
 
         return {
           event_name:    g.event_name,
@@ -126,10 +133,15 @@ export class PhotoRepository {
     return result;
   }
 
-  // ✅ --- [7. นับจำนวน event groups ทั้งหมด (สำหรับ pagination)] ---
+  // ✅ --- [7. นับจำนวน folder groups ทั้งหมด (GROUP BY title + faculty + academic_year)] ---
   async countGroups(): Promise<number> {
     const [rows] = await pool.query<RowDataPacket[]>(`
-      SELECT COUNT(DISTINCT title) AS total FROM photos WHERE deleted_at IS NULL
+      SELECT COUNT(*) AS total FROM (
+        SELECT title, COALESCE(faculty, ''), COALESCE(academic_year, '')
+        FROM photos
+        WHERE deleted_at IS NULL
+        GROUP BY title, COALESCE(faculty, ''), COALESCE(academic_year, '')
+      ) AS grp
     `);
     return rows[0].total;
   }
@@ -181,15 +193,7 @@ export class PhotoRepository {
     return this.countByEventAndCategory(eventName, null);
   }
 
-  // --- [10. Audit Log] ---
-  async logAction(photoId: number, action: string, userId: number, details: string): Promise<void> {
-    await pool.query(
-      `INSERT INTO photo_audit_logs (photo_id, action, user_id, details) VALUES (?, ?, ?, ?)`,
-      [photoId, action, userId, details],
-    );
-  }
-
-  // ✅ --- [11. ดึงรูปใน event กรองด้วย faculty/academic_year] ---
+  // ✅ --- [10. ดึงรูปใน event กรองด้วย faculty/academic_year] ---
   async findByEventFiltered(
     eventName: string,
     faculty: string | null,
@@ -212,7 +216,7 @@ export class PhotoRepository {
     return rows as any[];
   }
 
-  // ✅ --- [12. นับรูปใน event กรองด้วย faculty/academic_year] ---
+  // ✅ --- [11. นับรูปใน event กรองด้วย faculty/academic_year] ---
   async countByEventFiltered(
     eventName: string,
     faculty: string | null,
@@ -226,7 +230,7 @@ export class PhotoRepository {
     return rows[0].total;
   }
 
-  // ✅ --- [13. ดึง faculty และ academic_year ที่มีในระบบ (สำหรับ filter dropdown)] ---
+  // ✅ --- [12. ดึง faculty และ academic_year ทั้งหมดใน event (สำหรับ filter dropdown)] ---
   async getFacultiesByEvent(eventName: string): Promise<string[]> {
     const [rows] = await pool.query<RowDataPacket[]>(`
       SELECT DISTINCT faculty FROM photos
@@ -243,5 +247,13 @@ export class PhotoRepository {
       ORDER BY academic_year DESC
     `, [eventName]);
     return rows.map((r: any) => r.academic_year);
+  }
+
+  // --- [13. Audit Log] ---
+  async logAction(photoId: number, action: string, userId: number, details: string): Promise<void> {
+    await pool.query(
+      `INSERT INTO photo_audit_logs (photo_id, action, user_id, details) VALUES (?, ?, ?, ?)`,
+      [photoId, action, userId, details],
+    );
   }
 }

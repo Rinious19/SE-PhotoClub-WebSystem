@@ -2,6 +2,7 @@
 //@ แสดงกิจกรรมเป็น Folder แต่ละอันมี preview 3 รูป
 //  ✅ Lazy Load folders เมื่อ scroll ถึงด้านล่าง
 //  ✅ ค้นหาด้วยชื่อ Event และวันที่
+//  ✅ แยก folder ตาม (event_name + faculty + academic_year)
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Container, Row, Col, Spinner, Alert, Form, InputGroup, Button } from 'react-bootstrap';
@@ -121,6 +122,24 @@ export const PhotoListPage: React.FC = () => {
   // Sentinel ref สำหรับ IntersectionObserver
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
+  const yearSelectRef = useRef<HTMLSelectElement>(null);
+
+  const YEARS = ['2568', '2567'];
+
+  // Mouse wheel บน year dropdown (non-passive)
+  useEffect(() => {
+    const el = yearSelectRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const opts = ['', ...YEARS];
+      const idx = opts.indexOf(filterYear);
+      if (e.deltaY > 0 && idx < opts.length - 1) setFilterYear(opts[idx + 1]);
+      else if (e.deltaY < 0 && idx > 0) setFilterYear(opts[idx - 1]);
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, [filterYear]);
 
   const fetchPage = useCallback(async (pageNum: number) => {
     if (loadingRef.current) return;
@@ -132,7 +151,7 @@ export const PhotoListPage: React.FC = () => {
         setHasMore(res.pagination.hasMore);
         setTotalFolders(res.pagination.total);
       }
-    } catch (err: any) { setError(parseApiError(err, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ')); }
+    } catch (err: any) { setError(parseApiError(err, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ โปรดตรวจสอบการเชื่อมต่อ Database')); }
     finally { loadingRef.current = false; setLoadingMore(false); setInitialLoading(false); }
   }, []);
 
@@ -161,14 +180,24 @@ export const PhotoListPage: React.FC = () => {
     return folders.filter(f => {
       const nameMatch    = f.event_name.toLowerCase().includes(searchName.toLowerCase());
       const dateMatch    = matchesDateFilter(f.event_date || '', dateFilter);
-      const facultyMatch = !filterFaculty || f.faculty === filterFaculty;
-      const yearMatch    = !filterYear    || (f.academic_year || '').includes(filterYear);
+      const facultyMatch = !filterFaculty || (f.faculty || '') === filterFaculty;
+      const yearMatch    = !filterYear    || (f.academic_year || '') === filterYear;
       return nameMatch && dateMatch && facultyMatch && yearMatch;
     });
   }, [folders, searchName, dateFilter, filterFaculty, filterYear]);
 
   const hasFilter = searchName !== '' || dateFilter.from !== '' || dateFilter.to !== '' || filterFaculty !== '' || filterYear !== '';
   const clearAll = () => { setSearchName(''); setDateFilter(emptyDateFilter()); setFilterFaculty(''); setFilterYear(''); };
+
+  // ✅ Navigate ไป EventPhotosPage พร้อมส่ง faculty และ academic_year เป็น query params
+  //  เพื่อให้หน้าปลายทาง filter รูปใน folder ที่ถูกต้อง
+  const handleFolderClick = (folder: any) => {
+    const params = new URLSearchParams();
+    if (folder.faculty)       params.set('faculty', folder.faculty);
+    if (folder.academic_year) params.set('academic_year', folder.academic_year);
+    const qs = params.toString();
+    navigate(`/photos/event/${encodeURIComponent(folder.event_name)}${qs ? `?${qs}` : ''}`);
+  };
 
   return (
     <Container className="py-5">
@@ -227,9 +256,14 @@ export const PhotoListPage: React.FC = () => {
                   </Form.Select>
                 </Col>
                 <Col xs={5}>
-                  <Form.Control size="sm" placeholder="ปี เช่น 2567" maxLength={4}
+                  <Form.Select size="sm"
+                    ref={yearSelectRef}
                     value={filterYear}
-                    onChange={(e) => setFilterYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+                    onChange={(e) => setFilterYear(e.target.value)}
+                  >
+                    <option value="">-- ทุกปี --</option>
+                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </Form.Select>
                 </Col>
               </Row>
             </Col>
@@ -276,8 +310,8 @@ export const PhotoListPage: React.FC = () => {
       {filteredFolders.length > 0 && (
         <Row xs={2} sm={3} md={4} lg={4} className="g-3">
           {filteredFolders.map((folder, i) => (
-            <Col key={`${folder.event_name}-${i}`}>
-              <FolderCard folder={folder} onClick={() => navigate(`/photos/event/${encodeURIComponent(folder.event_name)}`)} />
+            <Col key={`${folder.event_name}-${folder.faculty || ''}-${folder.academic_year || ''}-${i}`}>
+              <FolderCard folder={folder} onClick={() => handleFolderClick(folder)} />
             </Col>
           ))}
         </Row>
