@@ -24,12 +24,14 @@ export class PhotoRepository {
   }
 
   // ✅ เช็ครูปซ้ำใน event เดียวกัน ด้วย MD5 hash
-  async findDuplicateHash(eventTitle: string, hash: string): Promise<boolean> {
+  //    return ข้อมูลรูปที่ซ้ำ (id, thumbnail_url, faculty, academic_year) หรือ null ถ้าไม่ซ้ำ
+  async findDuplicateHash(eventTitle: string, hash: string): Promise<any | null> {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id FROM photos WHERE title = ? AND file_hash = ? AND deleted_at IS NULL LIMIT 1`,
+      `SELECT id, thumbnail_url, image_url, faculty, academic_year
+       FROM photos WHERE title = ? AND file_hash = ? AND deleted_at IS NULL LIMIT 1`,
       [eventTitle, hash]
     );
-    return rows.length > 0;
+    return rows.length > 0 ? rows[0] : null;
   }
 
   // --- [2. อัปเดตข้อมูล] ---
@@ -149,14 +151,31 @@ export class PhotoRepository {
   // ✅ --- [8. ดึงรูปใน event แบบ Pagination + filter category] ---
   async findByEventAndCategory(
     eventName: string,
-    category: { faculty?: string; academic_year?: string } | null,
+    category: { faculty?: string | null; academic_year?: string | null } | null,
     limit: number,
     offset: number
   ): Promise<any[]> {
     let where = `deleted_at IS NULL AND title = ?`;
     const params: any[] = [eventName];
-    if (category?.faculty)       { where += ` AND faculty = ?`;       params.push(category.faculty); }
-    if (category?.academic_year) { where += ` AND academic_year = ?`; params.push(category.academic_year); }
+    //@ null   = ไม่ filter (ดูทุก faculty)
+    //@ ''     = filter เฉพาะรูปที่ faculty IS NULL (folder ที่ไม่มีคณะ)
+    //@ 'xxx'  = filter ตาม faculty นั้น
+    if (category?.faculty !== undefined && category?.faculty !== null) {
+      if (category.faculty === '') {
+        where += ` AND (faculty IS NULL OR faculty = '')`;
+      } else {
+        where += ` AND faculty = ?`;
+        params.push(category.faculty);
+      }
+    }
+    if (category?.academic_year !== undefined && category?.academic_year !== null) {
+      if (category.academic_year === '') {
+        where += ` AND (academic_year IS NULL OR academic_year = '')`;
+      } else {
+        where += ` AND academic_year = ?`;
+        params.push(category.academic_year);
+      }
+    }
     params.push(limit, offset);
     const [rows] = await pool.query<RowDataPacket[]>(`
       SELECT id, title,
@@ -173,12 +192,26 @@ export class PhotoRepository {
   // ✅ --- [9. นับรูปใน event + filter category] ---
   async countByEventAndCategory(
     eventName: string,
-    category: { faculty?: string; academic_year?: string } | null
+    category: { faculty?: string | null; academic_year?: string | null } | null
   ): Promise<number> {
     let where = `deleted_at IS NULL AND title = ?`;
     const params: any[] = [eventName];
-    if (category?.faculty)       { where += ` AND faculty = ?`;       params.push(category.faculty); }
-    if (category?.academic_year) { where += ` AND academic_year = ?`; params.push(category.academic_year); }
+    if (category?.faculty !== undefined && category?.faculty !== null) {
+      if (category.faculty === '') {
+        where += ` AND (faculty IS NULL OR faculty = '')`;
+      } else {
+        where += ` AND faculty = ?`;
+        params.push(category.faculty);
+      }
+    }
+    if (category?.academic_year !== undefined && category?.academic_year !== null) {
+      if (category.academic_year === '') {
+        where += ` AND (academic_year IS NULL OR academic_year = '')`;
+      } else {
+        where += ` AND academic_year = ?`;
+        params.push(category.academic_year);
+      }
+    }
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total FROM photos WHERE ${where}`, params
     );

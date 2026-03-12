@@ -191,12 +191,14 @@ export const PhotoListPage: React.FC = () => {
 
   // ✅ Navigate ไป EventPhotosPage พร้อมส่ง faculty และ academic_year เป็น query params
   //  เพื่อให้หน้าปลายทาง filter รูปใน folder ที่ถูกต้อง
+  //@ ส่ง faculty และ academic_year ไปเสมอ แม้จะเป็น '' (ว่าง)
+  //  เพื่อให้ EventPhotosPage filter เฉพาะ folder นั้นจริงๆ
+  //  ถ้าไม่ส่ง → EventPhotosPage จะดึงทุก faculty ใน event เดียวกัน
   const handleFolderClick = (folder: any) => {
     const params = new URLSearchParams();
-    if (folder.faculty)       params.set('faculty', folder.faculty);
-    if (folder.academic_year) params.set('academic_year', folder.academic_year);
-    const qs = params.toString();
-    navigate(`/photos/event/${encodeURIComponent(folder.event_name)}${qs ? `?${qs}` : ''}`);
+    params.set('faculty',       folder.faculty       ?? '');
+    params.set('academic_year', folder.academic_year ?? '');
+    navigate(`/photos/event/${encodeURIComponent(folder.event_name)}?${params.toString()}`);
   };
 
   return (

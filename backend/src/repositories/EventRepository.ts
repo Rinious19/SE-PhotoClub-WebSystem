@@ -1,5 +1,6 @@
 import { pool } from '../config/Database';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+import { deletePhotoFiles } from '../middlewares/UploadMiddleware';
 
 export interface Event {
   id?: number;
@@ -15,8 +16,6 @@ export class EventRepository {
     return rows as Event[];
   }
 
-  // ✅ ใช้ STR_TO_DATE เพื่อบังคับให้ MySQL อ่าน string เป็น DATE โดยตรง
-  //    ไม่ผ่าน JavaScript Date object → ไม่มีปัญหา timezone เด็ดขาด
   async create(data: Event): Promise<any> {
     const [result] = await pool.query<ResultSetHeader>(
       "INSERT INTO events (event_name, event_date) VALUES (?, STR_TO_DATE(?, '%Y-%m-%d'))",
@@ -64,13 +63,23 @@ export class EventRepository {
     if (rows.length === 0) throw new Error("ไม่พบกิจกรรมที่ต้องการลบ");
 
     const eventName = rows[0].event_name;
+
+    //@ ดึง path ของรูปทั้งหมดใน event ก่อนลบ เพื่อใช้ลบไฟล์บน disk
+    const [photoRows] = await pool.query<RowDataPacket[]>(
+      "SELECT image_url, thumbnail_url FROM photos WHERE title = ? AND deleted_at IS NULL",
+      [eventName]
+    );
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
+
+      //@ Hard delete รูปทั้งหมดใน event นี้
       const [dr] = await connection.query<ResultSetHeader>(
-        "UPDATE photos SET deleted_at = NOW() WHERE title = ? AND deleted_at IS NULL", [eventName]
+        "DELETE FROM photos WHERE title = ? AND deleted_at IS NULL", [eventName]
       );
       console.log(`[Cascade Delete] ลบรูป ${dr.affectedRows} รูปจาก "${eventName}"`);
+
       await connection.query<ResultSetHeader>("DELETE FROM events WHERE id = ?", [id]);
       await connection.commit();
     } catch (err) {
@@ -79,6 +88,12 @@ export class EventRepository {
     } finally {
       connection.release();
     }
+
+    //@ ลบไฟล์บน disk หลัง transaction สำเร็จ
+    for (const photo of photoRows as any[]) {
+      deletePhotoFiles(photo.image_url, photo.thumbnail_url);
+    }
+    console.log(`[Cascade Delete] ลบไฟล์ ${photoRows.length} ไฟล์จาก disk`);
   }
 
   async countPhotosByEventName(eventName: string): Promise<number> {

@@ -43,12 +43,21 @@ export class PhotoController {
       const fileBuffer = fs.readFileSync(req.file.path);
       const fileHash   = crypto.createHash('md5').update(fileBuffer).digest('hex');
 
-      const isDuplicate = await photoRepo.findDuplicateHash(title.trim(), fileHash);
-      if (isDuplicate) {
+      const duplicate = await photoRepo.findDuplicateHash(title.trim(), fileHash);
+      if (duplicate) {
         fs.unlinkSync(req.file.path);
+        const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
         res.status(409).json({
           success: false,
           message: `รูปภาพ "${req.file.originalname}" มีอยู่ใน Event นี้แล้ว`,
+          //@ ส่งข้อมูลรูปที่ซ้ำกลับไป เพื่อให้ frontend แสดง thumbnail และ link ตรงไปยังรูปนั้น
+          duplicate: {
+            id:            duplicate.id,
+            thumbnail_url: duplicate.thumbnail_url ? `${BASE_URL}${duplicate.thumbnail_url}` : null,
+            image_url:     duplicate.image_url     ? `${BASE_URL}${duplicate.image_url}`     : null,
+            faculty:       duplicate.faculty       || null,
+            academic_year: duplicate.academic_year || null,
+          },
         });
         return;
       }
@@ -208,10 +217,15 @@ export class PhotoController {
     try {
       const eventName     = decodeURIComponent(req.params.eventName as string);
       const page          = Math.max(1, parseInt(req.query.page as string) || 1);
-      const faculty       = (req.query.faculty as string) || undefined;
-      const academic_year = (req.query.academic_year as string) || undefined;
-      const offset        = (page - 1) * PHOTO_PAGE_SIZE;
-      const category      = (faculty || academic_year) ? { faculty, academic_year } : null;
+      //@ null   = ไม่ได้ส่ง key มา → ไม่ filter
+      //@ ''     = ส่งมาแต่ว่าง → filter IS NULL (folder ที่ไม่มีคณะ/ปี)
+      //@ 'xxx'  = filter ตามค่า
+      const hasFaculty     = req.query.faculty       !== undefined;
+      const hasAcademic    = req.query.academic_year !== undefined;
+      const faculty        = hasFaculty  ? (req.query.faculty       as string) : null;
+      const academic_year  = hasAcademic ? (req.query.academic_year as string) : null;
+      const offset         = (page - 1) * PHOTO_PAGE_SIZE;
+      const category       = (hasFaculty || hasAcademic) ? { faculty, academic_year } : null;
 
       const [photos, total] = await Promise.all([
         photoRepo.findByEventAndCategory(eventName, category, PHOTO_PAGE_SIZE, offset),
