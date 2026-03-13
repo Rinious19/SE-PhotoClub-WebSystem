@@ -519,12 +519,12 @@ export const UploadPhotoPage: React.FC = () => {
                       <option value="">-- ไม่ระบุ --</option>
                       <option>มหาวิทยาลัย</option>
                       <option>คณะวิศวกรรมศาสตร์</option>
-                      <option>ครุศาสตร์อุตสาหกรรม</option>
-                      <option>วิทยาศาสตร์ประยุกต์</option>
-                      <option>เทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล</option>
-                      <option>ศิลปศาสตร์ประยุกต์</option>
-                      <option>สถาปัตยกรรมและการออกแบบ</option>
-                      <option>พัฒนาธุรกิจและอุตสาหกรรม</option>
+                      <option>คณะครุศาสตร์อุตสาหกรรม</option>
+                      <option>คณะวิทยาศาสตร์ประยุกต์</option>
+                      <option>คณะเทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล</option>
+                      <option>คณะศิลปศาสตร์ประยุกต์</option>
+                      <option>คณะสถาปัตยกรรมและการออกแบบ</option>
+                      <option>คณะพัฒนาธุรกิจและอุตสาหกรรม</option>
                       <option>วิทยาลัยเทคโนโลยีอุตสาหกรรม</option>
                       <option>วิทยาลัยนานาชาติ</option>
                     </Form.Select>
@@ -613,7 +613,7 @@ export const UploadPhotoPage: React.FC = () => {
                       กำลังอัปโหลด...
                     </>
                   ) : (
-                    `🚀 อัปโหลด ${selectedFiles.length > 1 ? `${selectedFiles.length} รูป` : "รูปภาพ"}`
+                    ` อัปโหลด ${selectedFiles.length > 1 ? `${selectedFiles.length} รูป` : "รูปภาพ"}`
                   )}
                 </Button>
                 <Button variant="light" onClick={() => navigate("/photos")}>
