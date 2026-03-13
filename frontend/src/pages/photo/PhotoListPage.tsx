@@ -240,19 +240,19 @@ export const PhotoListPage: React.FC = () => {
               <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
             </Col>
             <Col md={3}>
-              <Form.Label className="fw-medium small text-secondary mb-1">คณะ / ปีการศึกษา</Form.Label>
+              <Form.Label className="fw-medium small text-secondary mb-1">สังกัด / ปีการศึกษา</Form.Label>
               <Row className="g-2">
                 <Col xs={7}>
                   <Form.Select size="sm" value={filterFaculty} onChange={(e) => setFilterFaculty(e.target.value)}>
-                    <option value="">-- ทุกคณะ --</option>
+                    <option value="">-- ไม่ระบุ --</option>
                     <option>มหาวิทยาลัย</option>
                     <option>คณะวิศวกรรมศาสตร์</option>
-                    <option>ครุศาสตร์อุตสาหกรรม</option>
-                    <option>วิทยาศาสตร์ประยุกต์</option>
-                    <option>เทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล</option>
-                    <option>ศิลปศาสตร์ประยุกต์</option>
-                    <option>สถาปัตยกรรมและการออกแบบ</option>
-                    <option>พัฒนาธุรกิจและอุตสาหกรรม</option>
+                    <option>คณะครุศาสตร์อุตสาหกรรม</option>
+                    <option>คณะวิทยาศาสตร์ประยุกต์</option>
+                    <option>คณะเทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล</option>
+                    <option>คณะศิลปศาสตร์ประยุกต์</option>
+                    <option>คณะสถาปัตยกรรมและการออกแบบ</option>
+                    <option>คณะพัฒนาธุรกิจและอุตสาหกรรม</option>
                     <option>วิทยาลัยเทคโนโลยีอุตสาหกรรม</option>
                     <option>วิทยาลัยนานาชาติ</option>
                   </Form.Select>
@@ -263,7 +263,7 @@ export const PhotoListPage: React.FC = () => {
                     value={filterYear}
                     onChange={(e) => setFilterYear(e.target.value)}
                   >
-                    <option value="">-- ทุกปี --</option>
+                    <option value="">-- ไม่ระบุ --</option>
                     {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                   </Form.Select>
                 </Col>
@@ -330,7 +330,7 @@ export const PhotoListPage: React.FC = () => {
       )}
 
       {!hasMore && folders.length > 0 && !hasFilter && (
-        <p className="text-center text-muted small mt-2">แสดงทั้งหมด {totalFolders} กิจกรรมแล้ว</p>
+        <p className="text-center text-muted small mt-2">แสดงทั้งหมด {totalFolders} กิจกรรม</p>
       )}
     </Container>
   );

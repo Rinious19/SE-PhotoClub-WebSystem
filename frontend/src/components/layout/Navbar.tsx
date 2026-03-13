@@ -26,7 +26,7 @@ export const AppNavbar = () => {
             <Nav.Link as={NavLink} to="/activities" className="text-secondary">กิจกรรม</Nav.Link>
             {/* ✅ จัดการกิจกรรม → เฉพาะ Admin/President */}
             {isAdminOrPresident(user) && (
-              <Nav.Link as={NavLink} to="/event-management" className="text-secondary">จัดการ Event</Nav.Link>
+              <Nav.Link as={NavLink} to="/event-management" className="text-secondary">จัดการอีเว้นท์</Nav.Link>
             )}
           </Nav>
 

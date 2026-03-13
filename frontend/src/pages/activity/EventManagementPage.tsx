@@ -178,7 +178,7 @@ export const EventManagementPage: React.FC = () => {
 
           {/* กรองวันที่ */}
           <Col md={5}>
-            <Form.Label className="fw-medium small text-secondary mb-1">กรองตามวันที่จัดกิจกรรม</Form.Label>
+            <Form.Label className="fw-medium small text-secondary mb-1">วันที่จัดกิจกรรม</Form.Label>
             <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
           </Col>
 
@@ -283,7 +283,7 @@ export const EventManagementPage: React.FC = () => {
                 placeholder="DD/MM/YYYY"
               />
             </div>
-            <Form.Text className="text-muted">เลือกได้เฉพาะวันนี้หรือวันที่ผ่านมา</Form.Text>
+            <Form.Text className="text-muted">เลือกได้เฉพาะวันที่ไม่เกินปัจจุบัน</Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
@@ -316,7 +316,7 @@ export const EventManagementPage: React.FC = () => {
                 placeholder="DD/MM/YYYY"
               />
             </div>
-            <Form.Text className="text-muted">เลือกได้เฉพาะวันนี้หรือวันที่ผ่านมา</Form.Text>
+            <Form.Text className="text-muted">เลือกได้เฉพาะวันที่ไม่เกินปัจจุบัน</Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
