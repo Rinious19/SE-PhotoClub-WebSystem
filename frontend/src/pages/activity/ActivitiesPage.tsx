@@ -1,5 +1,5 @@
 //? Page: Activities Page (Public)
-//@ หน้ากิจกรรมสาธารณะ — ทุกคนดูได้ รวมถึง Guest
+//@ หน้าอีเว้นท์สาธารณะ — ทุกคนดูได้ รวมถึง Guest
 
 import React from 'react';
 import { Container } from 'react-bootstrap';
