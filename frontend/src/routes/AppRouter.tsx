@@ -16,7 +16,7 @@ import { UploadPhotoPage } from '@/pages/photo/UploadPhotoPage';
 import { EditPhotoPage } from '@/pages/photo/EditPhotoPage';
 import { EventPhotosPage } from '@/pages/photo/EventPhotosPage';
 
-// ✅ หน้ากิจกรรม 2 หน้า แยก role
+// ✅ หน้าอีเว้นท์ 2 หน้า แยก role
 import { ActivitiesPage } from '@/pages/activity/ActivitiesPage';                     // Public — Coming Soon
 import { EventManagementPage } from '@/pages/activity/EventManagementPage';           // Admin/President only
 
@@ -41,9 +41,9 @@ const router = createBrowserRouter([
 
       // โซนสาธารณะ (Guest ดูได้)
       { path: 'photos', element: <PhotoListPage /> },
-      // ✅ หน้าดูรูปในกิจกรรม — สาธารณะ
+      // ✅ หน้าดูรูปในอีเว้นท์ — สาธารณะ
       { path: 'photos/event/:eventName', element: <EventPhotosPage /> },
-      // ✅ หน้ากิจกรรมสาธารณะ — Coming Soon
+      // ✅ หน้าอีเว้นท์สาธารณะ — Coming Soon
       { path: 'activities', element: <ActivitiesPage /> },
 
       // โซนสมาชิก (ต้อง Login)
@@ -60,7 +60,7 @@ const router = createBrowserRouter([
         children: [
           { path: 'admin', element: <div className="container py-5"><h3>ระบบจัดการหลังบ้าน (Admin Only)</h3></div> },
           { path: 'photos/edit/:id', element: <EditPhotoPage /> },
-          // ✅ หน้าจัดการกิจกรรม — เฉพาะ Admin/President
+          // ✅ หน้าจัดการอีเว้นท์ — เฉพาะ Admin/President
           { path: 'event-management', element: <EventManagementPage /> },
         ]
       }

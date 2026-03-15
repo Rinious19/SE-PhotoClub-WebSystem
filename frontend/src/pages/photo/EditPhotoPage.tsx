@@ -195,10 +195,10 @@ export const EditPhotoPage: React.FC = () => {
             <Col md={7}>
               {/* Event dropdown */}
               <Form.Group className="mb-3 position-relative" ref={dropdownRef}>
-                <Form.Label className="fw-bold">เลือก Event</Form.Label>
+                <Form.Label className="fw-bold">เลือกอีเว้นท์</Form.Label>
                 <div className="input-group">
                   <Form.Control
-                    type="text" placeholder="ค้นหาชื่อกิจกรรม..."
+                    type="text" placeholder="ค้นหาชื่ออีเว้นท์..."
                     value={formData.title}
                     onChange={(e) => { setFormData(f => ({ ...f, title: e.target.value })); setIsDropdownOpen(true); }}
                     onFocus={() => setIsDropdownOpen(true)}
@@ -227,7 +227,7 @@ export const EditPhotoPage: React.FC = () => {
                   </div>
                 )}
                 {!isValidEvent && formData.title && (
-                  <Form.Text className="text-danger">* โปรดเลือกจากกิจกรรมที่มีอยู่</Form.Text>
+                  <Form.Text className="text-danger">* โปรดเลือกจากอีเว้นท์ที่มีอยู่</Form.Text>
                 )}
               </Form.Group>
 
@@ -256,7 +256,7 @@ export const EditPhotoPage: React.FC = () => {
 
               {/* วันที่ */}
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-secondary">วันที่จัดกิจกรรม (ล็อกตามระบบ)</Form.Label>
+                <Form.Label className="fw-bold text-secondary">วันที่จัดอีเว้นท์ (ระบบกำหนดให้)</Form.Label>
                 <Form.Control type="date" value={formData.event_date} readOnly className="bg-light" tabIndex={-1} />
               </Form.Group>
 
