@@ -1,5 +1,5 @@
 //? Page: Event Photos Page
-//@ แสดงรูปทั้งหมดในกิจกรรมนั้น — Lazy Load เมื่อ scroll ถึงด้านล่าง
+//@ แสดงรูปทั้งหมดในอีเว้นท์นั้น — Lazy Load เมื่อ scroll ถึงด้านล่าง
 //  ✅ แสดงรูปแบบ Grid, คลิกขยายได้ (lightbox)
 //  ✅ ปุ่มแก้ไข/ลบ สำหรับ Admin/President
 //  ✅ แก้ไขหลายรูปพร้อมกัน (edit mode) — เปลี่ยน event/faculty/year/description
@@ -346,7 +346,7 @@ export const EventPhotosPage: React.FC = () => {
     if (selectedIds.size === 0) return;
     const targetEvent = events.find(ev => ev.event_name === editForm.event_name);
     if (!targetEvent) {
-      setBulkEditError('กรุณาเลือกกิจกรรมจากรายการ');
+      setBulkEditError('กรุณาเลือกอีเว้นท์จากรายการ');
       return;
     }
 
@@ -480,7 +480,7 @@ export const EventPhotosPage: React.FC = () => {
       {!initialLoading && photos.length === 0 && (
         <div className="text-center py-5 text-muted">
           <p className="fs-2">📭</p>
-          <h5>ไม่มีรูปภาพในกิจกรรมนี้</h5>
+          <h5>ไม่มีรูปภาพในอีเว้นท์นี้</h5>
         </div>
       )}
 
@@ -567,10 +567,10 @@ export const EventPhotosPage: React.FC = () => {
 
           {/* Event dropdown */}
           <Form.Group className="mb-3 position-relative" ref={editDropdownRef}>
-            <Form.Label className="fw-bold">กิจกรรม (Event)</Form.Label>
+            <Form.Label className="fw-bold">อีเว้นท์</Form.Label>
             <div className="input-group">
               <Form.Control
-                type="text" placeholder="ค้นหาชื่อกิจกรรม..."
+                type="text" placeholder="ค้นหาชื่ออีเว้นท์..."
                 value={editForm.event_name}
                 onChange={e => { setEditForm(f => ({ ...f, event_name: e.target.value })); setEditDropdownOpen(true); }}
                 onFocus={() => setEditDropdownOpen(true)}
@@ -599,7 +599,7 @@ export const EventPhotosPage: React.FC = () => {
               </div>
             )}
             {editForm.event_name && !events.find(ev => ev.event_name === editForm.event_name) && (
-              <Form.Text className="text-danger">* โปรดเลือกจากกิจกรรมที่มีอยู่</Form.Text>
+              <Form.Text className="text-danger">* โปรดเลือกจากอีเว้นท์ที่มีอยู่</Form.Text>
             )}
           </Form.Group>
 

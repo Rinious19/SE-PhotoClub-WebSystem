@@ -22,9 +22,9 @@ export const AppNavbar = () => {
           <Nav className="me-auto">
             <Nav.Link as={NavLink} to="/" className="text-secondary">หน้าแรก</Nav.Link>
             <Nav.Link as={NavLink} to="/photos" className="text-secondary">แกลเลอรี่</Nav.Link>
-            {/* ✅ กิจกรรม → หน้าสาธารณะ Coming Soon */}
+            {/* ✅ อีเว้นท์ → หน้าสาธารณะ Coming Soon */}
             <Nav.Link as={NavLink} to="/activities" className="text-secondary">กิจกรรม</Nav.Link>
-            {/* ✅ จัดการกิจกรรม → เฉพาะ Admin/President */}
+            {/* ✅ จัดการอีเว้นท์ → เฉพาะ Admin/President */}
             {isAdminOrPresident(user) && (
               <Nav.Link as={NavLink} to="/event-management" className="text-secondary">จัดการอีเว้นท์</Nav.Link>
             )}
@@ -34,7 +34,7 @@ export const AppNavbar = () => {
             {isAuthenticated ? (
               <>
                 <Navbar.Text className="me-3 fw-medium text-dark">
-                  สวัสดี, {user?.username}
+                  {user?.username}
                 </Navbar.Text>
 
                 {isAdminOrPresident(user) && (

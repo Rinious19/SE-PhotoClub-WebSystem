@@ -199,14 +199,14 @@ export const UploadPhotoPage: React.FC = () => {
       const msg = err?.response?.data?.message;
       if (msg?.includes("มีอยู่") || err?.response?.status === 400) {
         setAddError(
-          msg || `ชื่อกิจกรรม "${newEventData.name}" มีอยู่ในระบบแล้ว`,
+          msg || `ชื่ออีเว้นท์ "${newEventData.name}" มีอยู่ในระบบแล้ว`,
         );
       } else if (!err?.response) {
         setAddError(
           "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ",
         );
       } else {
-        setAddError(msg || "ไม่สามารถสร้างกิจกรรมได้ กรุณาลองใหม่อีกครั้ง");
+        setAddError(msg || "ไม่สามารถสร้างอีเว้นท์ได้ กรุณาลองใหม่อีกครั้ง");
       }
     }
   };
@@ -313,7 +313,7 @@ export const UploadPhotoPage: React.FC = () => {
                 setShowAddEventModal(true);
               }}
             >
-              + สร้างกิจกรรมใหม่
+              + สร้างอีเว้นท์ใหม่
             </Button>
           )}
         </div>
@@ -407,11 +407,11 @@ export const UploadPhotoPage: React.FC = () => {
 
             <Col md={7}>
               <Form.Group className="mb-3 position-relative" ref={dropdownRef}>
-                <Form.Label className="fw-bold">เลือก Event</Form.Label>
+                <Form.Label className="fw-bold">เลือกอีเว้นท์</Form.Label>
                 <div className="input-group">
                   <Form.Control
                     type="text"
-                    placeholder="ค้นหาชื่อกิจกรรม..."
+                    placeholder="ค้นหาชื่ออีเว้นท์..."
                     value={formData.title}
                     required
                     onChange={(e) => {
@@ -479,8 +479,8 @@ export const UploadPhotoPage: React.FC = () => {
                     </p>
                     <p className="mb-0 text-muted" style={{ fontSize: "12px" }}>
                       {isAdminOrPresident(user)
-                        ? 'กดปุ่ม "+ สร้างกิจกรรมใหม่" เพื่อเพิ่ม Event แรก'
-                        : "ยังไม่มีกิจกรรมในระบบ"}
+                        ? 'กดปุ่ม "+ สร้างอีเว้นท์ใหม่" เพื่อเพิ่ม Event แรก'
+                        : "ยังไม่มีอีเว้นท์ในระบบ"}
                     </p>
                   </div>
                 )}
@@ -494,14 +494,14 @@ export const UploadPhotoPage: React.FC = () => {
                       className="position-absolute w-100 border rounded bg-white mt-1 p-3 text-muted small"
                       style={{ zIndex: 1050 }}
                     >
-                      ไม่พบกิจกรรมที่ตรงกับ "
+                      ไม่พบอีเว้นท์ที่ตรงกับ "
                       <strong>{formData.title}</strong>"
                     </div>
                   )}
 
                 {!isValidEvent && formData.title !== "" && (
                   <Form.Text className="text-danger">
-                    * โปรดเลือกจากกิจกรรมที่มีอยู่ในฐานข้อมูล
+                    * โปรดเลือกจากอีเว้นท์ที่มีอยู่ในฐานข้อมูล
                   </Form.Text>
                 )}
               </Form.Group>
@@ -556,7 +556,7 @@ export const UploadPhotoPage: React.FC = () => {
 
               <Form.Group className="mb-3">
                 <Form.Label className="fw-bold text-secondary">
-                  วันที่จัดกิจกรรม (ล็อกตามระบบ)
+                  วันที่จัดอีเว้นท์ (ระบบกำหนดให้)
                 </Form.Label>
                 <Form.Control
                   type="date"
@@ -567,7 +567,7 @@ export const UploadPhotoPage: React.FC = () => {
                 />
                 {isValidEvent && (
                   <Form.Text className="text-muted">
-                    กิจกรรม: <strong>{formData.title}</strong>
+                    อีเว้นท์: <strong>{formData.title}</strong>
                   </Form.Text>
                 )}
               </Form.Group>
@@ -662,7 +662,7 @@ export const UploadPhotoPage: React.FC = () => {
       >
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold text-primary">
-            เพิ่มกิจกรรมใหม่
+            เพิ่มอีเว้นท์ใหม่
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -673,7 +673,7 @@ export const UploadPhotoPage: React.FC = () => {
           )}
           <Form.Group className="mb-3">
             <Form.Label className="fw-medium">
-              ชื่อกิจกรรม <span className="text-danger">*</span>
+              ชื่ออีเว้นท์ <span className="text-danger">*</span>
             </Form.Label>
             <Form.Control
               type="text"
@@ -686,7 +686,7 @@ export const UploadPhotoPage: React.FC = () => {
           </Form.Group>
           <Form.Group>
             <Form.Label className="fw-medium">
-              วันที่จัดกิจกรรม <span className="text-danger">*</span>
+              วันที่จัดอีเว้นท์ <span className="text-danger">*</span>
             </Form.Label>
             <div>
               <CustomDatePicker
