@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import { jwtConfig } from '../config/JwtConfig';
 
 //* context (ขยาย Interface ของ Express Request ให้รู้จัก user)
-interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request {
   user?: any;
 }
 

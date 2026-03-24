@@ -16,6 +16,7 @@ app.use(cors()); // อนุญาตให้ Frontend ยิง API มาไ
 app.use(express.json()); // รับข้อมูลแบบ JSON
 app.use('/admin', adminRoutes);
 app.use('/history', historyRoutes);
+app.use('/api/admin', adminRoutes);
 
 // เชื่อมต่อ Module Auth
 app.use('/api/auth', authRoutes);

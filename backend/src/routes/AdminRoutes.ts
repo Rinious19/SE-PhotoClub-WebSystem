@@ -1,23 +1,24 @@
-import { Router } from 'express';
-import { AdminController } from '../controllers/AdminController';
-import { AuthMiddleware } from '../middlewares/AuthMiddleware';
-import { RoleMiddleware } from '../middlewares/RoleMiddleware';
+//? Routes: Admin
+//@ Endpoint สำหรับ Admin — ทุก route ต้องผ่าน Auth + Role check
+
+import { Router }        from 'express';
+import type { RequestHandler } from 'express';
+import { AdminController }     from '../controllers/AdminController';
+import { AuthMiddleware }      from '../middlewares/AuthMiddleware';
+import { RoleMiddleware }      from '../middlewares/RoleMiddleware';
 
 const router = Router();
-const controller = new AdminController();
 
-router.get(
-  '/users',
-  AuthMiddleware,
-  RoleMiddleware(['ADMIN', 'CLUB_PRESIDENT']),
-  controller.getUsers
-);
+//* context (Middleware ร่วมสำหรับทุก route ใน AdminRoutes)
+const requireAuth  = AuthMiddleware      as RequestHandler;
+const requireAdmin = RoleMiddleware(['ADMIN', 'CLUB_PRESIDENT']) as RequestHandler;
 
-router.post(
-  '/change-role',
-  AuthMiddleware,
-  RoleMiddleware(['ADMIN']),
-  controller.changeRole
-);
+//@ User Management
+router.get   ('/users',          requireAuth, requireAdmin, AdminController.getUsers    as RequestHandler);
+router.patch ('/users/:id/role', requireAuth, requireAdmin, AdminController.changeRole  as RequestHandler);
+router.delete('/users/:id',      requireAuth, requireAdmin, AdminController.deleteUser  as RequestHandler);
+
+//@ History Log
+router.get('/history', requireAuth, requireAdmin, AdminController.getHistory as RequestHandler);
 
 export default router;
