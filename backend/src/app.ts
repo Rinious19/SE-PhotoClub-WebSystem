@@ -9,6 +9,7 @@ import cors from 'cors';
 import authRoutes from './routes/AuthRoutes';
 import photoRoutes from './routes/PhotoRoutes';
 import eventRoutes from './routes/EventRoutes';
+import { ErrorMiddleware } from './middlewares/ErrorMiddleware';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,6 +20,7 @@ app.use(express.json()); // รับข้อมูลแบบ JSON
 app.use('/admin', adminRoutes);
 app.use('/history', historyRoutes);
 app.use('/api/admin', adminRoutes);
+app.use(ErrorMiddleware);
 
 // เชื่อมต่อ Module Auth
 app.use('/api/auth', authRoutes);

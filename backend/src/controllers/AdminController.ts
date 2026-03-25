@@ -66,15 +66,6 @@ export class AdminController {
     // 🔥 ลบ user ก่อน
     const deletedUser = await adminService.deleteUser({ targetUserId, actorId });
 
-    // ✅ เพิ่ม log ตรงนี้
-      await historyService.log({
-        actorId,
-        action: "DELETE_USER",
-        targetType: "USER",
-        targetId: targetUserId,
-        detail: `ลบบัญชี | userId: ${targetUserId}`,
-      });
-
     res.status(200).json({ success: true, message: 'ลบผู้ใช้งานสำเร็จ' });
 
   } catch (error: any) {
