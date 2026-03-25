@@ -35,9 +35,19 @@ export const AppNavbar = () => {
                 </Navbar.Text>
                 
                 {isAdminOrPresident(user) && (
+                  <>
                   <Nav.Link as={NavLink} to="/admin" className="text-primary fw-medium">
                     จัดการระบบ
                   </Nav.Link>
+
+                  <Nav.Link as={NavLink} to="/admin/users"   className="text-primary fw-medium">
+                  จัดการสมาชิก
+                  </Nav.Link>
+                  
+                  <Nav.Link as={NavLink} to="/admin/history" className="text-primary fw-medium">
+                  ประวัติการใช้งาน
+                  </Nav.Link>  
+                  </> 
                 )}
                 
                 <Nav.Link as={NavLink} to="/logout" className="text-danger fw-medium">

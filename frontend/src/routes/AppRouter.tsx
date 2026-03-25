@@ -9,6 +9,8 @@ import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { LogoutPage } from '@/pages/auth/LogoutPage';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AdminRoute } from '@/routes/AdminRoute';
+import { ManageAdminPage } from '@/pages/admin/ManageAdminPage';
+import { HistoryPage }     from '@/pages/admin/HistoryPage';
 
 //* context (Main Layout: ทุกหน้าจะเห็น Navbar ยกเว้นหน้า Login/Register ถ้าต้องการแยก)
 const AppLayout = () => (
@@ -29,6 +31,8 @@ const router = createBrowserRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'logout', element: <LogoutPage /> },
+      { path: 'admin/users',   element: <ManageAdminPage /> },
+      { path: 'admin/history', element: <HistoryPage /> },
       
       //* context (เส้นทางที่ต้องล็อกอินก่อนเข้าถึง)
       {
