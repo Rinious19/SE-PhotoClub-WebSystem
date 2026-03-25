@@ -3,19 +3,24 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form, Button, Container, Card, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
+import {
+  Form, Button, Container, Card,
+  Row, Col, Spinner, Alert, Modal,
+} from 'react-bootstrap';
 import { PhotoService } from '../../services/PhotoService';
-import { EventService } from '../../services/EventService';
+import { EventService }  from '../../services/EventService';
 import { parseApiError } from '@/utils/apiError';
 
 const BASE_URL = 'http://localhost:5000';
-const getImageUrl = (url: any): string => {
+
+// ✅ แก้จุดที่ 4: (url: any) → (url: string | null | undefined)
+const getImageUrl = (url: string | null | undefined): string => {
   if (!url) return '';
-  if (typeof url === 'string') return url.startsWith('http') ? url : `${BASE_URL}${url}`;
+  if (typeof url === 'string')
+    return url.startsWith('http') ? url : `${BASE_URL}${url}`;
   return '';
 };
 
-// ปีการศึกษา dropdown ด้วย mouse wheel
 const FACULTIES = [
   '', 'มหาวิทยาลัย', 'คณะวิศวกรรมศาสตร์', 'คณะครุศาสตร์อุตสาหกรรม',
   'คณะวิทยาศาสตร์ประยุกต์', 'คณะเทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล',
@@ -25,30 +30,50 @@ const FACULTIES = [
 
 const YEARS = ['2568', '2567'];
 
+// ✅ แก้จุดที่ 1: สร้าง Interface แทน any[]
+interface EventItem {
+  id:         number;
+  event_name: string;
+  event_date: string;
+}
+
+// ✅ สร้าง Interface สำหรับ Photo
+interface PhotoItem {
+  id:            number;
+  title:         string;
+  description:   string | null;
+  event_date:    string | null;
+  image_url:     string;
+  thumbnail_url: string | null;
+  faculty:       string | null;
+  academic_year: string | null;
+}
+
 export const EditPhotoPage: React.FC = () => {
-  const { id } = useParams();
+  const { id }   = useParams();
   const navigate = useNavigate();
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownRef   = useRef<HTMLDivElement>(null);
   const yearSelectRef = useRef<HTMLSelectElement>(null);
 
-  const [events, setEvents] = useState<any[]>([]);
+  // ✅ แก้จุดที่ 1: useState<any[]> → useState<EventItem[]>
+  const [events,         setEvents]         = useState<EventItem[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [resultModal, setResultModal] = useState<{ show: boolean; success: boolean; msg: string }>({
-    show: false, success: false, msg: '',
-  });
+  const [loading,        setLoading]        = useState(true);
+  const [submitting,     setSubmitting]     = useState(false);
+  const [error,          setError]          = useState<string | null>(null);
+  const [showConfirm,    setShowConfirm]    = useState(false);
+  const [resultModal,    setResultModal]    = useState<{
+    show: boolean; success: boolean; msg: string;
+  }>({ show: false, success: false, msg: '' });
 
   const [formData, setFormData] = useState({
     title: '', description: '', event_date: '',
     image_url: '', thumbnail_url: '',
     faculty: '', academic_year: '',
   });
-  const [originalData, setOriginalData] = useState({ ...formData });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [newPreview, setNewPreview] = useState<string | null>(null);
+  const [originalData,  setOriginalData]  = useState({ ...formData });
+  const [selectedFile,  setSelectedFile]  = useState<File | null>(null);
+  const [newPreview,    setNewPreview]    = useState<string | null>(null);
 
   // Load
   useEffect(() => {
@@ -59,26 +84,30 @@ export const EditPhotoPage: React.FC = () => {
           EventService.getAll(),
           PhotoService.getAll(),
         ]);
-        setEvents(eventRes.data || []);
+        setEvents(eventRes.data ?? []);
 
-        const photo = (photoRes.data || []).find((p: any) => p.id === Number(id));
+        // ✅ แก้จุดที่ 2: (p: any) → (p: PhotoItem)
+        const photo = (photoRes.data as PhotoItem[] ?? [])
+          .find((p: PhotoItem) => p.id === Number(id));
 
         if (photo) {
           const init = {
-            title: photo.title || '',
-            description: photo.description || '',
-            event_date: photo.event_date ? photo.event_date.split('T')[0] : '',
-            image_url: photo.image_url || '',
-            thumbnail_url: photo.thumbnail_url || '',
-            faculty: photo.faculty || '',
-            academic_year: photo.academic_year || '',
+            title:         photo.title         ?? '',
+            description:   photo.description   ?? '',
+            event_date:    photo.event_date
+                             ? photo.event_date.split('T')[0]
+                             : '',
+            image_url:     photo.image_url     ?? '',
+            thumbnail_url: photo.thumbnail_url ?? '',
+            faculty:       photo.faculty       ?? '',
+            academic_year: photo.academic_year ?? '',
           };
           setFormData(init);
           setOriginalData(init);
         } else {
           setError('ไม่พบข้อมูลรูปภาพนี้');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {  // ✅ แก้จุดที่ 3: any → unknown
         setError(parseApiError(err, 'โหลดข้อมูลไม่สำเร็จ'));
       } finally {
         setLoading(false);
@@ -97,17 +126,19 @@ export const EditPhotoPage: React.FC = () => {
   }, []);
 
   const filteredEvents = useMemo(() =>
-    events.filter(ev => ev.event_name.toLowerCase().includes(formData.title.toLowerCase())),
+    events.filter(ev =>
+      ev.event_name.toLowerCase().includes(formData.title.toLowerCase())
+    ),
     [events, formData.title]
   );
-  const isValidEvent = events.some(ev => ev.event_name === formData.title);
 
-  const previewSrc = newPreview || getImageUrl(formData.image_url);
+  const isValidEvent = events.some(ev => ev.event_name === formData.title);
+  const previewSrc   = newPreview ?? getImageUrl(formData.image_url);
 
   const hasChanges =
-    formData.title !== originalData.title ||
-    formData.description !== originalData.description ||
-    formData.faculty !== originalData.faculty ||
+    formData.title         !== originalData.title         ||
+    formData.description   !== originalData.description   ||
+    formData.faculty       !== originalData.faculty       ||
     formData.academic_year !== originalData.academic_year ||
     selectedFile !== null;
 
@@ -126,7 +157,7 @@ export const EditPhotoPage: React.FC = () => {
     const handler = (e: WheelEvent) => {
       e.preventDefault();
       const opts = ['', ...YEARS];
-      const idx = opts.indexOf(el.value);
+      const idx  = opts.indexOf(el.value);
       if (e.deltaY > 0 && idx < opts.length - 1)
         setFormData(f => ({ ...f, academic_year: opts[idx + 1] }));
       else if (e.deltaY < 0 && idx > 0)
@@ -147,27 +178,39 @@ export const EditPhotoPage: React.FC = () => {
     setSubmitting(true);
     try {
       const data = new FormData();
-      data.append('title', formData.title);
-      data.append('event_date', formData.event_date);
-      data.append('description', formData.description);
-      data.append('faculty', formData.faculty);
+      data.append('title',         formData.title);
+      data.append('event_date',    formData.event_date);
+      data.append('description',   formData.description);
+      data.append('faculty',       formData.faculty);
       data.append('academic_year', formData.academic_year);
       if (selectedFile) data.append('image', selectedFile);
 
-      const res = await PhotoService.update(Number(id), data, localStorage.getItem('token')!);
+      const res = await PhotoService.update(
+        Number(id), data, localStorage.getItem('token') ?? ''
+      );
       if (res.success) {
         setResultModal({ show: true, success: true, msg: 'แก้ไขข้อมูลเรียบร้อยแล้ว' });
       } else {
-        setResultModal({ show: true, success: false, msg: res.message || 'แก้ไขไม่สำเร็จ' });
+        setResultModal({
+          show: true, success: false,
+          msg: (res.message as string) ?? 'แก้ไขไม่สำเร็จ',
+        });
       }
-    } catch (err: any) {
-      setResultModal({ show: true, success: false, msg: parseApiError(err, 'แก้ไขไม่สำเร็จ — กรุณาลองใหม่') });
+    } catch (err: unknown) {  // ✅ แก้จุดที่ 3: any → unknown
+      setResultModal({
+        show: true, success: false,
+        msg: parseApiError(err, 'แก้ไขไม่สำเร็จ — กรุณาลองใหม่'),
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="text-center py-5"><Spinner animation="border" variant="primary" /></div>;
+  if (loading) return (
+    <div className="text-center py-5">
+      <Spinner animation="border" variant="primary" />
+    </div>
+  );
 
   return (
     <Container className="py-5">
@@ -179,7 +222,10 @@ export const EditPhotoPage: React.FC = () => {
           <Row>
             {/* ซ้าย: preview */}
             <Col md={5} className="text-center mb-4">
-              <div className="border rounded p-2 bg-light shadow-sm" style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                className="border rounded p-2 bg-light shadow-sm"
+                style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
                 {previewSrc
                   ? <img src={previewSrc} className="img-fluid rounded" style={{ maxHeight: 300 }} alt="preview" />
                   : <span className="text-muted">ไม่มีรูปภาพ</span>
@@ -198,34 +244,48 @@ export const EditPhotoPage: React.FC = () => {
                 <Form.Label className="fw-bold">เลือกอีเว้นท์</Form.Label>
                 <div className="input-group">
                   <Form.Control
-                    type="text" placeholder="ค้นหาชื่ออีเว้นท์..."
+                    type="text"
+                    placeholder="ค้นหาชื่ออีเว้นท์..."
                     value={formData.title}
-                    onChange={(e) => { setFormData(f => ({ ...f, title: e.target.value })); setIsDropdownOpen(true); }}
+                    onChange={e => {
+                      setFormData(f => ({ ...f, title: e.target.value }));
+                      setIsDropdownOpen(true);
+                    }}
                     onFocus={() => setIsDropdownOpen(true)}
                   />
                   <Button variant="outline-secondary" onClick={() => setIsDropdownOpen(o => !o)}>
                     {isDropdownOpen ? '▲' : '▼'}
                   </Button>
                 </div>
+
                 {isDropdownOpen && filteredEvents.length > 0 && (
-                  <div className="position-absolute w-100 shadow-lg border rounded bg-white mt-1"
-                    style={{ zIndex: 1050, maxHeight: 220, overflowY: 'auto' }}>
+                  <div
+                    className="position-absolute w-100 shadow-lg border rounded bg-white mt-1"
+                    style={{ zIndex: 1050, maxHeight: 220, overflowY: 'auto' }}
+                  >
                     {filteredEvents.map(ev => (
-                      <div key={ev.id}
+                      <div
+                        key={ev.id}
                         className="px-3 py-2 border-bottom"
                         style={{ cursor: 'pointer' }}
                         onMouseOver={e => (e.currentTarget.style.background = '#f0f4ff')}
-                        onMouseOut={e => (e.currentTarget.style.background = '#fff')}
+                        onMouseOut={e  => (e.currentTarget.style.background = '#fff')}
                         onClick={() => {
-                          setFormData(f => ({ ...f, title: ev.event_name, event_date: ev.event_date.split('T')[0] }));
+                          setFormData(f => ({
+                            ...f,
+                            title:      ev.event_name,
+                            event_date: ev.event_date.split('T')[0],
+                          }));
                           setIsDropdownOpen(false);
-                        }}>
+                        }}
+                      >
                         <span className="fw-bold text-primary">{ev.event_name}</span>
                         <span className="text-muted small ms-2">{ev.event_date.split('T')[0]}</span>
                       </div>
                     ))}
                   </div>
                 )}
+
                 {!isValidEvent && formData.title && (
                   <Form.Text className="text-danger">* โปรดเลือกจากอีเว้นท์ที่มีอยู่</Form.Text>
                 )}
@@ -235,8 +295,10 @@ export const EditPhotoPage: React.FC = () => {
               <Row className="mb-3">
                 <Col md={7}>
                   <Form.Label className="fw-bold">คณะ</Form.Label>
-                  <Form.Select value={formData.faculty}
-                    onChange={e => setFormData(f => ({ ...f, faculty: e.target.value }))}>
+                  <Form.Select
+                    value={formData.faculty}
+                    onChange={e => setFormData(f => ({ ...f, faculty: e.target.value }))}
+                  >
                     <option value="">-- ไม่ระบุ --</option>
                     {FACULTIES.filter(Boolean).map(f => <option key={f}>{f}</option>)}
                   </Form.Select>
@@ -256,22 +318,31 @@ export const EditPhotoPage: React.FC = () => {
 
               {/* วันที่ */}
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-secondary">วันที่จัดอีเว้นท์ (ระบบกำหนดให้)</Form.Label>
-                <Form.Control type="date" value={formData.event_date} readOnly className="bg-light" tabIndex={-1} />
+                <Form.Label className="fw-bold text-secondary">
+                  วันที่จัดอีเว้นท์ (ระบบกำหนดให้)
+                </Form.Label>
+                <Form.Control
+                  type="date" value={formData.event_date}
+                  readOnly className="bg-light" tabIndex={-1}
+                />
               </Form.Group>
 
               {/* คำอธิบาย */}
               <Form.Group className="mb-4">
                 <Form.Label className="fw-bold">คำอธิบายเพิ่มเติม</Form.Label>
-                <Form.Control as="textarea" rows={3}
+                <Form.Control
+                  as="textarea" rows={3}
                   value={formData.description}
-                  onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} />
+                  onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
+                />
               </Form.Group>
 
               <div className="d-grid gap-2">
-                <Button type="submit" variant="warning" className="fw-bold"
+                <Button
+                  type="submit" variant="warning" className="fw-bold"
                   disabled={!hasChanges || !isValidEvent || submitting}
-                  style={{ opacity: (!hasChanges || !isValidEvent) ? 0.5 : 1 }}>
+                  style={{ opacity: (!hasChanges || !isValidEvent) ? 0.5 : 1 }}
+                >
                   {submitting ? '⏳ กำลังบันทึก...' : '💾 บันทึกการแก้ไข'}
                 </Button>
                 <Button variant="light" onClick={() => navigate(-1)}>ยกเลิก</Button>
@@ -281,7 +352,7 @@ export const EditPhotoPage: React.FC = () => {
         </Form>
       </Card>
 
-      {/* ✅ Confirm Modal — แทน browser confirm() */}
+      {/* Confirm Modal */}
       <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold">⚠️ ยืนยันการแก้ไข</Modal.Title>
@@ -296,21 +367,32 @@ export const EditPhotoPage: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* ✅ Result Modal — แทน AlertModal เก่า */}
-      <Modal show={resultModal.show} onHide={() => {
-        setResultModal(r => ({ ...r, show: false }));
-        if (resultModal.success) navigate('/photos');
-      }} centered>
-        <Modal.Header closeButton className={resultModal.success ? 'bg-success text-white' : 'bg-danger text-white'}>
-          <Modal.Title className="fw-bold">{resultModal.success ? '✅ สำเร็จ!' : '❌ เกิดข้อผิดพลาด'}</Modal.Title>
+      {/* Result Modal */}
+      <Modal
+        show={resultModal.show}
+        onHide={() => {
+          setResultModal(r => ({ ...r, show: false }));
+          if (resultModal.success) navigate('/photos');
+        }}
+        centered
+      >
+        <Modal.Header
+          closeButton
+          className={resultModal.success ? 'bg-success text-white' : 'bg-danger text-white'}
+        >
+          <Modal.Title className="fw-bold">
+            {resultModal.success ? '✅ สำเร็จ!' : '❌ เกิดข้อผิดพลาด'}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body className="text-center py-3 fs-5">{resultModal.msg}</Modal.Body>
         <Modal.Footer className="justify-content-center">
-          <Button variant={resultModal.success ? 'success' : 'danger'}
+          <Button
+            variant={resultModal.success ? 'success' : 'danger'}
             onClick={() => {
               setResultModal(r => ({ ...r, show: false }));
               if (resultModal.success) navigate('/photos');
-            }}>
+            }}
+          >
             {resultModal.success ? 'กลับหน้าแกลเลอรี่' : 'ปิด'}
           </Button>
         </Modal.Footer>

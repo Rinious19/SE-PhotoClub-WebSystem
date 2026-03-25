@@ -4,6 +4,21 @@
 //  ✅ ค้นหาด้วยชื่อ Event และวันที่
 //  ✅ แยก folder ตาม (event_name + faculty + academic_year)
 
+interface PreviewItem {
+  id:            number;
+  image_url:     string;
+  thumbnail_url: string | null;
+}
+
+interface FolderItem {
+  event_name:    string;
+  event_date:    string | null;
+  photo_count:   number;
+  faculty:       string | null;
+  academic_year: string | null;
+  previews:      PreviewItem[];
+}
+
 import React, {
   useEffect,
   useState,
@@ -34,26 +49,16 @@ import { parseApiError } from "@/utils/apiError";
 
 // ✅ แปลง image_url เป็น src URL โดยตรง (ไม่ต้อง base64 อีกต่อไป)
 const BASE_URL = "http://localhost:5000";
-const getImageUrl = (imageUrl: any): string => {
-  if (!imageUrl) return "";
-  if (typeof imageUrl === "string") {
-    return imageUrl.startsWith("http") ? imageUrl : `${BASE_URL}${imageUrl}`;
+const getImageUrl = (imageUrl: string | null | undefined): string => {
+  if (!imageUrl) return '';
+  if (typeof imageUrl === 'string') {
+    return imageUrl.startsWith('http') ? imageUrl : `${BASE_URL}${imageUrl}`;
   }
-  // fallback: BLOB เก่า (migration period)
-  try {
-    const arr = new Uint8Array(imageUrl.data || imageUrl);
-    let bin = "";
-    arr.forEach((b) => {
-      bin += String.fromCharCode(b);
-    });
-    return `data:image/jpeg;base64,${btoa(bin)}`;
-  } catch {
-    return "";
-  }
+  return '';
 };
 
 // FolderCard component
-const FolderCard: React.FC<{ folder: any; onClick: () => void }> = ({
+const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
   folder,
   onClick,
 }) => {
@@ -307,7 +312,7 @@ export const PhotoListPage: React.FC = () => {
   const { user } = useAuth();
   const canUpload = user?.role === "ADMIN" || user?.role === "CLUB_PRESIDENT";
 
-  const [folders, setFolders] = useState<any[]>([]);
+  const [folders, setFolders] = useState<FolderItem[]>([]);
   const pageRef = useRef(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -326,7 +331,7 @@ export const PhotoListPage: React.FC = () => {
   const loadingRef = useRef(false);
   const yearSelectRef = useRef<HTMLSelectElement>(null);
 
-  const YEARS = ["2568", "2567"];
+  const YEARS = useMemo(() => ["2568", "2567"], []);
 
   // Mouse wheel บน year dropdown (non-passive)
   useEffect(() => {
@@ -341,7 +346,7 @@ export const PhotoListPage: React.FC = () => {
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
-  }, [filterYear]);
+  }, [filterYear,YEARS]);
 
   const fetchPage = useCallback(async (pageNum: number) => {
     if (loadingRef.current) return;
@@ -355,7 +360,7 @@ export const PhotoListPage: React.FC = () => {
         setHasMore(res.pagination.hasMore);
         setTotalFolders(res.pagination.total);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
         parseApiError(
           err,
@@ -425,14 +430,13 @@ export const PhotoListPage: React.FC = () => {
   //@ ส่ง faculty และ academic_year ไปเสมอ แม้จะเป็น '' (ว่าง)
   //  เพื่อให้ EventPhotosPage filter เฉพาะ folder นั้นจริงๆ
   //  ถ้าไม่ส่ง → EventPhotosPage จะดึงทุก faculty ใน event เดียวกัน
-  const handleFolderClick = (folder: any) => {
-    const params = new URLSearchParams();
-    params.set("faculty", folder.faculty ?? "");
-    params.set("academic_year", folder.academic_year ?? "");
-    navigate(
-      `/photos/event/${encodeURIComponent(folder.event_name)}?${params.toString()}`,
-    );
-  };
+  // ✅ แก้ handleFolderClick: any → FolderItem
+const handleFolderClick = (folder: FolderItem) => {
+  const params = new URLSearchParams();
+  params.set('faculty',       folder.faculty       ?? '');
+  params.set('academic_year', folder.academic_year ?? '');
+  navigate(`/photos/event/${encodeURIComponent(folder.event_name)}?${params.toString()}`);
+};
 
   return (
     <Container className="py-5">
