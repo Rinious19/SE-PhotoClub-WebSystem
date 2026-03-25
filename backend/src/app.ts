@@ -37,3 +37,9 @@ app.listen(PORT, () => {
 });
 
 export default app;
+
+import activityRoutes from './routes/ActivityRoutes';
+import voteRoutes     from './routes/VoteRoutes';
+
+app.use('/api/activities', activityRoutes);
+app.use('/api/votes',      voteRoutes);
