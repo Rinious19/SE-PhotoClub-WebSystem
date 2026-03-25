@@ -1,16 +1,12 @@
 //? Component: Navigation Bar
-//@ แถบเมนูด้านบนของเว็บไซต์ รองรับ Responsive และเปลี่ยนตามสถานะผู้ใช้งาน
-//@ แถบเมนูด้านบนของเว็บไซต์
-
 import { NavLink } from 'react-router-dom';
 import { Navbar, Nav, Container } from 'react-bootstrap';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdminOrPresident } from '@/utils/roleChecker';
 
 export const AppNavbar = () => {
-
-  // ไม่ดึง logout มาใช้นะครับ เพราะเราจะให้ลิงก์ไปที่หน้า /logout แทน (เพื่อโชว์ UI โหลดดิ้งบอกลาสวยๆ)
   const { isAuthenticated, user } = useAuth();
+
   return (
     <Navbar bg="white" expand="lg" className="shadow-sm py-3 mb-4" sticky="top">
       <Container>
@@ -23,51 +19,37 @@ export const AppNavbar = () => {
           <Nav className="me-auto">
             <Nav.Link as={NavLink} to="/" className="text-secondary">หน้าแรก</Nav.Link>
             <Nav.Link as={NavLink} to="/photos" className="text-secondary">แกลเลอรี่</Nav.Link>
-
             <Nav.Link as={NavLink} to="/activities" className="text-secondary">กิจกรรม</Nav.Link>
-          </Nav>
-          <Nav>
-            {/* ✅ อีเว้นท์ → หน้าสาธารณะ Coming Soon */}
-            <Nav.Link as={NavLink} to="/activities" className="text-secondary">กิจกรรม</Nav.Link>
+            
             {/* ✅ จัดการอีเว้นท์ → เฉพาะ Admin/President */}
             {isAdminOrPresident(user) && (
               <Nav.Link as={NavLink} to="/event-management" className="text-secondary">จัดการอีเว้นท์</Nav.Link>
             )}
           </Nav>
-          <Nav>
+
+          <Nav className="align-items-center">
             {isAuthenticated ? (
               <>
                 <Navbar.Text className="me-3 fw-medium text-dark">
-
                   สวัสดี, {user?.username}
                 </Navbar.Text>
-                <Navbar.Text>
+
+                {/* ✅ กลุ่มเมนูจัดการสำหรับ Admin/President */}
                 {isAdminOrPresident(user) && (
                   <>
-                  <Nav.Link as={NavLink} to="/admin" className="text-primary fw-medium">
-                    จัดการระบบ
-                  </Nav.Link>
-
-                  <Nav.Link as={NavLink} to="/admin/users"   className="text-primary fw-medium">
-                  จัดการสมาชิก
-                  </Nav.Link>
-                  
-                  <Nav.Link as={NavLink} to="/admin/history" className="text-primary fw-medium">
-                  ประวัติการใช้งาน
-                  </Nav.Link>  
-                  </> 
-                )}
-                  {user?.username}
-                </Navbar.Text>
-
-                {isAdminOrPresident(user) && (
-                  <Nav.Link as={NavLink} to="/admin" className="text-primary fw-medium">
-                    จัดการระบบ
-                  </Nav.Link>
+                    <Nav.Link as={NavLink} to="/admin" className="text-primary fw-medium">
+                      จัดการระบบ
+                    </Nav.Link>
+                    <Nav.Link as={NavLink} to="/admin/users" className="text-primary fw-medium">
+                      จัดการสมาชิก
+                    </Nav.Link>
+                    <Nav.Link as={NavLink} to="/admin/history" className="text-primary fw-medium">
+                      ประวัติการใช้งาน
+                    </Nav.Link>
+                  </>
                 )}
 
-
-                <Nav.Link as={NavLink} to="/logout" className="text-danger fw-medium">
+                <Nav.Link as={NavLink} to="/logout" className="text-danger fw-medium ms-2">
                   ออกจากระบบ
                 </Nav.Link>
               </>
