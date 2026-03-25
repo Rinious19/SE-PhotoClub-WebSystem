@@ -20,7 +20,7 @@ export class AuthController {
     } catch (error: any) {
       //! สิ่งที่สำคัญมาก (ดักจับ Error จาก Service แล้วส่ง HTTP 400 Bad Request กลับไป)
       res.status(400).json({ success: false, message: error.message });
-    }
+    } 
   }
 
   // รับ Request เข้าสู่ระบบ
