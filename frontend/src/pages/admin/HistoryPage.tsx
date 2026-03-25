@@ -18,6 +18,7 @@ const ACTION_BADGE: Record<string, string> = {
   UPLOAD_PHOTO:  'primary',
   DELETE_PHOTO:  'danger',
   CREATE_EVENT:  'info',
+  UPDATE_EVENT:  'warning',
   DELETE_EVENT:  'danger',
   SYSTEM:        'secondary',
 };
@@ -29,6 +30,7 @@ const ACTION_LABEL: Record<string, string> = {
   UPLOAD_PHOTO:  'อัปโหลดรูป',
   DELETE_PHOTO:  'ลบรูป',
   CREATE_EVENT:  'สร้างอีเว้นท์',
+  UPDATE_EVENT:  'แก้ไขอีเว้นท์',
   DELETE_EVENT:  'ลบอีเว้นท์',
   SYSTEM:        'System',
 };

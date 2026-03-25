@@ -9,6 +9,7 @@ export type HistoryAction =
   | 'UPLOAD_PHOTO'
   | 'DELETE_PHOTO'
   | 'CREATE_EVENT'
+  | 'UPDATE_EVENT'
   | 'DELETE_EVENT'
   | 'SYSTEM';
 
