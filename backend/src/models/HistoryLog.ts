@@ -7,6 +7,7 @@ export type HistoryAction =
   | 'CREATE_USER'
   | 'DELETE_USER'
   | 'UPLOAD_PHOTO'
+  | 'UPDATE_PHOTO'
   | 'DELETE_PHOTO'
   | 'CREATE_EVENT'
   | 'UPDATE_EVENT'
