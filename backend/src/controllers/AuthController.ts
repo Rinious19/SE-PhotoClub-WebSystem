@@ -3,6 +3,7 @@
 
 import { Request, Response } from 'express';
 import { AuthService } from '../services/AuthService';
+import { historyService } from '../services/HistoryService';
 
 //* context (สร้าง instance ของ Service ไว้เรียกใช้งาน)
 const authService = new AuthService();
@@ -12,6 +13,15 @@ export class AuthController {
   static async register(req: Request, res: Response): Promise<void> {
     try {
       const user = await authService.register(req.body);
+
+      await historyService.log({
+        actorId: user.id ?? null,
+        action: "CREATE_USER",
+        targetType: "USER",
+        targetId: user.id,
+        detail: `สมัครสมาชิก | username: ${user.username} role: ${user.role}`,
+      });
+
       res.status(201).json({
         success: true,
         message: 'สมัครสมาชิกสำเร็จ',

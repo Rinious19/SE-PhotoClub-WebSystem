@@ -54,21 +54,33 @@ export class AdminController {
 
   //@ DELETE /api/admin/users/:id — Soft delete User
   static async deleteUser(req: AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const targetUserId = parseInt(req.params.id as string, 10);
-      const actorId      = req.user?.userId ?? req.user?.id;
+  try {
+    const targetUserId = parseInt(req.params.id as string, 10);
+    const actorId      = req.user?.userId ?? req.user?.id;
 
-      if (isNaN(targetUserId)) {
-        res.status(400).json({ success: false, message: 'ID ผู้ใช้ไม่ถูกต้อง' });
-        return;
-      }
-
-      await adminService.deleteUser({ targetUserId, actorId });
-      res.status(200).json({ success: true, message: 'ลบผู้ใช้งานสำเร็จ' });
-    } catch (error: any) {
-      sendError(res, error, 'ลบผู้ใช้งานไม่สำเร็จ');
+    if (isNaN(targetUserId)) {
+      res.status(400).json({ success: false, message: 'ID ผู้ใช้ไม่ถูกต้อง' });
+      return;
     }
+
+    // 🔥 ลบ user ก่อน
+    const deletedUser = await adminService.deleteUser({ targetUserId, actorId });
+
+    // ✅ เพิ่ม log ตรงนี้
+      await historyService.log({
+        actorId,
+        action: "DELETE_USER",
+        targetType: "USER",
+        targetId: targetUserId,
+        detail: `ลบบัญชี | userId: ${targetUserId}`,
+      });
+
+    res.status(200).json({ success: true, message: 'ลบผู้ใช้งานสำเร็จ' });
+
+  } catch (error: any) {
+    sendError(res, error, 'ลบผู้ใช้งานไม่สำเร็จ');
   }
+}
 
   //@ GET /api/admin/history — ดึง History Log
   static async getHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
