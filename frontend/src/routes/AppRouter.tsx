@@ -1,31 +1,32 @@
-//? Routes: App Router
-//@ จัดการเส้นทางทั้งหมดของเว็บไซต์ด้วย Data API
-//@ จัดการเส้นทางทั้งหมดของเว็บไซต์
+//? Routes: App Router (Merged Version)
+//@ รองรับทั้ง Main Layout (User) + Dashboard Layout (Admin)
 
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+
+// Layouts
 import { AppNavbar } from '@/components/layout/Navbar';
+import { DashboardLayout } from '@/layouts/DashboardLayout';
+
+// Routes Guard
+import { AdminRoute } from '@/routes/AdminRoute';
+
+// Pages
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { LogoutPage } from '@/pages/auth/LogoutPage';
-import { ProtectedRoute } from '@/routes/ProtectedRoute';
-import { AdminRoute } from '@/routes/AdminRoute';
-import { ManageAdminPage } from '@/pages/admin/ManageAdminPage';
-import { HistoryPage }     from '@/pages/admin/HistoryPage';
-
-//* context (Main Layout: ทุกหน้าจะเห็น Navbar ยกเว้นหน้า Login/Register ถ้าต้องการแยก)
-
-// Photo pages
 import { PhotoListPage } from '@/pages/photo/PhotoListPage';
-
 import { EventPhotosPage } from '@/pages/photo/EventPhotosPage';
-
-// ✅ หน้าอีเว้นท์ 2 หน้า แยก role
 import { UploadPhotoPage } from '@/pages/photo/UploadPhotoPage';
 import { EditPhotoPage } from '@/pages/photo/EditPhotoPage';
-import { ActivitiesPage } from '@/pages/activity/ActivitiesPage';                     // Public — Coming Soon
-import { EventManagementPage } from '@/pages/activity/EventManagementPage';           // Admin/President only
-export const AppLayout = () => (
+import { ActivitiesPage } from '@/pages/activity/ActivitiesPage';
+import { EventManagementPage } from '@/pages/activity/EventManagementPage';
+import { ManageAdminPage } from '@/pages/admin/ManageAdminPage';
+import { HistoryPage } from '@/pages/admin/HistoryPage';
+import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'; // ✅ ต้องมี
+
+//* Main Layout (Navbar)
+export const MainLayout = () => (
   <>
     <AppNavbar />
     <main>
@@ -33,43 +34,51 @@ export const AppLayout = () => (
     </main>
   </>
 );
+
 export const AppRouter = () => {
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <AppLayout />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: 'login',    element: <LoginPage /> },
-      { path: 'register', element: <RegisterPage /> },
-      { path: 'logout',   element: <LogoutPage /> },
+  const router = createBrowserRouter([
+    // =========================
+    // 🌐 USER ZONE (MainLayout)
+    // =========================
+    {
+      path: '/',
+      element: <MainLayout />,
+      children: [
+        { index: true, element: <HomePage /> },
+        { path: 'login', element: <LoginPage /> },
+        { path: 'register', element: <RegisterPage /> },
+        { path: 'logout', element: <LogoutPage /> },
 
-      //? โซนสาธารณะ (Guest ดูได้)
-      { path: 'photos',                        element: <PhotoListPage /> },
-      { path: 'photos/event/:eventName',        element: <EventPhotosPage /> },
-      { path: 'activities',                     element: <ActivitiesPage /> },
+        // Public
+        { path: 'photos', element: <PhotoListPage /> },
+        { path: 'photos/event/:eventName', element: <EventPhotosPage /> },
+        { path: 'activities', element: <ActivitiesPage /> },
 
-      //? โซนสมาชิก (ต้อง Login)
-      {
-        element: <ProtectedRoute />,
-        children: [
-          { path: 'photos/upload', element: <UploadPhotoPage /> },
-        ]
-      },
+      ],
+    },
 
-      //! โซน Admin/President เท่านั้น — ทุก path ต้องอยู่ใน AdminRoute
-      {
-        element: <AdminRoute />,
-        children: [
-          { path: 'admin',          element: <div className="container py-5"><h3>ระบบจัดการหลังบ้าน (Admin Only)</h3></div> },
-          { path: 'admin/users',    element: <ManageAdminPage /> },   // ← ย้ายเข้ามา
-          { path: 'admin/history',  element: <HistoryPage /> },       // ← ย้ายเข้ามา
-          { path: 'photos/edit/:id',        element: <EditPhotoPage /> },
-          { path: 'event-management',       element: <EventManagementPage /> },
-        ]
-       }
-      ]
-    }
+    // =========================
+    // 🔐 ADMIN ZONE (Dashboard)
+    // =========================
+    {
+      element: <AdminRoute />,
+      children: [
+        {
+          element: <DashboardLayout />,
+          children: [
+            { path: '/admin', element: <AdminDashboardPage /> },
+            { path: '/admin/users', element: <ManageAdminPage /> },
+            { path: '/admin/history', element: <HistoryPage /> },
+
+            // แนะนำให้ใส่ prefix admin ให้ consistent
+            { path: '/admin/event-management', element: <EventManagementPage /> },
+            { path: 'photos/upload', element: <UploadPhotoPage /> },
+            { path: '/photos/edit/:id', element: <EditPhotoPage /> },
+          ],
+        },
+      ],
+    },
   ]);
-return <RouterProvider router={router} />;
+
+  return <RouterProvider router={router} />;
 };

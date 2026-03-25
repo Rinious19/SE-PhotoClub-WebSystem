@@ -91,7 +91,7 @@ export class AdminService {
       action:     'DELETE_USER',
       targetType: 'USER',
       targetId:   targetUserId,
-      detail:     { username: targetName },
+      detail: `ระงับบัญชี username: ${targetName}`,
     });
   }
 }
