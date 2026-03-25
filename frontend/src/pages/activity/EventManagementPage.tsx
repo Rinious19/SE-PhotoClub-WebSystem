@@ -26,6 +26,14 @@ import {
 import type { DateFilter } from "@/components/common/DateRangeFilter";
 import { CustomDatePicker } from "@/components/common/CustomDatePicker";
 import { parseApiError } from "@/utils/apiError";
+import { AxiosError } from "axios";
+
+type EventItem = {
+  id: number;
+  event_name: string;
+  event_date: string;
+};
+
 
 const getLocalDateStr = () => {
   const d = new Date();
@@ -36,7 +44,7 @@ export const EventManagementPage: React.FC = () => {
   const todayStr = getLocalDateStr();
   const navigate = useNavigate();
 
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,26 +59,27 @@ export const EventManagementPage: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editTarget, setEditTarget] = useState<EventItem | null>(null);
   const [editData, setEditData] = useState({ name: "", date: "" });
   const [editing, setEditing] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EventItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteInfo, setDeleteInfo] = useState<{ photoCount: number } | null>(
     null,
   );
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  
   const loadEvents = async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await EventService.getAll();
       setEvents(res.data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(parseApiError(err, "โหลดข้อมูลอีเว้นท์ไม่สำเร็จ"));
     } finally {
       setLoading(false);
@@ -115,26 +124,29 @@ export const EventManagementPage: React.FC = () => {
       setNewEventData({ name: "", date: "" });
       setShowAddModal(false);
       await loadEvents();
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const msg = err?.response?.data?.message || err?.message || "";
-      if (status === 401 || msg.toLowerCase().includes("unauthorized")) {
-        setSaveError("หมดเวลาเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่");
-      } else if (status === 400) {
-        setSaveError(msg || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
-      } else if (status === 409) {
-        setSaveError(msg || "ชื่ออีเว้นท์นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
-      } else {
-        setSaveError(
-          parseApiError(err, "เพิ่มอีเว้นท์ไม่สำเร็จ — กรุณาลองใหม่อีกครั้ง"),
-        );
-      }
-    } finally {
+    } catch (err: unknown) {
+  const e = err as AxiosError<{ message?: string }>;
+
+  const status = e.response?.status;
+  const msg = e.response?.data?.message || e.message || "";
+
+  if (status === 401 || msg.toLowerCase().includes("unauthorized")) {
+    setSaveError("หมดเวลาเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่");
+  } else if (status === 400) {
+    setSaveError(msg || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+  } else if (status === 409) {
+    setSaveError(msg || "ชื่ออีเว้นท์นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
+  } else {
+    setSaveError(
+      parseApiError(err, "เพิ่มอีเว้นท์ไม่สำเร็จ — กรุณาลองใหม่อีกครั้ง")
+    );
+  }
+} finally {
       setSaving(false);
     }
   };
 
-  const openEditModal = (ev: any) => {
+  const openEditModal = (ev: EventItem) => {
     setEditTarget(ev);
     setEditData({
       name: ev.event_name,
@@ -152,26 +164,45 @@ export const EventManagementPage: React.FC = () => {
     try {
       setEditing(true);
       setEditError(null);
+      if (!editTarget) return;
+
       await EventService.update(
         editTarget.id,
         { event_name: editData.name.trim(), event_date: editData.date },
-        localStorage.getItem("token")!,
+        localStorage.getItem("token")!
       );
+      
       setShowEditModal(false);
       await loadEvents();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      if (err?.response?.status === 400) {
-        setEditError(msg || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
-      } else {
-        setEditError(parseApiError(err, "แก้ไขอีเว้นท์ไม่สำเร็จ"));
-      }
-    } finally {
+    } catch (err: unknown) {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "response" in err
+  ) {
+    const e = err as {
+      response?: {
+        status?: number;
+        data?: { message?: string };
+      };
+    };
+
+    const msg = e.response?.data?.message;
+
+    if (e.response?.status === 400) {
+      setEditError(msg || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+    } else {
+      setEditError(parseApiError(err, "แก้ไขอีเว้นท์ไม่สำเร็จ"));
+    }
+  } else {
+    setEditError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
+  }
+} finally {
       setEditing(false);
     }
   };
 
-  const openDeleteModal = async (ev: any) => {
+  const openDeleteModal = async (ev: EventItem) => {
     setDeleteTarget(ev);
     setDeleteInfo(null);
     setDeleteError(null);
@@ -179,9 +210,9 @@ export const EventManagementPage: React.FC = () => {
     try {
       const res = await EventService.getPhotoCount(ev.event_name);
       setDeleteInfo({ photoCount: res.count || 0 });
-    } catch (err: any) {
-      setDeleteInfo({ photoCount: 0 });
-    }
+    } catch {
+  setDeleteInfo({ photoCount: 0 });
+}
   };
 
   const handleDelete = async () => {
@@ -195,7 +226,7 @@ export const EventManagementPage: React.FC = () => {
       setShowDeleteModal(false);
       setDeleteTarget(null);
       await loadEvents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setDeleteError(parseApiError(err, "ลบอีเว้นท์ไม่สำเร็จ"));
     } finally {
       setDeleting(false);
@@ -322,7 +353,7 @@ export const EventManagementPage: React.FC = () => {
 
       {!loading && !error && filteredEvents.length > 0 && (
         <Row xs={1} sm={2} md={3} className="g-4">
-          {filteredEvents.map((ev: any) => (
+          {filteredEvents.map((ev: EventItem) => (
             <Col key={ev.id}>
               <Card className="h-100 shadow-sm border-0 rounded-4">
                 <Card.Body className="p-4">

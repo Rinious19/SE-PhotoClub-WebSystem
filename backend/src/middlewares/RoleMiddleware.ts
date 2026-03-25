@@ -1,21 +1,24 @@
-//? Middleware: Role Checking
-//@ ตรวจสอบสิทธิ์การเข้าถึง Route ต่างๆ ว่า User มี Role ตรงตามที่กำหนดหรือไม่
+import { Request, Response, NextFunction } from 'express';
 
-import { Response, NextFunction } from 'express';
-// ✅ Import Interface ตัวกลางที่เราสร้างไว้ใน AuthMiddleware มาใช้งานร่วมกัน
-import { AuthenticatedRequest } from './AuthMiddleware';
+// แก้ปัญหา 'incorrectly extends' โดยใช้ Intersection Type แทน
+export type AuthenticatedRequest = Request & {
+  user?: {
+    userId: number;
+    role: string;
+  };
+};
 
 export const RoleMiddleware = (allowedRoles: string[]) => {
-  return (req: any, res: any, next: any) => {
-    // 🔍 เพิ่มบรรทัดนี้เพื่อดูว่า Backend เห็นเราเป็นใคร
-    console.log("Debug RoleMiddleware - User from Token:", req.user);
-    console.log("Debug RoleMiddleware - Allowed Roles:", allowedRoles);
+  // ระบุ Type ให้ชัดเจน เพื่อให้ไฟล์ Route มองเห็นเป็น Middleware ที่ถูกต้อง
+  return (req: any, res: Response, next: NextFunction): void => {
+    const user = (req as AuthenticatedRequest).user;
 
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
+    if (!user || !user.role || !allowedRoles.includes(user.role)) {
+       res.status(403).json({ 
         success: false, 
         message: 'Access Denied: คุณไม่มีสิทธิ์เข้าถึงส่วนนี้' 
       });
+      return;
     }
     next();
   };

@@ -21,7 +21,16 @@ import { EventService } from "../../services/EventService";
 import { CustomDatePicker } from "@/components/common/CustomDatePicker";
 import { useAuth } from "@/hooks/useAuth";
 import { isAdminOrPresident } from "@/utils/roleChecker";
-import { parseApiError } from "@/utils/apiError";
+import { AxiosError } from "axios";
+
+interface ApiError {
+  message?: string;
+  duplicate?: {
+    id?: number;
+    thumbnail_url?: string;
+    image_url?: string;
+  };
+}
 
 const getLocalDateStr = () => {
   const d = new Date();
@@ -51,7 +60,7 @@ export const UploadPhotoPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const yearSelectRef = useRef<HTMLSelectElement>(null);
 
-  const YEARS = ["2568", "2567"];
+  const YEARS = useMemo(() => ["2568", "2567"], []);
 
   // ✅ ย้าย useState เข้ามาใน component
   const [invalidFiles, setInvalidFiles] = useState<string[]>([]);
@@ -70,11 +79,17 @@ export const UploadPhotoPage: React.FC = () => {
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
-  }, []);
+  }, [YEARS]);
+
+interface EventItem {
+  id: number;
+  event_name: string;
+  event_date: string;
+}
 
   const todayStr = getLocalDateStr();
 
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -114,18 +129,19 @@ export const UploadPhotoPage: React.FC = () => {
         event_date: matched.event_date.split("T")[0],
       }));
     }
-  }, [events, formData.title]);
+  }, [events, formData.title, formData.event_date]);
 
   const loadEvents = async () => {
-    try {
-      const res = await EventService.getAll();
-      setEvents(res.data || []);
-    } catch (err: any) {
-      console.error("loadEvents failed:", err);
-    } finally {
-      setEventsLoaded(true);
-    }
-  };
+  try {
+    const res = await EventService.getAll();
+    setEvents(res.data || []);
+  } catch (err: unknown) {
+    const e = err as AxiosError;
+    console.error("loadEvents failed:", e.message);
+  } finally {
+    setEventsLoaded(true);
+  }
+};
 
   useEffect(() => {
     loadEvents();
@@ -195,20 +211,25 @@ export const UploadPhotoPage: React.FC = () => {
         setShowAddEventModal(false);
         setNewEventData({ name: "", date: "" });
       }
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      if (msg?.includes("มีอยู่") || err?.response?.status === 400) {
-        setAddError(
-          msg || `ชื่ออีเว้นท์ "${newEventData.name}" มีอยู่ในระบบแล้ว`,
-        );
-      } else if (!err?.response) {
-        setAddError(
-          "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ",
-        );
-      } else {
-        setAddError(msg || "ไม่สามารถสร้างอีเว้นท์ได้ กรุณาลองใหม่อีกครั้ง");
-      }
-    }
+    } catch (err: unknown) {
+  const e = err as AxiosError<ApiError>;
+
+  const msg = e.response?.data?.message;
+
+  if (msg?.includes("มีอยู่") || e.response?.status === 400) {
+    setAddError(
+      msg || `ชื่ออีเว้นท์ "${newEventData.name}" มีอยู่ในระบบแล้ว`
+    );
+  } else if (!e.response) {
+    setAddError(
+      "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ"
+    );
+  } else {
+    setAddError(
+      msg || "ไม่สามารถสร้างอีเว้นท์ได้ กรุณาลองใหม่อีกครั้ง"
+    );
+  }
+  }
   };
 
   const handleUpload = async (e: React.FormEvent) => {
@@ -241,32 +262,31 @@ export const UploadPhotoPage: React.FC = () => {
             isDuplicate: false,
           });
         }
-      } catch (err: any) {
-        failCount++;
-        const status = err?.response?.status;
-        const serverMsg = err?.response?.data?.message;
+      } catch (err: unknown) {
+      failCount++;
 
-        //@ 409 = รูปซ้ำ — เก็บ duplicate info เพื่อแสดง thumbnail และ navigate ตรงไปรูปนั้น
-        if (status === 409) {
-          const dup = err?.response?.data?.duplicate;
-          failedFiles.push({
-            name: selectedFiles[i].name,
-            reason: `🔁 ${serverMsg || "รูปนี้มีอยู่ใน Event นี้แล้ว"}`,
-            isDuplicate: true,
-            eventName: formData.title,
-            faculty: formData.faculty || undefined,
-            academic_year: formData.academic_year || undefined,
-            duplicateId: dup?.id || undefined,
-            duplicateThumb: dup?.thumbnail_url || dup?.image_url || undefined,
-          });
-        } else {
-          failedFiles.push({
-            name: selectedFiles[i].name,
-            reason: parseApiError(err, "อัปโหลดไม่สำเร็จ"),
-            isDuplicate: false,
-          });
-        }
+      const e = err as AxiosError<ApiError>;
+      const status = e.response?.status;
+      const serverMsg = e.response?.data?.message;
+
+      if (status === 409) {
+        const dup = e.response?.data?.duplicate;
+
+        failedFiles.push({
+          name: selectedFiles[i].name,
+          reason: `🔁 ${serverMsg || "รูปนี้มีอยู่แล้ว"}`,
+          isDuplicate: true,
+          duplicateId: dup?.id,
+          duplicateThumb: dup?.thumbnail_url || dup?.image_url,
+        });
+      } else {
+        failedFiles.push({
+          name: selectedFiles[i].name,
+          reason: serverMsg || "อัปโหลดไม่สำเร็จ",
+          isDuplicate: false,
+        });
       }
+    }
       setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
     }
     setLoading(false);
