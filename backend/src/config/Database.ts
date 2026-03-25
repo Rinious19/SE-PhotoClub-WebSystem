@@ -13,12 +13,8 @@ export const pool = mysql.createPool({
   database: process.env.DB_NAME || 'photoclub_db',
   waitForConnections: true,
   connectionLimit: 10,
-<<<<<<< HEAD
-  queueLimit: 0
-=======
   queueLimit: 0,
   // ✅ แก้ Timezone Bug
   dateStrings: true,
   timezone: 'local',
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
 });

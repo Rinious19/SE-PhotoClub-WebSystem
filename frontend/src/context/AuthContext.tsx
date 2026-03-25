@@ -35,11 +35,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = (): void => {
     AuthService.logout();
     setUser(null);
-<<<<<<< HEAD
-=======
+
     //@ ใช้ window.location แทน useNavigate เพราะ AuthProvider อยู่นอก Router context
     window.location.href = '/login';
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
   };
 
   return (

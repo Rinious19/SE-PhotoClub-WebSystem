@@ -2,25 +2,18 @@
 //@ ไฟล์หลักสำหรับรัน Server Express
 
 import express from 'express';
-<<<<<<< HEAD
-import cors from 'cors';
-import authRoutes from './routes/AuthRoutes';
 import adminRoutes from './routes/AdminRoutes';
 import historyRoutes from './routes/HistoryRoutes';
-
-=======
 import path from 'path';
 import cors from 'cors';
 import authRoutes from './routes/AuthRoutes';
 import photoRoutes from './routes/PhotoRoutes';
 import eventRoutes from './routes/EventRoutes';
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 //* context (Middleware พื้นฐาน)
-<<<<<<< HEAD
 app.use(cors()); // อนุญาตให้ Frontend ยิง API มาได้    
 app.use(express.json()); // รับข้อมูลแบบ JSON
 app.use('/admin', adminRoutes);
@@ -31,7 +24,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 
 //! สิ่งที่สำคัญมาก (Route สำหรับเช็คสถานะ Server)
-=======
+
 app.use(cors());
 
 // ✅ เพิ่ม limit เป็น 50MB เพื่อรองรับรูปภาพขนาดใหญ่
@@ -48,7 +41,6 @@ app.use('/api/events', eventRoutes);
 
 app.use('/api/auth', authRoutes);
 
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', message: 'PhotoClub API is running' });
 });
@@ -57,11 +49,4 @@ app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
 
-<<<<<<< HEAD
 export default app;
-
-
-
-=======
-export default app;
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180

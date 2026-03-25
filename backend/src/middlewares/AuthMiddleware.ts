@@ -1,27 +1,19 @@
 //? Middleware: JWT Authentication
-//@ ด่านตรวจคนเข้าเมือง: ตรวจสอบว่า Request ที่เข้ามามี JWT Token ที่ถูกต้องหรือไม่
-<<<<<<< HEAD
-
-=======
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
+//@ ด่านตรวจคนเข้าเมือง: ตรวจสอบว่า Request ที่เข้ามามี JWT Token ที่ถูกต้องหรือไม่0
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { jwtConfig } from '../config/JwtConfig';
 
-<<<<<<< HEAD
+
 //* context (ขยาย Interface ของ Express Request ให้รู้จัก user)
-=======
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
+
 export interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
 export const AuthMiddleware = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-<<<<<<< HEAD
   // ดึง Token จาก Header ชื่อ 'Authorization'
-=======
   // ... โค้ดด้านในของคุณเหมือนเดิมทั้งหมด ไม่ต้องแก้เลยครับ ...
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
   const authHeader = req.headers.authorization;
 
   // ถ้าไม่มี Header หรือไม่ได้นำหน้าด้วยคำว่า 'Bearer '
@@ -40,11 +32,8 @@ export const AuthMiddleware = (req: AuthenticatedRequest, res: Response, next: N
     // ถอดรหัส Token ด้วย Secret Key ของเรา
     const decoded = jwt.verify(token, jwtConfig.secret);
     
-<<<<<<< HEAD
     // ฝังข้อมูลที่ถอดรหัสได้ (เช่น userId, role) ลงไปใน Request
-=======
     //* ฝังข้อมูลที่ถอดรหัสได้ (เปลี่ยนมาใช้ res.locals แทน req.user เพื่อแก้ปัญหา TypeScript อย่างเด็ดขาด)
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
     req.user = decoded;
     
     // ให้ผ่านไปทำงานที่ Controller หรือ Middleware ถัดไป
@@ -53,11 +42,9 @@ export const AuthMiddleware = (req: AuthenticatedRequest, res: Response, next: N
     //! สิ่งที่สำคัญมาก (ถ้า Token หมดอายุ หรือถูกปลอมแปลง จะเข้าเงื่อนไขนี้)
      res.status(401).json({ 
       success: false, 
-<<<<<<< HEAD
+
       message: 'Unauthorized: Token หมดอายุหรือไม่ถูกต้อง' 
-=======
-      message: 'Unauthorized:' 
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
+
     });
     return;
   }

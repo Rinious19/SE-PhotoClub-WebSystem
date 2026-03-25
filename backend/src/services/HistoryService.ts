@@ -49,4 +49,27 @@ export class HistoryService {
       targetType: options.type,
     });
   }
+
+  // ... โค้ดส่วนบนของคุณเหมือนเดิม ...
+
+  //@ ดึง history (เปลี่ยนชื่อหรือเพิ่มชื่อให้ตรงกับที่ Route เรียก)
+  async getAll(options: {
+    page?:   number;
+    limit?:  number;
+    action?: HistoryAction;
+    type?:   HistoryTargetType;
+  } = {}) {
+    return historyRepository.findAll({
+      page:       options.page,
+      limit:      options.limit,
+      action:     options.action,
+      targetType: options.type,
+    });
+  }
 }
+
+// 🛑 เพิ่มบรรทัดนี้เพื่อให้ไฟล์อื่น import ไปใช้ได้เลยโดยไม่ต้อง new ใหม่เอง
+export const historyService = new HistoryService();
+
+
+
