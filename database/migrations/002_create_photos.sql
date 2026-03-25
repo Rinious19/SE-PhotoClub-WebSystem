@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 USE photoclub_db;
 
 --? Table: photos
@@ -42,4 +43,14 @@ CREATE TABLE IF NOT EXISTS photo_audit_logs (
     INDEX idx_photo_id (photo_id),
     INDEX idx_user_id  (user_id),
     INDEX idx_action   (action)
+=======
+CREATE TABLE IF NOT EXISTS photos (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    image_url TEXT NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+>>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
 );

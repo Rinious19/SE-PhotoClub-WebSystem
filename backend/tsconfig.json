@@ -9,7 +9,12 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+<<<<<<< HEAD
     "typeRoots": ["./node_modules/@types"]
+=======
+    "typeRoots": ["./node_modules/@types",
+    "./src/types"]
+>>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "**/*.test.ts"]
