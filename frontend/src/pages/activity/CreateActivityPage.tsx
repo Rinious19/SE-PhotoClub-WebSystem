@@ -1,9 +1,3 @@
-//? Page: Create Activity Page
-//@ หน้าสร้างกิจกรรมโหวต — เฉพาะ CLUB_PRESIDENT เท่านั้น
-//  - เลือกอีเว้นท์ที่มีอยู่ → ดึงรูปภาพมาแสดง
-//  - CLUB_PRESIDENT เลือกลบรูปที่ไม่ต้องการออกก่อน submit
-//  - กำหนดวันเวลาเริ่มต้นและสิ้นสุดของกิจกรรม
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Container, Card, Form, Button, Row, Col,
@@ -114,8 +108,6 @@ export const CreateActivityPage: React.FC = () => {
   const toggleExclude = (photoId: number) => {
     setExcludedPhotoIds((prev) => {
       const next = new Set(prev);
-      //! แก้ Error: "Expected an assignment or function call and instead saw an expression"
-      //  ต้องแยกเป็น if/else แทน ternary expression statement โดยตรง
       if (next.has(photoId)) {
         next.delete(photoId);
       } else {
@@ -163,14 +155,23 @@ export const CreateActivityPage: React.FC = () => {
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token');
+      
+      // ✅ FIX: เทคนิคเติม Z เพื่อบังคับให้เซฟเวลา "ตามตาเห็น" (YYYY-MM-DDTHH:mm:ssZ)
+      // การเติม Z หลอกๆ จะทำให้เวลานี้ไม่โดนหัก Offset 7 ชม. ตอนแปลงเป็น ISO
+      const formatTimeToSubmit = (timeStr: string) => {
+        if (!timeStr) return '';
+        // timeStr จาก input จะเป็น "YYYY-MM-DDTHH:mm" เติม :00Z ต่อท้าย
+        return `${timeStr}:00Z`;
+      };
+
       const res = await ActivityService.create(
         {
           title:               title.trim(),
           description:         description.trim() || undefined,
           category:            category          || undefined,
           event_name:          eventName,
-          start_at:            new Date(startAt).toISOString(),
-          end_at:              new Date(endAt).toISOString(),
+          start_at:            formatTimeToSubmit(startAt), // ส่งรูปแบบ YYYY-MM-DDTHH:mm:ssZ
+          end_at:              formatTimeToSubmit(endAt),   // ส่งรูปแบบ YYYY-MM-DDTHH:mm:ssZ
           excluded_photo_ids:  Array.from(excludedPhotoIds),
         },
         token!
@@ -206,7 +207,7 @@ export const CreateActivityPage: React.FC = () => {
                 </Form.Label>
                 <Form.Control
                   type="text"
-                  placeholder="เช่น โหวตภาพถ่ายดาวรุ่ง SE67"
+                  placeholder="เช่น โหวตภาพสวยงามประจำปี 2025"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -222,32 +223,30 @@ export const CreateActivityPage: React.FC = () => {
                 </Form.Select>
               </Form.Group>
 
-              {/* เลือกอีเว้นท์ */}
-              <Form.Group className="mb-3 position-relative" ref={dropdownRef}>
+              {/* อีเว้นท์ (Searchable Dropdown) */}
+              <Form.Group className="mb-3" ref={dropdownRef}>
                 <Form.Label className="fw-bold">
-                  อีเว้นท์ต้นทาง <span className="text-danger">*</span>
+                  อีเว้นท์ <span className="text-danger">*</span>
                 </Form.Label>
-                <div className="input-group">
-                  <Form.Control
-                    type="text"
-                    placeholder="ค้นหาชื่ออีเว้นท์..."
-                    value={eventName}
-                    onChange={(e) => { setEventName(e.target.value); setEventDropdownOpen(true); }}
-                    onFocus={() => setEventDropdownOpen(true)}
-                  />
-                  <Button variant="outline-secondary" onClick={() => setEventDropdownOpen((o) => !o)}>
-                    {eventDropdownOpen ? '▲' : '▼'}
-                  </Button>
-                </div>
+                <Form.Control
+                  type="text"
+                  placeholder="พิมพ์เพื่อค้นหาอีเว้นท์..."
+                  value={eventName}
+                  onChange={(e) => { setEventName(e.target.value); setEventDropdownOpen(true); }}
+                  onFocus={() => setEventDropdownOpen(true)}
+                  autoComplete="off"
+                />
                 {eventDropdownOpen && filteredEvents.length > 0 && (
-                  <div
-                    className="position-absolute w-100 shadow-lg border rounded bg-white mt-1"
-                    style={{ zIndex: 1050, maxHeight: 200, overflowY: 'auto' }}
-                  >
+                  <div style={{
+                    position: 'absolute', zIndex: 1000,
+                    background: '#fff', border: '1px solid #dee2e6',
+                    borderRadius: 8, marginTop: 2, maxHeight: 200, overflowY: 'auto',
+                    boxShadow: '0 4px 12px rgba(0,0,0,.12)', width: '100%',
+                  }}>
                     {filteredEvents.map((ev) => (
                       <div
                         key={ev.id}
-                        className="px-3 py-2 border-bottom"
+                        className="px-3 py-2"
                         style={{ cursor: 'pointer' }}
                         onMouseOver={(e) => (e.currentTarget.style.background = '#f0f4ff')}
                         onMouseOut={(e)  => (e.currentTarget.style.background = '#fff')}

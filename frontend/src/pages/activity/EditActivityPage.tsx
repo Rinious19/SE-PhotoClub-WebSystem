@@ -1,8 +1,3 @@
-//? Page: Edit Activity Page
-//@ หน้าแก้ไขกิจกรรมโหวต — เฉพาะ ADMIN และ CLUB_PRESIDENT
-//  - ADMIN → ปรับเวลา/ชื่อ/ประเภทได้
-//  - ไม่สามารถเปลี่ยนอีเว้นท์ต้นทางได้ (ต้องสร้างใหม่แทน)
-
 import React, { useState, useEffect } from 'react';
 import {
   Container, Card, Form, Button, Row, Col,
@@ -24,15 +19,14 @@ interface ActivityForEdit {
   status:       'UPCOMING' | 'ACTIVE' | 'ENDED';
 }
 
-//@ แปลง ISO string → ค่าที่ input[type="datetime-local"] รับได้ (YYYY-MM-DDTHH:mm)
+// ✅ FIX: ปรับปรุงฟังก์ชันแปลง ISO → ค่าที่ input datetime-local รับได้ (YYYY-MM-DDTHH:mm)
+// โดยการหักวินาทีและ 'Z' ออกตรงๆ เพื่อให้ Input แสดงเวลา "ตามที่บันทึกไว้" โดยไม่โดน Timezone Browser กวน
 const toDatetimeLocal = (isoStr: string): string => {
   if (!isoStr) return '';
   try {
-    const d = new Date(isoStr);
-    // ใช้ local timezone offset เพื่อให้ค่าที่แสดงตรงกับเวลาไทย
-    const offset = d.getTimezoneOffset() * 60 * 1000;
-    const local  = new Date(d.getTime() - offset);
-    return local.toISOString().slice(0, 16);
+    // isoStr จาก DB จะเป็น "YYYY-MM-DDTHH:mm:ss.000Z"
+    // เราตัดเอาแค่ "YYYY-MM-DDTHH:mm" เพื่อส่งให้ input
+    return isoStr.substring(0, 16);
   } catch {
     return '';
   }
@@ -58,7 +52,6 @@ export const EditActivityPage: React.FC = () => {
   const [endAt,       setEndAt]       = useState('');
 
   //@ originalData เก็บข้อมูลที่โหลดมาจาก API เพื่อตรวจว่ามีการเปลี่ยนแปลงหรือไม่
-  //  ใช้ ActivityForEdit แทน any
   const [originalData, setOriginalData] = useState<ActivityForEdit | null>(null);
 
   const [loading,    setLoading]    = useState(true);
@@ -75,13 +68,12 @@ export const EditActivityPage: React.FC = () => {
       try {
         setLoading(true);
         const res = await ActivityService.getById(Number(id));
-        // ใช้ type ชัดเจนแทน any
         const a: ActivityForEdit = res.data;
         setOriginalData(a);
         setTitle(a.title             || '');
         setDescription(a.description || '');
         setCategory(a.category       || '');
-        //! แปลง ISO → datetime-local เพื่อให้แสดงเวลาไทยที่ถูกต้อง
+        //! ✅ FIX: ใช้ฟังก์ชันที่ตัด 'Z' ออก เพื่อแสดงเวลาไทยตรงๆ
         setStartAt(toDatetimeLocal(a.start_at));
         setEndAt(toDatetimeLocal(a.end_at));
       } catch (err: unknown) {
@@ -126,15 +118,23 @@ export const EditActivityPage: React.FC = () => {
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token');
+      
+      // ✅ FIX: เทคนิคเติม Z ตอนส่งบันทึก เพื่อบังคับเวลา "ตามตาเห็น" (YYYY-MM-DDTHH:mm:ssZ)
+      const formatTimeToSubmit = (timeStr: string) => {
+        if (!timeStr) return '';
+        // เติม :00Z ต่อท้าย หลอกระบบว่าเป็น UTC เพื่อไม่ให้โดนหัก 7 ชม.
+        return `${timeStr}:00Z`;
+      };
+
       await ActivityService.update(
         Number(id),
         {
           title:       title.trim(),
           description: description.trim() || undefined,
           category:    category           || undefined,
-          //! แปลง datetime-local string → ISO string ก่อนส่ง Backend
-          start_at:    new Date(startAt).toISOString(),
-          end_at:      new Date(endAt).toISOString(),
+          //! ✅ FIX: ส่งรูปแบบ YYYY-MM-DDTHH:mm:ssZ
+          start_at:    formatTimeToSubmit(startAt),
+          end_at:      formatTimeToSubmit(endAt),
         },
         token!
       );
