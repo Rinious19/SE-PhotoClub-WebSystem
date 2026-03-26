@@ -1,63 +1,61 @@
-//? Controller: Activity
-//@ รับ Request จาก Frontend ส่งให้ ActivityService แล้วตอบ Response กลับ
+//? Controller: ActivityController
+//@ รับ Request → ActivityService → Response
+//  วางไฟล์นี้ที่: backend/src/controllers/ActivityController.ts
 
-import { Request, Response }       from 'express';
-import { ActivityService }         from '../services/ActivityService';
-import { AuthenticatedRequest }    from '../middlewares/AuthMiddleware';
-import { ActivityStatus }          from '../enums/ActivityStatus';
-import { sendError }               from '../utils/errorHandler';
+import { Request, Response }    from 'express';
+import { ActivityService }      from '../services/ActivityService';
+import { AuthenticatedRequest } from '../middlewares/AuthMiddleware';
+import { ActivityStatus }       from '../enums/ActivityStatus';
+import { sendError }            from '../utils/errorHandler';
 
 const activityService = new ActivityService();
 
 export class ActivityController {
 
-  //@ GET /api/activities — ดึงกิจกรรมทั้งหมด (ทุกคนดูได้ รวม Guest)
+  //@ GET /api/activities — ทุกคนดูได้ รวม Guest
   static async getAll(req: Request, res: Response): Promise<void> {
     try {
-      const { keyword, category, status, dateFrom, dateTo } = req.query;
+      const { keyword, category, status, dateFrom, dateTo } =
+        req.query as Record<string, string | undefined>;
 
-      // ตรวจสอบว่า status ที่ส่งมาถูกต้องตาม enum
-      const validStatus = Object.values(ActivityStatus).includes(status as ActivityStatus)
+      const validStatus = (Object.values(ActivityStatus) as string[]).includes(status ?? '')
         ? (status as ActivityStatus)
         : undefined;
 
-      const activities = await activityService.getAll({
-        keyword:  keyword  as string | undefined,
-        category: category as string | undefined,
+      const data = await activityService.getAll({
+        keyword,
+        category,
         status:   validStatus,
-        dateFrom: dateFrom as string | undefined,
-        dateTo:   dateTo   as string | undefined,
+        dateFrom,
+        dateTo,
       });
-
-      res.status(200).json({ success: true, data: activities });
-    } catch (error: any) {
-      sendError(res, error, 'โหลดกิจกรรมไม่สำเร็จ');
+      res.status(200).json({ success: true, data });
+    } catch (e) {
+      sendError(res, e, 'โหลดกิจกรรมไม่สำเร็จ');
     }
   }
 
-  //@ GET /api/activities/:id — ดึงกิจกรรมเดี่ยว พร้อมรูปและผลโหวต
+  //@ GET /api/activities/:id
   static async getById(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ success: false, message: 'ID กิจกรรมไม่ถูกต้อง' });
+        res.status(400).json({ success: false, message: 'ID ไม่ถูกต้อง' });
         return;
       }
-      const activity = await activityService.getById(id);
-      res.status(200).json({ success: true, data: activity });
-    } catch (error: any) {
-      if (error.message === 'ไม่พบกิจกรรมนี้') {
-        res.status(404).json({ success: false, message: error.message });
-      } else {
-        sendError(res, error, 'โหลดกิจกรรมไม่สำเร็จ');
-      }
+      const data = await activityService.getById(id);
+      res.status(200).json({ success: true, data });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'โหลดกิจกรรมไม่สำเร็จ';
+      res.status(msg === 'ไม่พบกิจกรรมนี้' ? 404 : 500)
+        .json({ success: false, message: msg });
     }
   }
 
-  //@ POST /api/activities — สร้างกิจกรรมใหม่ (CLUB_PRESIDENT เท่านั้น)
+  //@ POST /api/activities — CLUB_PRESIDENT เท่านั้น
   static async create(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId || req.user?.id;
+      const userId = req.user?.userId ?? req.user?.id;
       if (!userId) {
         res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' });
         return;
@@ -66,29 +64,31 @@ export class ActivityController {
       res.status(201).json({
         success: true,
         message: 'สร้างกิจกรรมสำเร็จ',
-        data: { id: activityId },
+        data:    { id: activityId },
       });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'สร้างกิจกรรมไม่สำเร็จ';
+      res.status(400).json({ success: false, message: msg });
     }
   }
 
-  //@ PUT /api/activities/:id — อัปเดตกิจกรรม (ADMIN / CLUB_PRESIDENT)
+  //@ PUT /api/activities/:id — ADMIN / CLUB_PRESIDENT
   static async update(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id as string);
       if (isNaN(id)) {
-        res.status(400).json({ success: false, message: 'ID กิจกรรมไม่ถูกต้อง' });
+        res.status(400).json({ success: false, message: 'ID ไม่ถูกต้อง' });
         return;
       }
       await activityService.update(id, req.body);
       res.status(200).json({ success: true, message: 'อัปเดตกิจกรรมสำเร็จ' });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'อัปเดตกิจกรรมไม่สำเร็จ';
+      res.status(400).json({ success: false, message: msg });
     }
   }
 
-  //@ DELETE /api/activities/:activityId/photos/:photoId — ลบรูปออกจากกิจกรรม
+  //@ DELETE /api/activities/:activityId/photos/:photoId
   static async removePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const activityId      = parseInt(req.params.activityId as string);
@@ -99,8 +99,9 @@ export class ActivityController {
       }
       await activityService.removePhoto(activityId, activityPhotoId);
       res.status(200).json({ success: true, message: 'ลบรูปออกจากกิจกรรมสำเร็จ' });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'ลบรูปไม่สำเร็จ';
+      res.status(400).json({ success: false, message: msg });
     }
   }
 }
