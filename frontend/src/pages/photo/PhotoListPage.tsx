@@ -57,7 +57,7 @@ const getImageUrl = (imageUrl: string | null | undefined): string => {
   return '';
 };
 
-// FolderCard component
+// FolderCard component - ปรับปรุงใหม่ให้เป็นแบบ Stack
 const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
   folder,
   onClick,
@@ -69,238 +69,147 @@ const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
       onClick={onClick}
       style={{
         cursor: "pointer",
-        transition: "transform .18s, box-shadow .18s",
+        transition: "transform .18s ease-in-out",
+        height: "100%",
+        position: "relative",
+        paddingTop: "10px", // เผื่อพื้นที่ให้รูปที่เอียงขึ้นไป
       }}
-      className="h-100"
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.transform =
-          "translateY(-4px)";
-        (e.currentTarget as HTMLDivElement).style.boxShadow =
-          "0 12px 28px rgba(0,0,0,.13)";
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-6px)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLDivElement).style.transform = "";
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "";
       }}
     >
+      {/* 📸 Stack ของรูปภาพ */}
       <div
         style={{
-          borderRadius: 14,
-          background: "#fff",
-          boxShadow: "0 2px 12px rgba(0,0,0,.08)",
-          border: "1px solid #f0f0f0",
-          display: "flex",
-          flexDirection: "column",
+          position: "relative",
+          height: 180, // เพิ่มความสูงเล็กน้อยให้ดูเด่น
+          width: "100%",
+          marginBottom: 12,
         }}
       >
-        {/* Preview grid */}
-        <div
-          style={{
-            position: "relative",
-            height: 160,
-            background: "#f8f9fa",
-            flexShrink: 0,
-            borderRadius: "14px 14px 0 0",
-            overflow: "hidden",
-            display: "grid",
-            gridTemplateColumns:
-              previews.length >= 3
-                ? "2fr 1fr"
-                : previews.length === 2
-                  ? "1fr 1fr"
-                  : "1fr",
-            gridTemplateRows: previews.length >= 3 ? "1fr 1fr" : "1fr",
-            gap: 2,
-            padding: 2,
-          }}
-        >
-          {previews.length === 0 && (
-            <div
-              style={{
-                gridColumn: "1/-1",
-                gridRow: "1/-1",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 36,
-              }}
-            >
-              📁
-            </div>
-          )}
-          {previews.length === 1 && (
-            <img
-              src={getImageUrl(
-                previews[0].thumbnail_url || previews[0].image_url,
-              )}
-              alt=""
-              style={{
-                gridColumn: "1/-1",
-                gridRow: "1/-1",
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                borderRadius: 8,
-              }}
-            />
-          )}
-          {previews.length === 2 && (
-            <>
-              <img
-                src={getImageUrl(
-                  previews[0].thumbnail_url || previews[0].image_url,
-                )}
-                alt=""
-                style={{
-                  gridColumn: "1",
-                  gridRow: "1 / -1",
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-              <img
-                src={getImageUrl(
-                  previews[1].thumbnail_url || previews[1].image_url,
-                )}
-                alt=""
-                style={{
-                  gridColumn: "2",
-                  gridRow: "1 / -1",
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-            </>
-          )}
-          {previews.length >= 3 && (
-            <>
-              <img
-                src={getImageUrl(
-                  previews[0].thumbnail_url || previews[0].image_url,
-                )}
-                alt=""
-                style={{
-                  gridColumn: "1",
-                  gridRow: "1/-1",
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  borderRadius: "8px 0 0 8px",
-                }}
-              />
-              <img
-                src={getImageUrl(
-                  previews[1].thumbnail_url || previews[1].image_url,
-                )}
-                alt=""
-                style={{
-                  gridColumn: "2",
-                  gridRow: "1",
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  borderRadius: "0 8px 0 0",
-                }}
-              />
-              <img
-                src={getImageUrl(
-                  previews[2].thumbnail_url || previews[2].image_url,
-                )}
-                alt=""
-                style={{
-                  gridColumn: "2",
-                  gridRow: "2",
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  borderRadius: "0 0 8px 0",
-                }}
-              />
-            </>
-          )}
-          {/* Count badge */}
+        {/* รูปที่ 3 (อยู่ล่างสุด - เอียงซ้าย) */}
+        {previews.length >= 3 && (
+          <img
+            src={getImageUrl(previews[2].thumbnail_url || previews[2].image_url)}
+            alt=""
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: 14,
+              transform: "rotate(-6deg) translateY(4px) translateX(-4px)",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              opacity: 0.6,
+              border: "2px solid #fff",
+            }}
+          />
+        )}
+
+        {/* รูปที่ 2 (ชั้นกลาง - เอียงขวา) */}
+        {previews.length >= 2 && (
+          <img
+            src={getImageUrl(previews[1].thumbnail_url || previews[1].image_url)}
+            alt=""
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: 14,
+              transform: "rotate(4deg) translateY(2px) translateX(2px)",
+              boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
+              opacity: 0.8,
+              border: "2px solid #fff",
+              zIndex: 2,
+            }}
+          />
+        )}
+
+        {/* รูปที่ 1 (ชั้นบนสุด - หน้าตรง) */}
+        {previews.length >= 1 ? (
+          <img
+            src={getImageUrl(previews[0].thumbnail_url || previews[0].image_url)}
+            alt=""
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: 14,
+              boxShadow: "0 8px 20px rgba(0,0,0,0.2)",
+              zIndex: 3,
+              border: "2px solid #fff",
+            }}
+          />
+        ) : (
+          /* กรณีไม่มีรูปเลย */
           <div
             style={{
               position: "absolute",
-              bottom: 8,
-              right: 8,
-              background: "rgba(0,0,0,.6)",
-              color: "#fff",
-              borderRadius: 20,
-              padding: "2px 10px",
-              fontSize: 11,
-              fontWeight: 600,
+              inset: 0,
+              background: "#f1f3f5",
+              borderRadius: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 40,
+              border: "2px dashed #dee2e6",
             }}
           >
-            {folder.photo_count} รูป
+            📁
           </div>
-        </div>
+        )}
 
-        {/* Info */}
-        <div style={{ padding: "10px 14px 12px" }}>
-          <div
-            style={{
-              fontWeight: 700,
-              fontSize: 14,
-              color: "#212529",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            📂 {folder.event_name}
-          </div>
-          {folder.event_date && (
-            <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>
-              📅{" "}
-              {new Date(folder.event_date + "T12:00:00").toLocaleDateString(
-                "th-TH",
-                { year: "numeric", month: "long", day: "numeric" },
-              )}
-            </div>
-          )}
-          {(folder.faculty || folder.academic_year) && (
-            <div
-              style={{
-                marginTop: 5,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 4,
-              }}
-            >
-              {folder.faculty && (
-                <span
-                  style={{
-                    fontSize: 11,
-                    background: "#e8f4fd",
-                    color: "#1a6fa8",
-                    borderRadius: 20,
-                    padding: "2px 8px",
-                    fontWeight: 500,
-                  }}
-                >
-                  🏛 {folder.faculty}
-                </span>
-              )}
-              {folder.academic_year && (
-                <span
-                  style={{
-                    fontSize: 11,
-                    background: "#f0fdf4",
-                    color: "#166534",
-                    borderRadius: 20,
-                    padding: "2px 8px",
-                    fontWeight: 500,
-                  }}
-                >
-                  📚 ปี {folder.academic_year}
-                </span>
-              )}
-            </div>
-          )}
+        {/* Badge แสดงจำนวนรูป (วางทับบนรูปหน้าสุด) */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 12,
+            right: 12,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(4px)",
+            color: "#fff",
+            borderRadius: 20,
+            padding: "3px 12px",
+            fontSize: 11,
+            fontWeight: 700,
+            zIndex: 10,
+          }}
+        >
+          {folder.photo_count} รูป
         </div>
+      </div>
+
+      {/* 🏷️ ข้อมูลอีเว้นท์ */}
+      <div style={{ textAlign: "center", padding: "0 4px" }}>
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: 14,
+            color: "#2d3436",
+            lineHeight: 1.4,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {folder.event_name}
+        </div>
+        
+        {folder.faculty && (
+          <div style={{ fontSize: 11, color: "#0984e3", marginTop: 4, fontWeight: 500 }}>
+             {folder.faculty}
+          </div>
+        )}
       </div>
     </div>
   );

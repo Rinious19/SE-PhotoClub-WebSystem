@@ -169,30 +169,31 @@ export class PhotoController {
   }
 
   static async getGroupedByEvent(req: Request, res: Response): Promise<void> {
-   try {
-     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-     const offset = (page - 1) * FOLDER_PAGE_SIZE;
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const offset = (page - 1) * FOLDER_PAGE_SIZE;
 
-     // ✅ เปลี่ยนมาใช้ findGroupedByEvent แทน findAll
-     const [groups, total] = await Promise.all([
-       photoRepo.findGroupedByEvent(FOLDER_PAGE_SIZE, offset),
-       photoRepo.countGroups()
-     ]);
+      // เรียกใช้ Repo ที่เราปรับปรุง SQL และการ Map Previews มาแล้ว
+      const [groups, total] = await Promise.all([
+        photoRepo.findGroupedByEvent(FOLDER_PAGE_SIZE, offset),
+        photoRepo.countGroups()
+      ]);
 
-     res.status(200).json({
-       success: true,
-       data: groups,
-       pagination: {
-         page,
-         pageSize: FOLDER_PAGE_SIZE,
-         total,
-         totalPages: Math.ceil(total / FOLDER_PAGE_SIZE),
-         hasMore: offset + groups.length < total
-       }
-     });
-   } catch (error: any) {
-     sendError(res, error, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ');
-   }
+      // ส่งข้อมูลออกไปได้เลย เพราะ Repository เตรียมฟิลด์ 'previews' มาให้แล้ว
+      res.status(200).json({
+        success: true,
+        data: groups, 
+        pagination: {
+          page,
+          pageSize: FOLDER_PAGE_SIZE,
+          total,
+          totalPages: Math.ceil(total / FOLDER_PAGE_SIZE),
+          hasMore: offset + groups.length < total
+        }
+      });
+    } catch (error: any) {
+      sendError(res, error, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ');
+    }
   }
 
   static async getPhotosByEvent(req: Request, res: Response): Promise<void> {

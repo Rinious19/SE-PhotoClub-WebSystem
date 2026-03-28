@@ -99,33 +99,58 @@ export class PhotoRepository {
     const [rows]: any = await pool.query("SELECT DISTINCT academic_year FROM photos WHERE event_name = ? AND academic_year IS NOT NULL", [eventName]);
     return rows.map((r: any) => r.academic_year);
   }
+
   async findGroupedByEvent(limit: number, offset: number): Promise<any[]> {
+    // 1. ปรับ SQL ให้ดึงทั้ง thumbnail_url และ image_url (เผื่อกรณีไม่มี thumbnail)
+    // และใช้ GROUP_CONCAT เพื่อรวมข้อมูลเป็นก้อนเดียวกัน
     const sql = `
       SELECT 
-        event_name, 
+        event_name,
+        faculty,
+        academic_year,
+        MAX(event_date) as event_date,
         COUNT(*) as photo_count,
         MAX(created_at) as latest_upload,
-        -- ใช้ Subquery ดึง URL 5 รูปล่าสุดมาต่อกันเป็น String โดยใช้เครื่องหมาย , คั่น
-        (SELECT GROUP_CONCAT(thumbnail_url ORDER BY created_at DESC) 
-         FROM (
-           SELECT thumbnail_url, event_name, created_at 
-           FROM photos 
-           ORDER BY created_at DESC 
-         ) AS sub 
-         WHERE sub.event_name = photos.event_name 
-         LIMIT 5) as preview_urls
+        (
+          SELECT GROUP_CONCAT(CONCAT(id, ':', IFNULL(thumbnail_url, ''), ':', image_url))
+          FROM (
+            SELECT id, thumbnail_url, image_url, event_name, faculty, academic_year, created_at
+            FROM photos
+            ORDER BY created_at DESC
+          ) AS sub
+          WHERE sub.event_name = photos.event_name 
+            AND (sub.faculty = photos.faculty OR (sub.faculty IS NULL AND photos.faculty IS NULL))
+            AND (sub.academic_year = photos.academic_year OR (sub.academic_year IS NULL AND photos.academic_year IS NULL))
+          LIMIT 3
+        ) as preview_raw
       FROM photos 
-      GROUP BY event_name 
+      GROUP BY event_name, faculty, academic_year
       ORDER BY latest_upload DESC
       LIMIT ? OFFSET ?`;
-      
-    const [rows] = await pool.query<RowDataPacket[]>(sql, [limit, offset]);
     
-    // แปลง String ของ URL ให้กลายเป็น Array เพื่อให้ Frontend วน Loop ง่ายๆ
-    return rows.map(row => ({
-      ...row,
-      preview_urls: row.preview_urls ? row.preview_urls.split(',') : []
-    }));
+    const [rows] = await pool.query<RowDataPacket[]>(sql, [limit, offset]);
+  
+    // 2. แปลงข้อมูล preview_raw จาก string "id:thumb:img,id:thumb:img" 
+    // ให้กลายเป็น Array ของ Object ตามที่ FolderItem ใน Frontend ต้องการ
+    return rows.map(row => {
+      const previews = row.preview_raw ? row.preview_raw.split(',').map((item: string) => {
+        const [id, thumb, img] = item.split(':');
+        return {
+          id: parseInt(id),
+          thumbnail_url: thumb || null,
+          image_url: img
+        };
+      }) : [];
+
+      return {
+        event_name: row.event_name,
+        event_date: row.event_date,
+        photo_count: row.photo_count,
+        faculty: row.faculty,
+        academic_year: row.academic_year,
+        previews: previews // ✅ เปลี่ยนชื่อจาก preview_urls เป็น previews ให้ตรงกับ Frontend
+      };
+    });
   }
   
   // 2. นับจำนวนกลุ่มกิจกรรมทั้งหมด (เพื่อทำ Pagination)
