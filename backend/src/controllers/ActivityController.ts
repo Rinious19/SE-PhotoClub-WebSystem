@@ -1,41 +1,21 @@
-//? Controller: ActivityController
-//@ รับ Request → ActivityService → Response
-//  วางไฟล์นี้ที่: backend/src/controllers/ActivityController.ts
-
 import { Request, Response }    from 'express';
 import { ActivityService }      from '../services/ActivityService';
 import { AuthenticatedRequest } from '../middlewares/AuthMiddleware';
-import { ActivityStatus }       from '../enums/ActivityStatus';
-import { sendError }            from '../utils/errorHandler';
 
 const activityService = new ActivityService();
 
 export class ActivityController {
-
-  //@ GET /api/activities — ทุกคนดูได้ รวม Guest
+  //@ GET /api/activities — ทุกคนดูได้
   static async getAll(req: Request, res: Response): Promise<void> {
     try {
-      const { keyword, category, status, dateFrom, dateTo } =
-        req.query as Record<string, string | undefined>;
-
-      const validStatus = (Object.values(ActivityStatus) as string[]).includes(status ?? '')
-        ? (status as ActivityStatus)
-        : undefined;
-
-      const data = await activityService.getAll({
-        keyword,
-        category,
-        status:   validStatus,
-        dateFrom,
-        dateTo,
-      });
+      const data = await activityService.getAll(req.query);
       res.status(200).json({ success: true, data });
-    } catch (e) {
-      sendError(res, e, 'โหลดกิจกรรมไม่สำเร็จ');
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
     }
   }
 
-  //@ GET /api/activities/:id
+  //@ GET /api/activities/:id — เพิ่มฟังก์ชันนี้ที่หายไปครับ
   static async getById(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id as string);
@@ -45,7 +25,7 @@ export class ActivityController {
       }
       const data = await activityService.getById(id);
       res.status(200).json({ success: true, data });
-    } catch (e) {
+    } catch (e: any) {
       const msg = e instanceof Error ? e.message : 'โหลดกิจกรรมไม่สำเร็จ';
       res.status(msg === 'ไม่พบกิจกรรมนี้' ? 404 : 500)
         .json({ success: false, message: msg });
@@ -55,53 +35,38 @@ export class ActivityController {
   //@ POST /api/activities — CLUB_PRESIDENT เท่านั้น
   static async create(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId ?? req.user?.id;
+      const userId = req.user?.id || req.user?.userId;
       if (!userId) {
         res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' });
         return;
       }
       const activityId = await activityService.create(req.body, userId);
-      res.status(201).json({
-        success: true,
-        message: 'สร้างกิจกรรมสำเร็จ',
-        data:    { id: activityId },
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'สร้างกิจกรรมไม่สำเร็จ';
-      res.status(400).json({ success: false, message: msg });
+      res.status(201).json({ success: true, data: { id: activityId } });
+    } catch (e: any) {
+      res.status(400).json({ success: false, message: e.message });
     }
   }
 
-  //@ PUT /api/activities/:id — ADMIN / CLUB_PRESIDENT
+  //@ PUT /api/activities/:id
   static async update(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id as string);
-      if (isNaN(id)) {
-        res.status(400).json({ success: false, message: 'ID ไม่ถูกต้อง' });
-        return;
-      }
       await activityService.update(id, req.body);
       res.status(200).json({ success: true, message: 'อัปเดตกิจกรรมสำเร็จ' });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'อัปเดตกิจกรรมไม่สำเร็จ';
-      res.status(400).json({ success: false, message: msg });
+    } catch (e: any) {
+      res.status(400).json({ success: false, message: e.message });
     }
   }
 
   //@ DELETE /api/activities/:activityId/photos/:photoId
   static async removePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const activityId      = parseInt(req.params.activityId as string);
+      const activityId = parseInt(req.params.activityId as string);
       const activityPhotoId = parseInt(req.params.photoId as string);
-      if (isNaN(activityId) || isNaN(activityPhotoId)) {
-        res.status(400).json({ success: false, message: 'ID ไม่ถูกต้อง' });
-        return;
-      }
       await activityService.removePhoto(activityId, activityPhotoId);
-      res.status(200).json({ success: true, message: 'ลบรูปออกจากกิจกรรมสำเร็จ' });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'ลบรูปไม่สำเร็จ';
-      res.status(400).json({ success: false, message: msg });
+      res.status(200).json({ success: true, message: 'ลบรูปสำเร็จ' });
+    } catch (e: any) {
+      res.status(400).json({ success: false, message: e.message });
     }
   }
 }

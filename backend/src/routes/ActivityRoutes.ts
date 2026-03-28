@@ -1,7 +1,4 @@
-//? Routes: Activity
-//@ กำหนด Endpoint สำหรับกิจกรรมโหวต
-//  - GET  ทุกคนดูได้ (Guest / User / Admin / President)
-//  - POST / PUT / DELETE ต้องมี Role ที่เหมาะสม
+//@ ไฟล์: backend/src/routes/ActivityRoutes.ts
 
 import { Router, RequestHandler } from 'express';
 import { ActivityController }     from '../controllers/ActivityController';
@@ -10,13 +7,20 @@ import { RoleMiddleware }         from '../middlewares/RoleMiddleware';
 
 const router = Router();
 
-// ดึงกิจกรรมทั้งหมด (ทุกคน รวม Guest)
+// [1] ดึงกิจกรรมทั้งหมด (Guest ดูได้)
+// แก้ปัญหา 404 หน้าแรก
 router.get('/', ActivityController.getAll as RequestHandler);
 
-// ดึงกิจกรรมเดี่ยว (ทุกคน รวม Guest)
+// ทดสอบแบบง่ายที่สุด (ถ้าเรียกอันนี้ผ่าน แสดงว่า Path ใน app.ts ถูกต้อง)
+router.get('/debug', (req, res) => {
+  res.json({ message: "Activity Route is connected!" });
+});
+
+// [2] ดึงกิจกรรมเดี่ยว (Guest ดูได้)
 router.get('/:id', ActivityController.getById as RequestHandler);
 
-// สร้างกิจกรรมใหม่ (CLUB_PRESIDENT เท่านั้น)
+// [3] สร้างกิจกรรมใหม่ (CLUB_PRESIDENT เท่านั้น)
+// แก้ปัญหา 404 ตอนกดสร้างกิจกรรม
 router.post(
   '/',
   AuthMiddleware as RequestHandler,
@@ -24,7 +28,7 @@ router.post(
   ActivityController.create as RequestHandler
 );
 
-// อัปเดตกิจกรรม เช่น ปรับเวลา (ADMIN / CLUB_PRESIDENT)
+// [4] อัปเดตกิจกรรม (ADMIN / CLUB_PRESIDENT)
 router.put(
   '/:id',
   AuthMiddleware as RequestHandler,
@@ -32,7 +36,7 @@ router.put(
   ActivityController.update as RequestHandler
 );
 
-// ลบรูปออกจากกิจกรรม (ADMIN / CLUB_PRESIDENT)
+// [5] ลบรูปออกจากกิจกรรม
 router.delete(
   '/:activityId/photos/:photoId',
   AuthMiddleware as RequestHandler,

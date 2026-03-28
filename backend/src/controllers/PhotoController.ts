@@ -169,33 +169,54 @@ export class PhotoController {
   }
 
   static async getGroupedByEvent(req: Request, res: Response): Promise<void> {
-    try {
-      const page   = Math.max(1, parseInt(req.query.page as string) || 1);
-      const offset = (page - 1) * FOLDER_PAGE_SIZE;
-      const [groups, total] = await Promise.all([
-        photoRepo.findGroupedByEvent(FOLDER_PAGE_SIZE, offset),
-        photoRepo.countGroups(),
-      ]);
-      res.status(200).json({ success: true, data: groups, pagination: { page, pageSize: FOLDER_PAGE_SIZE, total, totalPages: Math.ceil(total / FOLDER_PAGE_SIZE), hasMore: offset + groups.length < total } });
-    } catch (error: any) { sendError(res, error, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ'); }
+   try {
+     const page = Math.max(1, parseInt(req.query.page as string) || 1);
+     const offset = (page - 1) * FOLDER_PAGE_SIZE;
+
+     // ✅ เปลี่ยนมาใช้ findGroupedByEvent แทน findAll
+     const [groups, total] = await Promise.all([
+       photoRepo.findGroupedByEvent(FOLDER_PAGE_SIZE, offset),
+       photoRepo.countGroups()
+     ]);
+
+     res.status(200).json({
+       success: true,
+       data: groups,
+       pagination: {
+         page,
+         pageSize: FOLDER_PAGE_SIZE,
+         total,
+         totalPages: Math.ceil(total / FOLDER_PAGE_SIZE),
+         hasMore: offset + groups.length < total
+       }
+     });
+   } catch (error: any) {
+     sendError(res, error, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ');
+   }
   }
 
   static async getPhotosByEvent(req: Request, res: Response): Promise<void> {
     try {
-      const eventName    = decodeURIComponent(req.params.eventName as string);
-      const page         = Math.max(1, parseInt(req.query.page as string) || 1);
-      const hasFaculty   = req.query.faculty       !== undefined;
-      const hasAcademic  = req.query.academic_year !== undefined;
-      const faculty      = hasFaculty  ? (req.query.faculty       as string) : null;
-      const academic_year = hasAcademic ? (req.query.academic_year as string) : null;
-      const offset       = (page - 1) * PHOTO_PAGE_SIZE;
-      const category     = (hasFaculty || hasAcademic) ? { faculty, academic_year } : null;
+      const eventName = decodeURIComponent(req.params.eventName as string);
+      const page      = Math.max(1, parseInt(req.query.page as string) || 1);
+      const offset    = (page - 1) * PHOTO_PAGE_SIZE;
+
+      // ปรับให้ส่ง category เป็น String (เช่น ชื่อคณะ) แทนที่จะส่งเป็น Object
+      const facultyCategory = req.query.faculty ? (req.query.faculty as string) : null;
+
       const [photos, total] = await Promise.all([
-        photoRepo.findByEventAndCategory(eventName, category, PHOTO_PAGE_SIZE, offset),
-        photoRepo.countByEventAndCategory(eventName, category),
+        photoRepo.findByEventAndCategory(eventName, facultyCategory, PHOTO_PAGE_SIZE, offset),
+        photoRepo.countByEventAndCategory(eventName, facultyCategory), // ตรวจสอบว่ามี method นี้ใน Repo หรือยัง
       ]);
-      res.status(200).json({ success: true, data: photos, pagination: { page, pageSize: PHOTO_PAGE_SIZE, total, totalPages: Math.ceil(total / PHOTO_PAGE_SIZE), hasMore: offset + photos.length < total } });
-    } catch (error: any) { sendError(res, error, 'โหลดรูปภาพในกิจกรรมไม่สำเร็จ'); }
+
+      res.status(200).json({ 
+        success: true, 
+        data: photos, 
+        pagination: { page, pageSize: PHOTO_PAGE_SIZE, total, totalPages: Math.ceil(total / PHOTO_PAGE_SIZE), hasMore: offset + photos.length < total } 
+      });
+    } catch (error: any) { 
+      sendError(res, error, 'โหลดรูปภาพในกิจกรรมไม่สำเร็จ'); 
+    }
   }
 
   static async getFiltersForEvent(req: Request, res: Response): Promise<void> {

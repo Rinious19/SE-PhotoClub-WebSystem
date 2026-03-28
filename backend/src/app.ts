@@ -12,27 +12,29 @@ import eventRoutes  from './routes/EventRoutes';
 import activityRoutes from './routes/ActivityRoutes';
 import voteRoutes     from './routes/VoteRoutes';
 
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.use('/api/photos',     photoRoutes);
-app.use('/uploads',        express.static(path.join(__dirname, '../uploads')));
-app.use('/api/events',     eventRoutes);
-app.use('/api/auth',       authRoutes);
+app.use('/api/photos', photoRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api/auth', authRoutes);
 //@ เพิ่ม routes ใหม่
 app.use('/api/activities', activityRoutes);
-app.use('/api/votes',      voteRoutes);
+app.use('/api/votes', voteRoutes);
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', message: 'PhotoClub API is running' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+app.get('/test-route', (req, res) => {
+  res.send('Backend is working and this route is found!');
 });
+
+app.listen(PORT, () => { console.log(`🚀 Server is running on http://localhost:${PORT}`); });
 
 export default app;
