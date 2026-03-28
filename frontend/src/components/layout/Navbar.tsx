@@ -23,7 +23,7 @@ export const AppNavbar = () => {
             
             {/* ✅ จัดการอีเว้นท์ → เฉพาะ Admin/President */}
             {isAdminOrPresident(user) && (
-              <Nav.Link as={NavLink} to="/event-management" className="text-secondary">จัดการอีเว้นท์</Nav.Link>
+              <Nav.Link as={NavLink} to="/admin" className="text-primary">จัดการระบบ</Nav.Link>
             )}
           </Nav>
 
@@ -33,22 +33,6 @@ export const AppNavbar = () => {
                 <Navbar.Text className="me-3 fw-medium text-dark">
                   สวัสดี, {user?.username}
                 </Navbar.Text>
-
-                {/* ✅ กลุ่มเมนูจัดการสำหรับ Admin/President */}
-                {isAdminOrPresident(user) && (
-                  <>
-                    <Nav.Link as={NavLink} to="/admin" className="text-primary fw-medium">
-                      จัดการระบบ
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/admin/users" className="text-primary fw-medium">
-                      จัดการสมาชิก
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/admin/history" className="text-primary fw-medium">
-                      ประวัติการใช้งาน
-                    </Nav.Link>
-                  </>
-                )}
-
                 <Nav.Link as={NavLink} to="/logout" className="text-danger fw-medium ms-2">
                   ออกจากระบบ
                 </Nav.Link>
