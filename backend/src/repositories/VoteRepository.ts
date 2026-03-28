@@ -1,7 +1,7 @@
 //? Repository: Vote
 //@ SQL สำหรับตาราง votes (schema จริงหลัง ALTER)
-//  votes.photo_id → FK activity_photos.id
-//  UNIQUE(activity_id, user_id) → 1 user = 1 โหวตต่อกิจกรรม
+//  votes.activity_photo_id → FK activity_photos.id
+//  UNIQUE(activity_photo_id, activity_id, user_id) → 1 user = 1 โหวตต่อกิจกรรม
 
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { pool } from '../config/Database';
@@ -24,7 +24,7 @@ export class VoteRepository {
   //! DB จะ throw error ถ้า user โหวตซ้ำ (UNIQUE constraint) → Service จัดการ
   async create(vote: Vote): Promise<number> {
     const [result] = await pool.query<ResultSetHeader>(
-      `INSERT INTO votes (photo_id, activity_id, user_id) VALUES (?, ?, ?)`,
+      `INSERT INTO votes (activity_photo_id, activity_id, user_id) VALUES (?, ?, ?)`,
       [vote.photo_id, vote.activity_id, vote.user_id]
     );
     return result.insertId;
@@ -44,11 +44,11 @@ export class VoteRepository {
        FROM activity_photos ap
        LEFT JOIN votes v
          ON v.activity_id = ap.activity_id
-         AND v.photo_id   = ap.id
+         AND v.activity_photo_id = ap.id
        WHERE ap.activity_id = ?
        GROUP BY ap.id
        ORDER BY vote_count DESC`,
-      [activityId]  
+      [activityId]
     );
     return rows as any[];
   }
@@ -60,7 +60,7 @@ export class VoteRepository {
   ): Promise<Array<{ activity_id: number; photo_id: number }>> {
     if (activityIds.length === 0) return [];
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT activity_id, photo_id
+      `SELECT activity_id, activity_photo_id AS photo_id
        FROM votes
        WHERE user_id = ? AND activity_id IN (?)`,
       [userId, activityIds]

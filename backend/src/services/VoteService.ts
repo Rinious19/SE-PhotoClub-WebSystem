@@ -35,6 +35,7 @@ export class VoteService {
     }
 
     // [4] ตรวจว่า activity_photo_id อยู่ในกิจกรรมนี้จริง
+    //@ dto.photo_id คือ activity_photo_id (id ใน activity_photos)
     const photoInActivity = activity.photos?.find(
       (p: any) => p.activity_photo_id === dto.photo_id
     );
@@ -45,7 +46,7 @@ export class VoteService {
     // [5] บันทึกโหวต
     await this.voteRepo.create({
       activity_id: dto.activity_id,
-      photo_id:    dto.photo_id,
+      photo_id:    dto.photo_id, // activity_photo_id ส่งไปให้ Repository
       user_id:     userId,
     });
   }

@@ -12,10 +12,9 @@ export class ActivityRepository {
       where += ' AND a.title LIKE ?';
       params.push(`%${filters.keyword}%`);
     }
-    // กรองตามสถานะ (UPCOMING, ACTIVE, ENDED)
     if (filters.status) {
       where += ' AND a.status = ?';
-      params.push(filters.status);  
+      params.push(filters.status);
     }
 
     const [rows] = await pool.query<RowDataPacket[]>(
@@ -32,6 +31,7 @@ export class ActivityRepository {
   }
 
   //@ ดึงกิจกรรมตาม ID พร้อมรูปภาพและคะแนนโหวตแยกตามรูป
+  //! แก้ไข: ใช้ v.activity_photo_id แทน v.photo_id เพื่อให้ตรงกับ schema จริง
   async findByIdWithPhotos(id: number): Promise<any | null> {
     const [actRows] = await pool.query<RowDataPacket[]>(
       "SELECT a.*, u.username AS creator_name FROM activities a LEFT JOIN users u ON u.id = a.created_by WHERE a.id = ?",
@@ -40,8 +40,10 @@ export class ActivityRepository {
     if (actRows.length === 0) return null;
 
     const [photoRows] = await pool.query<RowDataPacket[]>(
-      `SELECT ap.id AS activity_photo_id, p.id AS photo_id, p.image_url, p.title,
-        (SELECT COUNT(*) FROM votes v WHERE v.activity_id = ap.activity_id AND v.photo_id = p.id) AS vote_count
+      `SELECT ap.id AS activity_photo_id, p.id AS photo_id, p.image_url, p.thumbnail_url, p.title AS photo_title,
+        p.faculty, p.academic_year,
+        (SELECT COUNT(*) FROM votes v WHERE v.activity_id = ap.activity_id AND v.activity_photo_id = ap.id) AS vote_count,
+        ap.sort_order
       FROM activity_photos ap
       JOIN photos p ON p.id = ap.photo_id
       WHERE ap.activity_id = ?
@@ -58,13 +60,6 @@ export class ActivityRepository {
     try {
       await conn.beginTransaction();
 
-      // ตรวจสอบค่า NULL สำหรับวันที่ ถ้าไม่มีให้ใช้ NOW() หรือค่าที่เหมาะสม
-      const startAt = data.start_at || new Date();
-      const endAt = data.end_at || new Date();
-      
-      // ตรวจสอบสถานะเบื้องต้น
-      const status = data.status || 'UPCOMING';
-
       const [res] = await conn.query<ResultSetHeader>(
         `INSERT INTO activities (title, description, start_at, end_at, status, created_by) VALUES (?,?,?,?,?,?)`,
         [data.title, data.description, data.start_at, data.end_at, data.status, data.created_by]
@@ -72,13 +67,10 @@ export class ActivityRepository {
 
       const activityId = res.insertId;
 
-      // เพิ่มรูปภาพลงในกิจกรรมโหวต
       if (photoIds && photoIds.length > 0) {
-        // เตรียมข้อมูลในรูปแบบ [[activityId, photoId, sortOrder], ...]
         const values = photoIds.map((pid, idx) => [activityId, pid, idx]);
-        
         await conn.query(
-          "INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES ?", 
+          "INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES ?",
           [values]
         );
       }
@@ -87,7 +79,7 @@ export class ActivityRepository {
       return activityId;
     } catch (e) {
       await conn.rollback();
-      console.error("Create Activity Error:", e); // พิมพ์ Error ออกมาดูใน Terminal
+      console.error("Create Activity Error:", e);
       throw e;
     } finally {
       conn.release();
@@ -103,7 +95,7 @@ export class ActivityRepository {
     return result.affectedRows > 0;
   }
 
-  //@ ฟังก์ชันสำหรับลบรูปออกจากกิจกรรม (เพิ่มส่วนนี้เข้าไปครับ)
+  //@ ลบรูปออกจากกิจกรรม
   async removePhotoFromActivity(activityId: number, activityPhotoId: number): Promise<boolean> {
     const [result] = await pool.query<ResultSetHeader>(
       `DELETE FROM activity_photos WHERE activity_id = ? AND id = ?`,
@@ -111,12 +103,12 @@ export class ActivityRepository {
     );
     return result.affectedRows > 0;
   }
- 
+
   //@ อัปเดตสถานะอัตโนมัติ (UPCOMING, ACTIVE, ENDED)
   async syncStatuses(): Promise<void> {
     await pool.query(`
-      UPDATE activities 
-      SET status = CASE 
+      UPDATE activities
+      SET status = CASE
         WHEN NOW() < start_at THEN 'UPCOMING'
         WHEN NOW() > end_at THEN 'ENDED'
         ELSE 'ACTIVE'
