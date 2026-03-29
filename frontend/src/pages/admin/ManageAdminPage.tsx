@@ -134,7 +134,7 @@ export const ManageAdminPage: React.FC = () => {
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="fw-bold mb-1">จัดการผู้ใช้งาน</h2>
+          <h2 className="fw-bold mb-1">จัดการสมาชิก</h2>
           <p className="text-muted mb-0">ดู เปลี่ยน Role หรือระงับสมาชิก</p>
         </div>
         <Badge bg="primary" className="fs-6 px-3 py-2 rounded-pill">
