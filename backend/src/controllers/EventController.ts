@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
 import { EventRepository } from "../repositories/EventRepository";
 import { sendError } from "../utils/errorHandler";
-import { HistoryService } from "../services/HistoryService"; // ✅ เพิ่ม
-import type { AuthenticatedRequest } from "../middlewares/AuthMiddleware"; // ✅ เพิ่ม
+import { HistoryService } from "../services/HistoryService";
+import type { AuthenticatedRequest } from "../middlewares/AuthMiddleware";
+import { pool } from "../config/Database"; // ✅ เพิ่ม — ใช้ sync photos.event_name
 
 const eventRepo      = new EventRepository();
-const historyService = new HistoryService(); // ✅ เพิ่ม
+const historyService = new HistoryService();
 
 export class EventController {
 
@@ -19,7 +20,7 @@ export class EventController {
     }
   }
 
-  // ✅ สร้างกิจกรรมใหม่ + บันทึก Log
+  // สร้างกิจกรรมใหม่ + บันทึก Log
   static async createEvent(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { event_name, event_date } = req.body;
@@ -39,16 +40,12 @@ export class EventController {
         event_date,
       });
 
-      // ✅ บันทึก Log: สร้างอีเว้นท์
       await historyService.log({
         actorId,
         action:     'CREATE_EVENT',
         targetType: 'ACTIVITY',
         targetId:   newEvent.id ?? null,
-        detail:     {
-          event_name: event_name.trim(),
-          event_date,
-        },
+        detail:     { event_name: event_name.trim(), event_date },
       });
 
       res.status(201).json({ success: true, data: newEvent });
@@ -64,7 +61,7 @@ export class EventController {
     }
   }
 
-  // ✅ แก้ไขกิจกรรม + บันทึก Log
+  // แก้ไขกิจกรรม + sync photos.event_name + บันทึก Log
   static async updateEvent(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const id      = Number(req.params.id);
@@ -89,16 +86,19 @@ export class EventController {
         event_date,
       });
 
-      // ✅ บันทึก Log: แก้ไขอีเว้นท์
+      //! สิ่งที่สำคัญมาก — sync ชื่ออีเว้นท์ใน photos ทันทีหลัง update events
+      //* context (photos.event_name ต้องตรงกับ events.event_name เสมอ เพราะ Gallery ใช้ event_name ในการ query)
+      await pool.query(
+        `UPDATE photos SET event_name = ? WHERE event_id = ?`,
+        [event_name.trim(), id]
+      );
+
       await historyService.log({
         actorId,
         action:     'UPDATE_EVENT',
         targetType: 'ACTIVITY',
         targetId:   id,
-        detail:     {
-          event_name: event_name.trim(),
-          event_date,
-        },
+        detail:     { event_name: event_name.trim(), event_date },
       });
 
       res.status(200).json({ success: true, data: updated });
@@ -114,7 +114,7 @@ export class EventController {
     }
   }
 
-  // ✅ ลบกิจกรรม + บันทึก Log
+  // ลบกิจกรรม + บันทึก Log
   static async deleteEvent(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const id      = Number(req.params.id);
@@ -125,22 +125,19 @@ export class EventController {
         return;
       }
 
-      // ✅ ดึงชื่อ event ก่อนลบ เพื่อบันทึก Log
+      // ดึงชื่อ event ก่อนลบ เพื่อบันทึก Log
       const events = await eventRepo.findAll();
       const target = events.find((ev: any) => ev.id === id);
       const eventName = target?.event_name ?? `ID ${id}`;
 
       await eventRepo.delete(id);
 
-      // ✅ บันทึก Log: ลบอีเว้นท์
       await historyService.log({
         actorId,
         action:     'DELETE_EVENT',
         targetType: 'ACTIVITY',
         targetId:   id,
-        detail:     {
-          event_name: eventName,
-        },
+        detail:     { event_name: eventName },
       });
 
       res.status(200).json({

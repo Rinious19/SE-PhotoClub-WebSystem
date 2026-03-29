@@ -1,59 +1,101 @@
-import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import { pool } from '../config/Database';
+import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import { pool } from "../config/Database";
 
 export class PhotoRepository {
   // [1] ค้นหารูปซ้ำจาก File Hash
   async findDuplicateHash(eventName: string, fileHash: string): Promise<any> {
     const [rows]: any = await pool.query(
       "SELECT * FROM photos WHERE event_name = ? AND file_hash = ?",
-      [eventName, fileHash]
+      [eventName, fileHash],
     );
     return rows[0];
   }
 
   // [2] สร้างข้อมูลรูปภาพใหม่
   async create(data: any): Promise<any> {
-    const { title, event_date, description, image_url, thumbnail_url, faculty, academic_year, file_hash, user_id, created_by } = data;
+    const {
+      title,
+      event_date,
+      description,
+      image_url,
+      thumbnail_url,
+      faculty,
+      academic_year,
+      file_hash,
+      user_id,
+      created_by,
+      event_id,
+    } = data;
     const [result]: any = await pool.query(
-      `INSERT INTO photos (event_name, event_date, description, image_url, thumbnail_url, faculty, academic_year, file_hash, user_id, created_by) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, event_date, description, image_url, thumbnail_url, faculty, academic_year, file_hash, user_id, created_by]
+      `INSERT INTO photos (event_name, event_id, event_date, description, image_url, thumbnail_url, faculty, academic_year, file_hash, user_id, created_by) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        event_id ?? null,
+        event_date,
+        description,
+        image_url,
+        thumbnail_url,
+        faculty,
+        academic_year,
+        file_hash,
+        user_id,
+        created_by,
+      ],
     );
     return { id: result.insertId, ...data };
   }
 
   // [3] ค้นหาด้วย ID
   async findById(id: number): Promise<any> {
-    const [rows]: any = await pool.query("SELECT * FROM photos WHERE id = ?", [id]);
+    const [rows]: any = await pool.query("SELECT * FROM photos WHERE id = ?", [
+      id,
+    ]);
     return rows[0];
   }
 
   // [4] อัปเดตข้อมูลรูปภาพ
   async update(id: number, data: any): Promise<boolean> {
-    const fields = Object.keys(data).filter(key => data[key] !== undefined);
+    const fields = Object.keys(data).filter((key) => data[key] !== undefined);
     if (fields.length === 0) return false;
 
-    const sets = fields.map(field => {
+    const sets = fields
+      .map((field) => {
         // เปลี่ยนชื่อ title เป็น event_name ให้ตรงกับ Database
-        if(field === 'title') return `event_name = ?`;
+        if (field === "title") return `event_name = ?`;
         return `${field} = ?`;
-    }).join(", ");
-    
-    const values = fields.map(field => data[field]);
-    const [result]: any = await pool.query(`UPDATE photos SET ${sets} WHERE id = ?`, [...values, id]);
+      })
+      .join(", ");
+
+    const values = fields.map((field) => data[field]);
+    const [result]: any = await pool.query(
+      `UPDATE photos SET ${sets} WHERE id = ?`,
+      [...values, id],
+    );
     return result.affectedRows > 0;
   }
 
   // [5] ลบรูปถาวร
   async hardDelete(id: number): Promise<boolean> {
-    const [result]: any = await pool.query("DELETE FROM photos WHERE id = ?", [id]);
+    const [result]: any = await pool.query("DELETE FROM photos WHERE id = ?", [
+      id,
+    ]);
     return result.affectedRows > 0;
   }
 
   // [6] ดึงรูปที่ Active ทั้งหมด
   async findAllActive(): Promise<any[]> {
-    const [rows] = await pool.query("SELECT * FROM photos WHERE status = 'active' ORDER BY created_at DESC");
-    return rows as any[];
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT 
+       p.*, 
+       COALESCE(e.event_name, p.event_name) AS display_title,
+       e.event_name AS event_name_from_events
+     FROM photos p
+     LEFT JOIN events e ON p.event_id = e.id
+     WHERE p.deleted_at IS NULL 
+     ORDER BY p.created_at DESC`,
+    );
+    return rows;
   }
 
   // [7] ดึงรูปทั้งหมด
@@ -63,40 +105,62 @@ export class PhotoRepository {
   }
 
   // [8] ดึงรูปตามกิจกรรมและหมวดหมู่
-  async findByEventAndCategory(eventName: string, category: string | null, limit: number, offset: number): Promise<any[]> {
+  async findByEventAndCategory(
+    eventName: string,
+    category: string | null,
+    limit: number,
+    offset: number,
+  ): Promise<any[]> {
     let sql = "SELECT * FROM photos WHERE event_name = ?";
     const params: any[] = [eventName];
-    if (category) {
-      sql += " AND faculty = ?"; // ใช้คอลัมน์ faculty แทน category
+
+    if (category === "NULL") {
+      // กรณีเปิด folder ที่ไม่ระบุคณะ
+      sql += " AND faculty IS NULL";
+    } else if (category) {
+      sql += " AND faculty = ?";
       params.push(category);
     }
-    sql += " LIMIT ? OFFSET ?";
+
+    sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
     params.push(limit, offset);
     const [rows] = await pool.query(sql, params);
     return rows as any[];
   }
 
-  // [9] นับจำนวนรูปตามกิจกรรม
-  async countByEventAndCategory(eventName: string, category: string | null): Promise<number> {
+  async countByEventAndCategory(
+    eventName: string,
+    category: string | null,
+  ): Promise<number> {
     let sql = "SELECT COUNT(*) as total FROM photos WHERE event_name = ?";
     const params: any[] = [eventName];
-    if (category) {
+
+    if (category === "NULL") {
+      sql += " AND faculty IS NULL";
+    } else if (category) {
       sql += " AND faculty = ?";
       params.push(category);
     }
+
     const [rows]: any = await pool.query(sql, params);
     return rows[0]?.total || 0;
   }
 
   // [10] ดึงรายการคณะในอีเว้นท์นั้นๆ
   async getFacultiesByEvent(eventName: string): Promise<string[]> {
-    const [rows]: any = await pool.query("SELECT DISTINCT faculty FROM photos WHERE event_name = ? AND faculty IS NOT NULL", [eventName]);
+    const [rows]: any = await pool.query(
+      "SELECT DISTINCT faculty FROM photos WHERE event_name = ? AND faculty IS NOT NULL",
+      [eventName],
+    );
     return rows.map((r: any) => r.faculty);
   }
 
   // [11] ดึงปีการศึกษาในอีเว้นท์นั้นๆ
   async getAcademicYearsByEvent(eventName: string): Promise<string[]> {
-    const [rows]: any = await pool.query("SELECT DISTINCT academic_year FROM photos WHERE event_name = ? AND academic_year IS NOT NULL", [eventName]);
+    const [rows]: any = await pool.query(
+      "SELECT DISTINCT academic_year FROM photos WHERE event_name = ? AND academic_year IS NOT NULL",
+      [eventName],
+    );
     return rows.map((r: any) => r.academic_year);
   }
 
@@ -127,20 +191,22 @@ export class PhotoRepository {
       GROUP BY event_name, faculty, academic_year
       ORDER BY latest_upload DESC
       LIMIT ? OFFSET ?`;
-    
+
     const [rows] = await pool.query<RowDataPacket[]>(sql, [limit, offset]);
-  
-    // 2. แปลงข้อมูล preview_raw จาก string "id:thumb:img,id:thumb:img" 
+
+    // 2. แปลงข้อมูล preview_raw จาก string "id:thumb:img,id:thumb:img"
     // ให้กลายเป็น Array ของ Object ตามที่ FolderItem ใน Frontend ต้องการ
-    return rows.map(row => {
-      const previews = row.preview_raw ? row.preview_raw.split(',').map((item: string) => {
-        const [id, thumb, img] = item.split(':');
-        return {
-          id: parseInt(id),
-          thumbnail_url: thumb || null,
-          image_url: img
-        };
-      }) : [];
+    return rows.map((row) => {
+      const previews = row.preview_raw
+        ? row.preview_raw.split(",").map((item: string) => {
+            const [id, thumb, img] = item.split(":");
+            return {
+              id: parseInt(id),
+              thumbnail_url: thumb || null,
+              image_url: img,
+            };
+          })
+        : [];
 
       return {
         event_name: row.event_name,
@@ -148,16 +214,16 @@ export class PhotoRepository {
         photo_count: row.photo_count,
         faculty: row.faculty,
         academic_year: row.academic_year,
-        previews: previews // ✅ เปลี่ยนชื่อจาก preview_urls เป็น previews ให้ตรงกับ Frontend
+        previews: previews, // ✅ เปลี่ยนชื่อจาก preview_urls เป็น previews ให้ตรงกับ Frontend
       };
     });
   }
-  
+
   // 2. นับจำนวนกลุ่มกิจกรรมทั้งหมด (เพื่อทำ Pagination)
   async countGroups(): Promise<number> {
-   const [rows]: any = await pool.query(
-    "SELECT COUNT(DISTINCT event_name) as total FROM photos"
-   );
-   return rows[0]?.total || 0;
+    const [rows]: any = await pool.query(
+      "SELECT COUNT(DISTINCT event_name) as total FROM photos",
+    );
+    return rows[0]?.total || 0;
   }
 }

@@ -3,6 +3,7 @@
 export interface Photo {
   id?: number;
   title: string;
+  event_id?: number | null;
   event_date?: string;
   description?: string;
   image_url: Buffer | string;

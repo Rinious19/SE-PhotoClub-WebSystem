@@ -81,11 +81,11 @@ export const UploadPhotoPage: React.FC = () => {
     return () => el.removeEventListener("wheel", handler);
   }, [YEARS]);
 
-interface EventItem {
-  id: number;
-  event_name: string;
-  event_date: string;
-}
+  interface EventItem {
+    id: number;
+    event_name: string;
+    event_date: string;
+  }
 
   const todayStr = getLocalDateStr();
 
@@ -132,16 +132,16 @@ interface EventItem {
   }, [events, formData.title, formData.event_date]);
 
   const loadEvents = async () => {
-  try {
-    const res = await EventService.getAll();
-    setEvents(res.data || []);
-  } catch (err: unknown) {
-    const e = err as AxiosError;
-    console.error("loadEvents failed:", e.message);
-  } finally {
-    setEventsLoaded(true);
-  }
-};
+    try {
+      const res = await EventService.getAll();
+      setEvents(res.data || []);
+    } catch (err: unknown) {
+      const e = err as AxiosError;
+      console.error("loadEvents failed:", e.message);
+    } finally {
+      setEventsLoaded(true);
+    }
+  };
 
   useEffect(() => {
     loadEvents();
@@ -212,24 +212,22 @@ interface EventItem {
         setNewEventData({ name: "", date: "" });
       }
     } catch (err: unknown) {
-  const e = err as AxiosError<ApiError>;
+      const e = err as AxiosError<ApiError>;
 
-  const msg = e.response?.data?.message;
+      const msg = e.response?.data?.message;
 
-  if (msg?.includes("มีอยู่") || e.response?.status === 400) {
-    setAddError(
-      msg || `ชื่ออีเว้นท์ "${newEventData.name}" มีอยู่ในระบบแล้ว`
-    );
-  } else if (!e.response) {
-    setAddError(
-      "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ"
-    );
-  } else {
-    setAddError(
-      msg || "ไม่สามารถสร้างอีเว้นท์ได้ กรุณาลองใหม่อีกครั้ง"
-    );
-  }
-  }
+      if (msg?.includes("มีอยู่") || e.response?.status === 400) {
+        setAddError(
+          msg || `ชื่ออีเว้นท์ "${newEventData.name}" มีอยู่ในระบบแล้ว`,
+        );
+      } else if (!e.response) {
+        setAddError(
+          "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อ",
+        );
+      } else {
+        setAddError(msg || "ไม่สามารถสร้างอีเว้นท์ได้ กรุณาลองใหม่อีกครั้ง");
+      }
+    }
   };
 
   const handleUpload = async (e: React.FormEvent) => {
@@ -247,6 +245,11 @@ interface EventItem {
         const data = new FormData();
         data.append("image", selectedFiles[i]);
         data.append("title", formData.title);
+        const selectedEvent = events.find(
+          (ev) => ev.event_name === formData.title,
+        );
+        if (selectedEvent?.id)
+          data.append("event_id", String(selectedEvent.id));
         data.append("event_date", formData.event_date);
         data.append("description", formData.description);
         if (formData.faculty) data.append("faculty", formData.faculty);
@@ -263,30 +266,30 @@ interface EventItem {
           });
         }
       } catch (err: unknown) {
-      failCount++;
+        failCount++;
 
-      const e = err as AxiosError<ApiError>;
-      const status = e.response?.status;
-      const serverMsg = e.response?.data?.message;
+        const e = err as AxiosError<ApiError>;
+        const status = e.response?.status;
+        const serverMsg = e.response?.data?.message;
 
-      if (status === 409) {
-        const dup = e.response?.data?.duplicate;
+        if (status === 409) {
+          const dup = e.response?.data?.duplicate;
 
-        failedFiles.push({
-          name: selectedFiles[i].name,
-          reason: `🔁 ${serverMsg || "รูปนี้มีอยู่แล้ว"}`,
-          isDuplicate: true,
-          duplicateId: dup?.id,
-          duplicateThumb: dup?.thumbnail_url || dup?.image_url,
-        });
-      } else {
-        failedFiles.push({
-          name: selectedFiles[i].name,
-          reason: serverMsg || "อัปโหลดไม่สำเร็จ",
-          isDuplicate: false,
-        });
+          failedFiles.push({
+            name: selectedFiles[i].name,
+            reason: `🔁 ${serverMsg || "รูปนี้มีอยู่แล้ว"}`,
+            isDuplicate: true,
+            duplicateId: dup?.id,
+            duplicateThumb: dup?.thumbnail_url || dup?.image_url,
+          });
+        } else {
+          failedFiles.push({
+            name: selectedFiles[i].name,
+            reason: serverMsg || "อัปโหลดไม่สำเร็จ",
+            isDuplicate: false,
+          });
+        }
       }
-    }
       setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
     }
     setLoading(false);
@@ -514,8 +517,7 @@ interface EventItem {
                       className="position-absolute w-100 border rounded bg-white mt-1 p-3 text-muted small"
                       style={{ zIndex: 1050 }}
                     >
-                      ไม่พบอีเว้นท์ที่ตรงกับ "
-                      <strong>{formData.title}</strong>"
+                      ไม่พบอีเว้นท์ที่ตรงกับ "<strong>{formData.title}</strong>"
                     </div>
                   )}
 
@@ -656,8 +658,7 @@ interface EventItem {
         </Modal.Header>
         <Modal.Body>
           <p className="mb-2">
-            ไฟล์ต่อไปนี้ไม่รองรับ{" "}
-            <strong>(รองรับเฉพาะ JPG, PNG)</strong>
+            ไฟล์ต่อไปนี้ไม่รองรับ <strong>(รองรับเฉพาะ JPG, PNG)</strong>
           </p>
           <ul className="mb-0">
             {invalidFiles.map((name, i) => (

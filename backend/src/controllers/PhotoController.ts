@@ -3,7 +3,7 @@
 
 import { Request, Response } from "express";
 import { PhotoRepository } from "../repositories/PhotoRepository";
-import { historyService } from "../services/HistoryService"; // ← เพิ่มบรรทัดนี้
+import { historyService } from "../services/HistoryService";
 import { AuthenticatedRequest } from "../middlewares/AuthMiddleware";
 import { sendError } from "../utils/errorHandler";
 import { createThumbnail, deletePhotoFiles, PHOTOS_URL_PREFIX } from "../middlewares/UploadMiddleware";
@@ -20,7 +20,8 @@ export class PhotoController {
   // --- [1. อัปโหลดรูป] ---
   static async uploadPhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const { title, event_date, description, faculty, academic_year } = req.body;
+      //! สิ่งที่สำคัญมาก — เพิ่ม event_id เพื่อผูก FK กับตาราง events
+      const { title, event_date, description, faculty, academic_year, event_id } = req.body;
       const userId = req.user?.userId || req.user?.id;
 
       if (!req.file) { res.status(400).json({ success: false, message: 'กรุณาเลือกไฟล์รูปภาพ' }); return; }
@@ -53,12 +54,18 @@ export class PhotoController {
       try { thumbnailUrl = await createThumbnail(req.file.filename); } catch { /* thumbnail fail ไม่ block */ }
 
       const photo = await photoRepo.create({
-        title: title.trim(), event_date, description,
-        image_url: imageUrl, thumbnail_url: thumbnailUrl,
+        title: title.trim(),
+        //* context — แปลง event_id เป็น number ถ้ามี ถ้าไม่มีให้เป็น null
+        event_id: event_id ? parseInt(event_id) : null,
+        event_date,
+        description,
+        image_url: imageUrl,
+        thumbnail_url: thumbnailUrl,
         faculty: faculty?.trim() || null,
         academic_year: academic_year?.trim() || null,
         file_hash: fileHash,
-        user_id: userId, created_by: userId,
+        user_id: userId,
+        created_by: userId,
       });
 
       //! สิ่งที่สำคัญมาก — บันทึกลง history_logs (ไม่ใช่ photo_audit_logs)
@@ -81,7 +88,8 @@ export class PhotoController {
   static async updatePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const id     = parseInt(req.params.id as string, 10);
-      const { title, event_date, description, faculty, academic_year } = req.body;
+      //! สิ่งที่สำคัญมาก — เพิ่ม event_id เพื่ออัปเดต FK ไปยังตาราง events ด้วย
+      const { title, event_date, description, faculty, academic_year, event_id } = req.body;
       const userId = req.user?.userId || req.user?.id;
 
       if (isNaN(id))  { res.status(400).json({ success: false, message: 'ID รูปภาพไม่ถูกต้อง' }); return; }
@@ -100,8 +108,13 @@ export class PhotoController {
       }
 
       const success = await photoRepo.update(id, {
-        title, event_date, description,
-        image_url: newImageUrl, thumbnail_url: newThumbUrl,
+        title,
+        //* context — ถ้า event_id ถูกส่งมาให้แปลงเป็น number, ถ้าไม่มีให้ไม่เปลี่ยนค่าเดิม (undefined)
+        event_id: event_id !== undefined ? (event_id ? parseInt(event_id) : null) : undefined,
+        event_date,
+        description,
+        image_url: newImageUrl,
+        thumbnail_url: newThumbUrl,
         faculty:       faculty       !== undefined ? (faculty?.trim()       || null) : undefined,
         academic_year: academic_year !== undefined ? (academic_year?.trim() || null) : undefined,
         updated_by: userId,
@@ -111,7 +124,7 @@ export class PhotoController {
         //! สิ่งที่สำคัญมาก — บันทึกลง history_logs
         await historyService.log({
           actorId:    userId,
-          action:     'UPDATE_PHOTO', //! ใช้ UPLOAD_PHOTO เพราะยังไม่มี UPDATE_PHOTO ใน HistoryAction
+          action:     'UPDATE_PHOTO',
           targetType: 'PHOTO',
           targetId:   id,
           detail:     { updatedTitle: title, faculty: faculty || null },
@@ -160,7 +173,7 @@ export class PhotoController {
     }
   }
 
-  // --- [4-6. ส่วนที่เหลือเหมือนเดิม ไม่ต้องแก้] ---
+  // --- [4. ดึงรูปทั้งหมด (Active)] ---
   static async getPhotos(req: Request, res: Response): Promise<void> {
     try {
       const photos = await photoRepo.findAllActive();
@@ -168,21 +181,20 @@ export class PhotoController {
     } catch (error: any) { sendError(res, error, 'โหลดรูปภาพไม่สำเร็จ'); }
   }
 
+  // --- [5. ดึงรูปแบบ Grouped by Event (หน้าแกลเลอรี่)] ---
   static async getGroupedByEvent(req: Request, res: Response): Promise<void> {
     try {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const offset = (page - 1) * FOLDER_PAGE_SIZE;
 
-      // เรียกใช้ Repo ที่เราปรับปรุง SQL และการ Map Previews มาแล้ว
       const [groups, total] = await Promise.all([
         photoRepo.findGroupedByEvent(FOLDER_PAGE_SIZE, offset),
         photoRepo.countGroups()
       ]);
 
-      // ส่งข้อมูลออกไปได้เลย เพราะ Repository เตรียมฟิลด์ 'previews' มาให้แล้ว
       res.status(200).json({
         success: true,
-        data: groups, 
+        data: groups,
         pagination: {
           page,
           pageSize: FOLDER_PAGE_SIZE,
@@ -196,30 +208,31 @@ export class PhotoController {
     }
   }
 
+  // --- [6. ดึงรูปตาม Event Name (หน้า Folder)] ---
   static async getPhotosByEvent(req: Request, res: Response): Promise<void> {
     try {
       const eventName = decodeURIComponent(req.params.eventName as string);
       const page      = Math.max(1, parseInt(req.query.page as string) || 1);
       const offset    = (page - 1) * PHOTO_PAGE_SIZE;
 
-      // ปรับให้ส่ง category เป็น String (เช่น ชื่อคณะ) แทนที่จะส่งเป็น Object
       const facultyCategory = req.query.faculty ? (req.query.faculty as string) : null;
 
       const [photos, total] = await Promise.all([
         photoRepo.findByEventAndCategory(eventName, facultyCategory, PHOTO_PAGE_SIZE, offset),
-        photoRepo.countByEventAndCategory(eventName, facultyCategory), // ตรวจสอบว่ามี method นี้ใน Repo หรือยัง
+        photoRepo.countByEventAndCategory(eventName, facultyCategory),
       ]);
 
-      res.status(200).json({ 
-        success: true, 
-        data: photos, 
-        pagination: { page, pageSize: PHOTO_PAGE_SIZE, total, totalPages: Math.ceil(total / PHOTO_PAGE_SIZE), hasMore: offset + photos.length < total } 
+      res.status(200).json({
+        success: true,
+        data: photos,
+        pagination: { page, pageSize: PHOTO_PAGE_SIZE, total, totalPages: Math.ceil(total / PHOTO_PAGE_SIZE), hasMore: offset + photos.length < total }
       });
-    } catch (error: any) { 
-      sendError(res, error, 'โหลดรูปภาพในกิจกรรมไม่สำเร็จ'); 
+    } catch (error: any) {
+      sendError(res, error, 'โหลดรูปภาพในกิจกรรมไม่สำเร็จ');
     }
   }
 
+  // --- [7. ดึง Filter (คณะ / ปีการศึกษา) ตาม Event] ---
   static async getFiltersForEvent(req: Request, res: Response): Promise<void> {
     try {
       const eventName = decodeURIComponent(req.params.eventName as string);
