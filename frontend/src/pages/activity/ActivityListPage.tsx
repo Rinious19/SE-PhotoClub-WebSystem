@@ -2,15 +2,24 @@
 //@ หน้ากิจกรรมโหวตภาพถ่าย
 //  วางไฟล์นี้ที่: frontend/src/pages/activity/ActivityListPage.tsx
 
-import React, { useState, useMemo }      from 'react';
+import React, { useState, useMemo }       from 'react';
 import {
   Container, Row, Col, Form, Button,
-  InputGroup, Badge, Spinner, Alert, Card,
+  InputGroup, Badge, Alert, Card,
 } from 'react-bootstrap';
 import { Link, useNavigate }              from 'react-router-dom';
 import { useActivities }                  from '@/hooks/useActivities';
 import { useAuth }                        from '@/hooks/useAuth';
-import type { ActivityItem }             from '@/types/Activity';
+// ✅ แก้ไข: ใช้ชื่อ Type เป็น Activity ให้ตรงกับที่มีอยู่ในไฟล์ '@/types/Activity'
+import type { Activity }                  from '@/types/Activity';
+
+// ✅ สร้าง Extended Type ขึ้นมาสวมทับ เพื่อให้ TypeScript ยอมรับฟิลด์ใหม่ๆ โดยไม่ต้องใช้ any
+export type ExtendedActivity = Activity & {
+  category?:    string;
+  faculty?:     string;
+  photo_count?: number;
+  vote_count?:  number;
+};
 
 const CATEGORIES = [
   'มหาวิทยาลัย','คณะวิศวกรรมศาสตร์','คณะครุศาสตร์อุตสาหกรรม',
@@ -20,7 +29,8 @@ const CATEGORIES = [
 ];
 
 // ─── ActivityCard ────────────────────────────────────────────
-const ActivityCard: React.FC<{ activity: ActivityItem }> = ({ activity }) => {
+// ✅ เปลี่ยน type ตรงนี้เป็น ExtendedActivity แทน
+const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) => {
   const { user }  = useAuth();
   const isActive  = activity.status === 'ACTIVE';
 
@@ -29,6 +39,9 @@ const ActivityCard: React.FC<{ activity: ActivityItem }> = ({ activity }) => {
       year:'numeric', month:'short', day:'numeric',
       hour:'2-digit', minute:'2-digit',
     });
+
+  // ✅ ดึงข้อมูลออกมาใช้ได้ตรงๆ แบบไม่มี error
+  const displayCategory = activity.category || activity.faculty;
 
   return (
     <Card
@@ -54,9 +67,9 @@ const ActivityCard: React.FC<{ activity: ActivityItem }> = ({ activity }) => {
           <Badge bg={isActive ? 'success' : 'secondary'} className="rounded-pill" style={{ fontSize:11 }}>
             {isActive ? '🟢 กำลังดำเนินการ' : '⚫ สิ้นสุดแล้ว'}
           </Badge>
-          {activity.category && (
-            <Badge bg="light" text="dark" className="rounded-pill" style={{ fontSize:11 }}>
-              🏷️ {activity.category}
+          {displayCategory && (
+            <Badge bg="info" text="dark" className="rounded-pill" style={{ fontSize:11 }}>
+              🏷️ {displayCategory}
             </Badge>
           )}
         </div>
@@ -67,8 +80,8 @@ const ActivityCard: React.FC<{ activity: ActivityItem }> = ({ activity }) => {
           <div>🔚 สิ้นสุด: {fmt(activity.end_at)}</div>
         </div>
         <div className="d-flex gap-3 mt-2 mb-3">
-          <span className="text-muted small">🖼️ {activity.photo_count} รูป</span>
-          <span className="text-muted small">🗳️ {activity.vote_count} โหวต</span>
+          <span className="text-muted small">🖼️ {activity.photo_count || 0} รูป</span>
+          <span className="text-muted small">🗳️ {activity.vote_count || 0} โหวต</span>
         </div>
         <div className="d-flex gap-2">
           <Link
@@ -95,7 +108,7 @@ const ActivityCard: React.FC<{ activity: ActivityItem }> = ({ activity }) => {
 const ActivitySection: React.FC<{
   title:     string;
   dot:       string;
-  items:     ActivityItem[];
+  items:     ExtendedActivity[]; // ✅ รับค่าเป็น ExtendedActivity
   loading:   boolean;
   emptyText: string;
   emptyIcon: string;
@@ -147,21 +160,46 @@ export const ActivityListPage: React.FC = () => {
   const [category,  setCategory]  = useState('');
   const [tabStatus, setTabStatus] = useState<'all'|'ACTIVE'|'ENDED'>('all');
 
-  //@ stabilize filter เป็น primitive เพื่อป้องกัน useActivities loop
-  const filters = useMemo(() => ({
-    keyword:  keyword  || undefined,
-    category: category || undefined,
-  }), [keyword, category]);
+  const { activities = [], loading, error, refetch } = useActivities("");
 
-  const { activities, loading, error, refetch } = useActivities(filters);
+  // ✅ แปลง Type ให้อยู่ในรูปแบบที่เราใช้งานได้
+  const extendedActivities = activities as unknown as ExtendedActivity[];
 
-  //@ filter client-side สำหรับวันที่และ tab
   const filtered = useMemo(() => {
-    let list = activities;
-    if (dateValue) list = list.filter(a => a.start_at.split('T')[0] === dateValue);
-    if (tabStatus !== 'all') list = list.filter(a => a.status === tabStatus);
+    let list = extendedActivities;
+
+    if (keyword) {
+      list = list.filter(a => a.title.toLowerCase().includes(keyword.toLowerCase()));
+    }
+
+    if (category) {
+      list = list.filter(a => (a.category || a.faculty || '') === category);
+    }
+
+    if (dateValue) {
+      const selectedDate = new Date(dateValue);
+      selectedDate.setHours(0, 0, 0, 0);
+      const selTime = selectedDate.getTime();
+
+      list = list.filter(a => {
+        if (!a.start_at || !a.end_at) return false;
+        
+        const start = new Date(a.start_at);
+        start.setHours(0, 0, 0, 0);
+        
+        const end = new Date(a.end_at);
+        end.setHours(23, 59, 59, 999);
+
+        return selTime >= start.getTime() && selTime <= end.getTime();
+      });
+    }
+
+    if (tabStatus !== 'all') {
+      list = list.filter(a => a.status === tabStatus);
+    }
+
     return list;
-  }, [activities, dateValue, tabStatus]);
+  }, [extendedActivities, keyword, category, dateValue, tabStatus]);
 
   const activeItems = filtered.filter(a => a.status === 'ACTIVE');
   const endedItems  = filtered.filter(a => a.status === 'ENDED');
@@ -184,7 +222,6 @@ export const ActivityListPage: React.FC = () => {
 
   return (
     <Container className="py-5">
-      {/* Header */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h2 className="fw-bold mb-1">🏆 กิจกรรมโหวตภาพถ่าย</h2>
@@ -198,7 +235,6 @@ export const ActivityListPage: React.FC = () => {
         )}
       </div>
 
-      {/* Filter Bar */}
       <div className="bg-light rounded-4 p-3 mb-4">
         <Row className="g-3 align-items-end">
           <Col md={4}>
@@ -237,7 +273,6 @@ export const ActivityListPage: React.FC = () => {
           </Col>
         </Row>
 
-        {/* Tabs */}
         <div className="d-flex gap-2 mt-3 flex-wrap">
           {([
             { key:'all',    label:'ทั้งหมด',          dot:'' },
@@ -267,7 +302,6 @@ export const ActivityListPage: React.FC = () => {
         )}
       </div>
 
-      {/* Error */}
       {error && !loading && (
         <Alert variant="danger" className="d-flex align-items-center gap-2">
           {error}
@@ -275,7 +309,6 @@ export const ActivityListPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* ไม่พบผล */}
       {!loading && !error && hasFilter && filtered.length === 0 && (
         <div className="text-center py-5 text-muted">
           <p style={{ fontSize:36 }}>🔍</p>
@@ -284,7 +317,6 @@ export const ActivityListPage: React.FC = () => {
         </div>
       )}
 
-      {/* Sections */}
       {(!hasFilter || tabStatus === 'all' || tabStatus === 'ACTIVE') && (
         <ActivitySection title="กำลังดำเนินการ" dot="#198754"
           items={activeItems} loading={loading}

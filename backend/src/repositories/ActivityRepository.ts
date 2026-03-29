@@ -1,9 +1,8 @@
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { pool }     from '../config/Database';
-import { Activity } from '../models/Activity';
 
 export class ActivityRepository {
-  //@ ดึงกิจกรรมทั้งหมด พร้อมข้อมูลคนสร้างและจำนวนโหวตรวม
+  //@ ดึงกิจกรรมทั้งหมด
   async findAll(filters: any = {}): Promise<any[]> {
     let where = 'WHERE 1=1';
     const params: any[] = [];
@@ -17,8 +16,17 @@ export class ActivityRepository {
       params.push(filters.status);
     }
 
+    // ✅ ใช้ COALESCE: ถ้า a.faculty เป็นว่าง ให้แอบไปดูว่ารูปภาพข้างในเป็นคณะอะไร แล้วดึงมาเป็น category แทน!
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT a.*, u.username AS creator_name,
+      `SELECT a.*, 
+        COALESCE(a.faculty, (
+          SELECT p.faculty 
+          FROM activity_photos ap 
+          JOIN photos p ON ap.photo_id = p.id 
+          WHERE ap.activity_id = a.id AND p.faculty IS NOT NULL 
+          LIMIT 1
+        )) AS category, 
+        u.username AS creator_name,
         (SELECT COUNT(*) FROM activity_photos WHERE activity_id = a.id) AS photo_count,
         (SELECT COUNT(*) FROM votes WHERE activity_id = a.id) AS total_votes
       FROM activities a
@@ -30,11 +38,21 @@ export class ActivityRepository {
     return rows;
   }
 
-  //@ ดึงกิจกรรมตาม ID พร้อมรูปภาพและคะแนนโหวตแยกตามรูป
-  //! แก้ไข: ใช้ v.activity_photo_id แทน v.photo_id เพื่อให้ตรงกับ schema จริง
+  //@ ดึงกิจกรรมตาม ID
   async findByIdWithPhotos(id: number): Promise<any | null> {
     const [actRows] = await pool.query<RowDataPacket[]>(
-      "SELECT a.*, u.username AS creator_name FROM activities a LEFT JOIN users u ON u.id = a.created_by WHERE a.id = ?",
+      `SELECT a.*, 
+        COALESCE(a.faculty, (
+          SELECT p.faculty 
+          FROM activity_photos ap 
+          JOIN photos p ON ap.photo_id = p.id 
+          WHERE ap.activity_id = a.id AND p.faculty IS NOT NULL 
+          LIMIT 1
+        )) AS category, 
+        u.username AS creator_name 
+       FROM activities a 
+       LEFT JOIN users u ON u.id = a.created_by 
+       WHERE a.id = ?`,
       [id]
     );
     if (actRows.length === 0) return null;
@@ -54,33 +72,31 @@ export class ActivityRepository {
     return { ...actRows[0], photos: photoRows };
   }
 
-  //@ สร้างกิจกรรมใหม่ (Transaction)
+  //@ สร้างกิจกรรมใหม่
   async create(data: any, photoIds: number[]): Promise<number> {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
-      // ✅ 1. ดักจับค่า undefined ทุกตัว (ถ้าไม่ได้ส่งมาให้เป็น null แทน เพื่อให้ SQL ไม่พัง)
       const title = data.title || 'Untitled';
       const description = data.description || null;
       const start_at = data.start_at || null;
       const end_at = data.end_at || null;
-      const status = data.status || 'ACTIVE'; // ถ้าไม่ส่งสถานะมา ให้บังคับเป็น ACTIVE
+      const status = data.status || 'ACTIVE';
       const created_by = data.created_by || null;
+      const event_id = data.event_id || null;
+      const faculty = data.faculty || data.category || null;
+      const academic_year = data.academic_year || null;
 
       const [res] = await conn.query<ResultSetHeader>(
-        `INSERT INTO activities (title, description, start_at, end_at, status, created_by) VALUES (?,?,?,?,?,?)`,
-        [title, description, start_at, end_at, status, created_by]
+        `INSERT INTO activities (title, description, start_at, end_at, status, created_by, event_id, faculty, academic_year) VALUES (?,?,?,?,?,?,?,?,?)`,
+        [title, description, start_at, end_at, status, created_by, event_id, faculty, academic_year]
       );
 
       const activityId = res.insertId;
 
-      // ✅ 2. เปลี่ยนวิธี Bulk Insert เพื่อหลีกเลี่ยง Syntax Error "near NULL" ของ mysql2
       if (Array.isArray(photoIds) && photoIds.length > 0) {
-        // สร้าง (?, ?, ?) ตามจำนวนรูปภาพ
         const placeholders = photoIds.map(() => '(?, ?, ?)').join(', ');
-        
-        // ยุบรวมข้อมูลเป็น Array 1 มิติ (Flat Array)
         const flatValues = photoIds.reduce((acc: any[], pid: number, idx: number) => {
           acc.push(activityId, pid, idx);
           return acc;
@@ -96,7 +112,6 @@ export class ActivityRepository {
       return activityId;
     } catch (e) {
       await conn.rollback();
-      console.error("Create Activity Error:", e);
       throw e;
     } finally {
       conn.release();
@@ -105,20 +120,19 @@ export class ActivityRepository {
 
   //@ อัปเดตกิจกรรม
   async update(id: number, data: any): Promise<boolean> {
-    // ✅ ดักจับค่าว่างตอน Update ด้วยเช่นกัน
     const title = data.title || 'Untitled';
     const description = data.description || null;
     const start_at = data.start_at || null;
     const end_at = data.end_at || null;
+    const faculty = data.faculty || data.category || null;
 
     const [result] = await pool.query<ResultSetHeader>(
-      "UPDATE activities SET title=?, description=?, start_at=?, end_at=? WHERE id=?",
-      [title, description, start_at, end_at, id]
+      "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, faculty=? WHERE id=?",
+      [title, description, start_at, end_at, faculty, id]
     );
     return result.affectedRows > 0;
   }
 
-  //@ ลบรูปออกจากกิจกรรม
   async removePhotoFromActivity(activityId: number, activityPhotoId: number): Promise<boolean> {
     const [result] = await pool.query<ResultSetHeader>(
       `DELETE FROM activity_photos WHERE activity_id = ? AND id = ?`,
@@ -127,7 +141,6 @@ export class ActivityRepository {
     return result.affectedRows > 0;
   }
 
-  //@ อัปเดตสถานะอัตโนมัติ (UPCOMING, ACTIVE, ENDED)
   async syncStatuses(): Promise<void> {
     await pool.query(`
       UPDATE activities

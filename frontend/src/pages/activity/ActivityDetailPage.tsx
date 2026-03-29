@@ -47,6 +47,7 @@ interface ActivityDetail {
   title:        string;
   description?: string;
   category?:    string;
+  faculty?:     string; // ✅ เพิ่มบรรทัดนี้ เพื่อให้ระบบรู้จัก faculty โดยไม่ต้องใช้ any
   event_name:   string;
   start_at:     string;
   end_at:       string;
@@ -99,7 +100,6 @@ export const ActivityDetailPage: React.FC = () => {
         if (token) {
           const voteRes = await VoteService.getMyVotes([Number(id)], token);
           const myVote  = (voteRes.data || []).find(
-            //@ ใช้ type ชัดเจนแทน any
             (v: { activity_id: number; photo_id: number }) =>
               v.activity_id === Number(id)
           );
@@ -120,11 +120,9 @@ export const ActivityDetailPage: React.FC = () => {
   //@ เปิด Modal ยืนยันโหวต
   const handleVoteClick = (activityPhotoId: number) => {
     if (!isAuthenticated) {
-      // Guest → แสดง Modal ให้ไป Login
       setShowGuestModal(true);
       return;
     }
-    // User → แสดง Modal ยืนยัน
     setPendingVotePhotoId(activityPhotoId);
   };
 
@@ -138,10 +136,8 @@ export const ActivityDetailPage: React.FC = () => {
         { activity_id: activity.id, photo_id: pendingVotePhotoId },
         token!
       );
-      // อัปเดต state ทันทีโดยไม่ต้อง reload ทั้งหน้า
       setUserVotedPhotoId(pendingVotePhotoId);
       setVoteResultMsg({ show: true, success: true, msg: '✅ โหวตสำเร็จ! ขอบคุณที่ร่วมโหวต' });
-      // reload เพื่ออัปเดตจำนวนโหวต
       await loadActivity();
     } catch (err: unknown) {
       const msg = parseApiError(err, 'โหวตไม่สำเร็จ');
@@ -183,13 +179,11 @@ export const ActivityDetailPage: React.FC = () => {
     return Math.round(((now - start) / (end - start)) * 100);
   };
 
-  //@ หา photo ที่ได้โหวตสูงสุด
   const getMaxVote = (): number => {
     if (!activity?.photos?.length) return 0;
     return Math.max(...activity.photos.map((p) => p.vote_count));
   };
 
-  // ─── Loading / Error ───────────────────────────────────────
   if (loading) {
     return (
       <Container className="py-5 text-center">
@@ -215,7 +209,6 @@ export const ActivityDetailPage: React.FC = () => {
   const progressPct   = getProgressPercent();
   const hasVoted      = userVotedPhotoId !== null;
 
-  // Badge สี status
   const statusBadge: Record<string, { label: string; bg: string }> = {
     ACTIVE:   { label: '🟢 กำลังโหวต',      bg: 'success' },
     UPCOMING: { label: '🕐 รอเปิดกิจกรรม',  bg: 'warning' },
@@ -223,9 +216,11 @@ export const ActivityDetailPage: React.FC = () => {
   };
   const badge = statusBadge[activity.status] ?? { label: activity.status, bg: 'light' };
 
+  // ✅ แสดงประเภทกิจกรรม โดยดึงค่าตรงๆ ไม่มี any มาเกะกะแล้ว
+  const displayCategory = activity.faculty || activity.category;
+
   return (
     <Container className="py-5">
-      {/* ── ปุ่มกลับ ── */}
       <Button
         variant="outline-secondary"
         size="sm"
@@ -235,7 +230,6 @@ export const ActivityDetailPage: React.FC = () => {
         ← กลับ
       </Button>
 
-      {/* ── Header กิจกรรม ── */}
       <Card className="border-0 shadow-sm rounded-4 mb-4 p-4">
         <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
           <div>
@@ -243,9 +237,9 @@ export const ActivityDetailPage: React.FC = () => {
               {badge.label}
             </Badge>
             <h2 className="fw-bold mb-1">{activity.title}</h2>
-            {activity.category && (
+            {displayCategory && (
               <Badge bg="light" text="dark" className="me-2">
-                🏷️ {activity.category}
+                🏷️ {displayCategory}
               </Badge>
             )}
             <p className="text-muted small mt-2 mb-0">
@@ -257,7 +251,6 @@ export const ActivityDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* ปุ่ม Admin/President */}
           {canManage && (
             <Button
               variant="outline-warning"
@@ -270,7 +263,6 @@ export const ActivityDetailPage: React.FC = () => {
           )}
         </div>
 
-        {/* Progress Bar สำหรับกิจกรรม ACTIVE */}
         {activity.status === 'ACTIVE' && (
           <div className="mt-3">
             <div className="d-flex justify-content-between small text-muted mb-1">
@@ -281,7 +273,6 @@ export const ActivityDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* สถิติ */}
         <div className="d-flex gap-4 mt-3">
           <div className="text-center">
             <div className="fw-bold fs-4 text-primary">{totalVotes}</div>
@@ -294,14 +285,12 @@ export const ActivityDetailPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* ── แจ้งเตือนถ้าโหวตแล้ว ── */}
       {hasVoted && activity.status === 'ACTIVE' && (
         <Alert variant="success" className="rounded-3 mb-4">
           ✅ คุณได้โหวตในกิจกรรมนี้แล้ว ขอบคุณที่ร่วมกิจกรรม!
         </Alert>
       )}
 
-      {/* ── Gallery รูปโหวต ── */}
       <Row xs={2} sm={3} md={4} lg={4} className="g-3">
         {activity.photos.map((photo) => {
           const imgSrc      = getImageUrl(photo.thumbnail_url || photo.image_url);
@@ -318,7 +307,6 @@ export const ActivityDetailPage: React.FC = () => {
                     : '0 2px 8px rgba(0,0,0,.08)',
                 }}
               >
-                {/* รูปภาพ */}
                 <div style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden' }}>
                   <img
                     src={imgSrc}
@@ -326,7 +314,6 @@ export const ActivityDetailPage: React.FC = () => {
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     loading="lazy"
                   />
-                  {/* ป้ายแชมป์ */}
                   {isWinner && (
                     <div style={{
                       position: 'absolute', top: 8, left: 8,
@@ -337,7 +324,6 @@ export const ActivityDetailPage: React.FC = () => {
                       🏆 อันดับ 1
                     </div>
                   )}
-                  {/* ปุ่มลบรูป (Admin/President) */}
                   {canManage && activity.status !== 'ENDED' && (
                     <Button
                       size="sm"
@@ -353,9 +339,7 @@ export const ActivityDetailPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* ข้อมูลรูปและปุ่มโหวต */}
                 <Card.Body className="p-2">
-                  {/* Progress bar โหวต */}
                   {activity.status !== 'UPCOMING' && (
                     <>
                       <div className="d-flex justify-content-between small text-muted mb-1">
@@ -370,7 +354,6 @@ export const ActivityDetailPage: React.FC = () => {
                     </>
                   )}
 
-                  {/* ปุ่มโหวต */}
                   <VoteButton
                     activityPhotoId={photo.activity_photo_id}
                     activityStatus={activity.status}
@@ -388,7 +371,6 @@ export const ActivityDetailPage: React.FC = () => {
         })}
       </Row>
 
-      {/* ── Modal ยืนยันโหวต ── */}
       <Modal
         show={pendingVotePhotoId !== null}
         onHide={() => !voteLoading && setPendingVotePhotoId(null)}
@@ -415,7 +397,6 @@ export const ActivityDetailPage: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* ── Modal ผลโหวต (สำเร็จ/ล้มเหลว) ── */}
       <Modal
         show={voteResultMsg.show}
         onHide={() => setVoteResultMsg((p) => ({ ...p, show: false }))}
@@ -440,7 +421,6 @@ export const ActivityDetailPage: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* ── Modal สำหรับ Guest (ยังไม่ Login) ── */}
       <Modal show={showGuestModal} onHide={() => setShowGuestModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold">🔒 ต้องเข้าสู่ระบบก่อนโหวต</Modal.Title>
@@ -459,7 +439,6 @@ export const ActivityDetailPage: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* ── Modal ยืนยันลบรูปออกจากกิจกรรม ── */}
       <Modal
         show={deletePhotoTarget !== null}
         onHide={() => !deletePhotoLoading && setDeletePhotoTarget(null)}

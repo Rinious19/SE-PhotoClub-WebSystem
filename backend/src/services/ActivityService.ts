@@ -23,7 +23,6 @@ export class ActivityService {
   //@ สร้างกิจกรรมใหม่ (CLUB_PRESIDENT)
   async create(dto: any, creatorId: number) {
     if (!dto.title?.trim())  throw new Error('กรุณากรอกชื่อกิจกรรม');
-    //! ใช้ event_id แทน event_name — FK ที่แน่นอน ไม่ขึ้นกับชื่อ
     if (!dto.event_id)       throw new Error('กรุณาเลือกอีเว้นท์เพื่อดึงรูปภาพ');
     if (!dto.start_at || !dto.end_at) throw new Error('กรุณากำหนดช่วงเวลาเริ่มต้นและสิ้นสุด');
 
@@ -31,21 +30,18 @@ export class ActivityService {
     const endDate   = new Date(dto.end_at);
     if (endDate <= startDate) throw new Error('วันสิ้นสุดต้องมาหลังวันเริ่มต้น');
 
-    //* context — ดึงรูปด้วย event_id (FK) แทน event_name string
-    //* และกรองตาม faculty / academic_year ถ้ามีการเลือก
-    const faculty      = dto.faculty       || null;
-    const academicYear = dto.academic_year || null;
+    // ✅ แก้ไข: ดักจับ category ที่ส่งมาจากหน้าเว็บ แล้วนำมาตั้งเป็น faculty เพื่อให้บันทึกลง Database ได้แน่นอน
+    const faculty      = dto.faculty || dto.category || null;
+    const academicYear = dto.academic_year || dto.year || null;
 
-    // ✅ แก้ไข: ส่ง academicYear เป็นพารามิเตอร์ตัวที่ 3 ให้ครบตามที่ PhotoRepository ต้องการ
     let eventPhotos = await this.photoRepo.findByEventAndCategory(
       dto.event_id, 
       faculty, 
-      academicYear, // ส่งปีการศึกษาไปให้ Database กรองให้เลย
+      academicYear,
       1000, 
       0
     );
 
-    //? ลบรูปที่ user เลือก exclude ออก
     const excludedIds = new Set<number>(dto.excluded_photo_ids || []);
     const photoIds = eventPhotos
       .map((p: any) => p.id)
@@ -60,6 +56,9 @@ export class ActivityService {
 
     return await this.activityRepo.create({
       ...dto,
+      faculty,        // ✅ บังคับส่ง faculty เข้าไปให้ Repository บันทึก
+      category: faculty, 
+      academic_year: academicYear,
       created_by: creatorId,
       status,
     }, photoIds);
