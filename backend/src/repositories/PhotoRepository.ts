@@ -104,18 +104,18 @@ export class PhotoRepository {
     return rows as any[];
   }
 
-  // [8] ดึงรูปตามกิจกรรมและหมวดหมู่
+  // [8] ดึงรูปตามกิจกรรมและหมวดหมู่ — ใช้ event_id เป็น key หลัก
   async findByEventAndCategory(
-    eventName: string,
+    eventId: number,
     category: string | null,
     limit: number,
     offset: number,
   ): Promise<any[]> {
-    let sql = "SELECT * FROM photos WHERE event_name = ?";
-    const params: any[] = [eventName];
+    //? query จาก event_id ซึ่งเป็น FK ที่แน่นอน ไม่ใช่ event_name string
+    let sql = "SELECT * FROM photos WHERE event_id = ?";
+    const params: any[] = [eventId];
 
     if (category === "NULL") {
-      // กรณีเปิด folder ที่ไม่ระบุคณะ
       sql += " AND faculty IS NULL";
     } else if (category) {
       sql += " AND faculty = ?";
@@ -129,11 +129,11 @@ export class PhotoRepository {
   }
 
   async countByEventAndCategory(
-    eventName: string,
+    eventId: number,
     category: string | null,
   ): Promise<number> {
-    let sql = "SELECT COUNT(*) as total FROM photos WHERE event_name = ?";
-    const params: any[] = [eventName];
+    let sql = "SELECT COUNT(*) as total FROM photos WHERE event_id = ?";
+    const params: any[] = [eventId];
 
     if (category === "NULL") {
       sql += " AND faculty IS NULL";
@@ -147,55 +147,49 @@ export class PhotoRepository {
   }
 
   // [10] ดึงรายการคณะในอีเว้นท์นั้นๆ
-  async getFacultiesByEvent(eventName: string): Promise<string[]> {
+  async getFacultiesByEvent(eventId: number): Promise<string[]> {
     const [rows]: any = await pool.query(
-      "SELECT DISTINCT faculty FROM photos WHERE event_name = ? AND faculty IS NOT NULL",
-      [eventName],
+      "SELECT DISTINCT faculty FROM photos WHERE event_id = ? AND faculty IS NOT NULL",
+      [eventId],
     );
     return rows.map((r: any) => r.faculty);
   }
 
   // [11] ดึงปีการศึกษาในอีเว้นท์นั้นๆ
-  async getAcademicYearsByEvent(eventName: string): Promise<string[]> {
+  async getAcademicYearsByEvent(eventId: number): Promise<string[]> {
     const [rows]: any = await pool.query(
-      "SELECT DISTINCT academic_year FROM photos WHERE event_name = ? AND academic_year IS NOT NULL",
-      [eventName],
+      "SELECT DISTINCT academic_year FROM photos WHERE event_id = ? AND academic_year IS NOT NULL",
+      [eventId],
     );
     return rows.map((r: any) => r.academic_year);
   }
 
   async findGroupedByEvent(limit: number, offset: number): Promise<any[]> {
-    // 1. ปรับ SQL ให้ดึงทั้ง thumbnail_url และ image_url (เผื่อกรณีไม่มี thumbnail)
-    // และใช้ GROUP_CONCAT เพื่อรวมข้อมูลเป็นก้อนเดียวกัน
+    //? findGroupedByEvent — ดึง gallery list โดย query จาก events เป็นหลัก
+    //* context — LEFT JOIN photos เพื่อให้ gallery ยังแสดงอยู่แม้ไม่มีรูปเหลือ
     const sql = `
       SELECT 
-        event_name,
-        faculty,
-        academic_year,
-        MAX(event_date) as event_date,
-        COUNT(*) as photo_count,
-        MAX(created_at) as latest_upload,
+        e.id          AS event_id,
+        e.event_name,
+        e.event_date,
+        COUNT(p.id)   AS photo_count,
+        MAX(p.created_at) AS latest_upload,
         (
-          SELECT GROUP_CONCAT(CONCAT(id, ':', IFNULL(thumbnail_url, ''), ':', image_url))
-          FROM (
-            SELECT id, thumbnail_url, image_url, event_name, faculty, academic_year, created_at
-            FROM photos
-            ORDER BY created_at DESC
-          ) AS sub
-          WHERE sub.event_name = photos.event_name 
-            AND (sub.faculty = photos.faculty OR (sub.faculty IS NULL AND photos.faculty IS NULL))
-            AND (sub.academic_year = photos.academic_year OR (sub.academic_year IS NULL AND photos.academic_year IS NULL))
+          SELECT GROUP_CONCAT(CONCAT(p2.id, ':', IFNULL(p2.thumbnail_url, ''), ':', p2.image_url))
+          FROM photos p2
+          WHERE p2.event_id = e.id
+          ORDER BY p2.created_at DESC
           LIMIT 3
-        ) as preview_raw
-      FROM photos 
-      GROUP BY event_name, faculty, academic_year
-      ORDER BY latest_upload DESC
+        ) AS preview_raw
+      FROM events e
+      LEFT JOIN photos p ON p.event_id = e.id
+      GROUP BY e.id, e.event_name, e.event_date
+      ORDER BY latest_upload DESC, e.event_date DESC
       LIMIT ? OFFSET ?`;
 
     const [rows] = await pool.query<RowDataPacket[]>(sql, [limit, offset]);
 
-    // 2. แปลงข้อมูล preview_raw จาก string "id:thumb:img,id:thumb:img"
-    // ให้กลายเป็น Array ของ Object ตามที่ FolderItem ใน Frontend ต้องการ
+    //@ แปลง preview_raw string → Array of Object ตามที่ Frontend ต้องการ
     return rows.map((row) => {
       const previews = row.preview_raw
         ? row.preview_raw.split(",").map((item: string) => {
@@ -209,20 +203,20 @@ export class PhotoRepository {
         : [];
 
       return {
-        event_name: row.event_name,
-        event_date: row.event_date,
+        event_id:    row.event_id,
+        event_name:  row.event_name,
+        event_date:  row.event_date,
         photo_count: row.photo_count,
-        faculty: row.faculty,
-        academic_year: row.academic_year,
-        previews: previews, // ✅ เปลี่ยนชื่อจาก preview_urls เป็น previews ให้ตรงกับ Frontend
+        previews,
       };
     });
   }
 
-  // 2. นับจำนวนกลุ่มกิจกรรมทั้งหมด (เพื่อทำ Pagination)
+  //@ นับจำนวน gallery ทั้งหมด — นับจาก events ไม่ใช่ photos
+  //* context — ทำให้ gallery ที่ไม่มีรูปยังนับรวมใน pagination ด้วย
   async countGroups(): Promise<number> {
     const [rows]: any = await pool.query(
-      "SELECT COUNT(DISTINCT event_name) as total FROM photos",
+      "SELECT COUNT(*) as total FROM events",
     );
     return rows[0]?.total || 0;
   }

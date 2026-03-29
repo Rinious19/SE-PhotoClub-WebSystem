@@ -11,6 +11,7 @@ interface PreviewItem {
 }
 
 interface FolderItem {
+  event_id:      number;
   event_name:    string;
   event_date:    string | null;
   photo_count:   number;
@@ -334,17 +335,9 @@ export const PhotoListPage: React.FC = () => {
     setFilterYear("");
   };
 
-  // ✅ Navigate ไป EventPhotosPage พร้อมส่ง faculty และ academic_year เป็น query params
-  //  เพื่อให้หน้าปลายทาง filter รูปใน folder ที่ถูกต้อง
-  //@ ส่ง faculty และ academic_year ไปเสมอ แม้จะเป็น '' (ว่าง)
-  //  เพื่อให้ EventPhotosPage filter เฉพาะ folder นั้นจริงๆ
-  //  ถ้าไม่ส่ง → EventPhotosPage จะดึงทุก faculty ใน event เดียวกัน
-  // ✅ แก้ handleFolderClick: any → FolderItem
+//? navigate ด้วย event_id แทน event_name — ทำให้ gallery ยังแสดงแม้ไม่มีรูป
 const handleFolderClick = (folder: FolderItem) => {
-  const params = new URLSearchParams();
-  params.set('faculty',       folder.faculty       ?? '');
-  params.set('academic_year', folder.academic_year ?? '');
-  navigate(`/photos/event/${encodeURIComponent(folder.event_name)}?${params.toString()}`);
+  navigate(`/photos/event/${folder.event_id}`);
 };
 
   return (

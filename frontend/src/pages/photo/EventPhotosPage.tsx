@@ -141,20 +141,29 @@ const LazyImage: React.FC<{
 
 // ─── Main Page ───────────────────────────────────────────────
 export const EventPhotosPage: React.FC = () => {
-  const { eventName } = useParams<{ eventName: string }>();
+  const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const canEdit = isAdminOrPresident(user);
 
   const [searchParams] = useSearchParams();
-  const rawFaculty = searchParams.get('faculty');
-  const rawYear    = searchParams.get('academic_year');
-  const initFaculty = rawFaculty ?? '';
-  const initYear    = rawYear    ?? '';
   const openPhotoId = searchParams.get('openPhotoId') ? parseInt(searchParams.get('openPhotoId')!) : null;
 
-  const folderFilterActiveRef = useRef(rawFaculty !== null || rawYear !== null);
-  const decodedName = decodeURIComponent(eventName || '');
+  const parsedEventId = parseInt(eventId || '', 10);
+  //* context — เก็บ eventId ใน ref เพื่อให้ fetchPage เข้าถึงได้เสมอโดยไม่ต้องอยู่ใน dependency
+  const eventIdRef = useRef(parsedEventId);
+  useEffect(() => { eventIdRef.current = parsedEventId; }, [parsedEventId]);
+
+  //? โหลดชื่อ event จาก API เพื่อแสดงใน header
+  const [eventName, setEventName] = useState<string>('');
+  useEffect(() => {
+    EventService.getAll()
+      .then(res => {
+        const ev = (res.data || []).find((e: { id: number; event_name: string }) => e.id === parsedEventId);
+        if (ev) setEventName(ev.event_name);
+      })
+      .catch(() => {});
+  }, [parsedEventId]);
 
   const [photos, setPhotos]   = useState<PhotoItem[]>([]);
   const pageRef = useRef(1);
@@ -215,38 +224,36 @@ export const EventPhotosPage: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // ✅ แก้ fetchPage: Record<string, any> → สร้าง type
-const fetchPage = useCallback(async (pageNum: number) => {
-  if (loadingRef.current) return;
-  loadingRef.current = true;
-  try {
-    const params: Record<string, string | number> = { page: pageNum }; // ✅
-    if (folderFilterActiveRef.current) {
-      params.faculty       = initFaculty;
-      params.academic_year = initYear;
+  const fetchPage = useCallback(async (pageNum: number) => {
+    if (loadingRef.current) return;
+    //! ตรวจสอบ eventId ก่อน fetch — ถ้าเป็น NaN ให้หยุดทันที
+    if (isNaN(eventIdRef.current)) return;
+    loadingRef.current = true;
+    try {
+      //* context — ใช้ eventIdRef แทน parsedEventId เพื่อหลีกเลี่ยง NaN จาก stale closure
+      const r = await axios.get(`/api/photos/event/${eventIdRef.current}`, { params: { page: pageNum } });
+      const res = r.data;
+      if (res.success) {
+        setPhotos(prev => pageNum === 1 ? res.data as PhotoItem[] : [...prev, ...res.data as PhotoItem[]]);
+        setHasMore(res.pagination.hasMore);
+        setTotal(res.pagination.total);
+      }
+    } catch (err: unknown) {
+      setError(parseApiError(err, 'โหลดรูปภาพไม่สำเร็จ'));
+    } finally {
+      loadingRef.current = false;
+      setLoadingMore(false);
+      setInitialLoading(false);
     }
-    const r = await axios.get(
-      `/api/photos/by-event/${encodeURIComponent(decodedName)}`,
-      { params }
-    );
-    const res = r.data;
-    if (res.success) {
-      setPhotos(prev => pageNum === 1 ? res.data as PhotoItem[] : [...prev, ...res.data as PhotoItem[]]);
-      setHasMore(res.pagination.hasMore);
-      setTotal(res.pagination.total);
-    }
-  } catch (err: unknown) { // ✅ any → unknown
-    setError(parseApiError(err, 'โหลดรูปภาพไม่สำเร็จ'));
-  } finally {
-    loadingRef.current = false;
-    setLoadingMore(false);
-    setInitialLoading(false);
-  }
-}, [decodedName, initFaculty, initYear]);
+  }, []);
 
+  //? รอให้ parsedEventId พร้อมก่อนค่อย fetch — ป้องกัน NaN
   useEffect(() => {
-  fetchPage(1);
-}, [fetchPage]);
+    if (!isNaN(parsedEventId)) {
+      eventIdRef.current = parsedEventId;
+      fetchPage(1);
+    }
+  }, [parsedEventId, fetchPage]);
 
   useEffect(() => {
     if (!openPhotoId || photos.length === 0) return;
@@ -257,7 +264,8 @@ const fetchPage = useCallback(async (pageNum: number) => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && hasMore && !loadingRef.current) {
+        //! ไม่ให้ IntersectionObserver ยิง fetchPage ขณะที่ initialLoading ยังทำงานอยู่
+        if (entry.isIntersecting && hasMore && !loadingRef.current && !initialLoading) {
           setLoadingMore(true);
           pageRef.current += 1;
           fetchPage(pageRef.current);
@@ -268,7 +276,7 @@ const fetchPage = useCallback(async (pageNum: number) => {
     const el = sentinelRef.current;
     if (el) observer.observe(el);
     return () => { if (el) observer.unobserve(el); };
-  }, [hasMore, fetchPage]);
+  }, [hasMore, fetchPage, initialLoading]);
 
   // ─── Selection helpers ──────────────────────────────────
   const exitMode = () => {
@@ -359,10 +367,10 @@ const fetchPage = useCallback(async (pageNum: number) => {
   // ─── Bulk edit ──────────────────────────────────────────
   const openBulkEditModal = () => {
     setEditForm({
-      event_name: decodedName,
-      faculty: initFaculty,
-      academic_year: initYear,
-      description: '',   //@ ว่างไว้ เพราะรูปแต่ละรูปอาจมี description ต่างกัน
+      event_name: eventName,
+      faculty: '',
+      academic_year: '',
+      description: '',
     });
     setBulkEditError(null);
     setShowBulkEditModal(true);
@@ -370,6 +378,7 @@ const fetchPage = useCallback(async (pageNum: number) => {
 
   const confirmBulkEdit = async () => {
     if (selectedIds.size === 0) return;
+    //! ต้องหา event_id จาก event ที่เลือก — ถ้าไม่ส่ง event_id รูปจะไม่ถูกย้าย gallery
     const targetEvent = events.find(ev => ev.event_name === editForm.event_name);
     if (!targetEvent) {
       setBulkEditError('กรุณาเลือกอีเว้นท์จากรายการ');
@@ -386,10 +395,12 @@ const fetchPage = useCallback(async (pageNum: number) => {
       try {
         const data = new FormData();
         data.append('title',         editForm.event_name);
+        //* context — ส่ง event_id เพื่อให้ backend อัปเดต FK และย้ายรูปไป gallery ใหม่จริงๆ
+        data.append('event_id',      String(targetEvent.id));
         data.append('event_date',    targetEvent.event_date.split('T')[0]);
         data.append('faculty',       editForm.faculty);
         data.append('academic_year', editForm.academic_year);
-        data.append('description',   editForm.description);  // ✅ ส่ง description ด้วย
+        data.append('description',   editForm.description);
         await PhotoService.update(id, data, token!);
       } catch {
         failed.push(id);
@@ -414,13 +425,10 @@ const fetchPage = useCallback(async (pageNum: number) => {
 
   const goUpload = () => {
     const params = new URLSearchParams();
-    params.set('event', decodedName);
-    if (initFaculty) params.set('faculty', initFaculty);
-    if (initYear)    params.set('academic_year', initYear);
+    if (eventName) params.set('event', eventName);
     navigate(`/photos/upload?${params.toString()}`);
   };
 
-  const folderLabel = [initFaculty, initYear].filter(Boolean).join(' · ');
   const filteredEvents = events.filter(ev =>
     ev.event_name.toLowerCase().includes(editForm.event_name.toLowerCase())
   );
@@ -436,11 +444,9 @@ const fetchPage = useCallback(async (pageNum: number) => {
             ← กลับ
           </Button>
           <div>
-            <h2 className="fw-bold mb-0">📂 {decodedName}</h2>
+            <h2 className="fw-bold mb-0">📂 {eventName || '...'}</h2>
             {!initialLoading && (
-              <p className="text-muted small mb-0">
-                {total} รูปภาพ{folderLabel ? ` · ${folderLabel}` : ''}
-              </p>
+              <p className="text-muted small mb-0">{total} รูปภาพ</p>
             )}
           </div>
         </div>

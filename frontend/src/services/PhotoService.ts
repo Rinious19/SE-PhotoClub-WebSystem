@@ -10,18 +10,16 @@ export const PhotoService = {
     return response.data;
   },
 
-  // ✅ ดึง Folders แบบ paginated (Lazy Load folders)
+  //? ดึง Folders แบบ paginated (Lazy Load folders)
   getGrouped: async (page: number = 1) => {
     const response = await axios.get(`${API_URL}/grouped`, { params: { page } });
     return response.data;
   },
 
-  // ✅ ดึงรูปใน Event เดียว แบบ paginated (Lazy Load photos)
-  getByEvent: async (eventName: string, page: number = 1, faculty?: string, academicYear?: string) => {
-    const params: any = { page };
-    if (faculty)      params.faculty       = faculty;
-    if (academicYear) params.academic_year = academicYear;
-    const response = await axios.get(`${API_URL}/by-event/${encodeURIComponent(eventName)}`, { params });
+  //? ดึงรูปใน Event เดียว แบบ paginated — ใช้ event_id แทน event_name
+  getByEvent: async (eventId: number, page: number = 1) => {
+    //* context — เปลี่ยนจาก eventName string → eventId number และลบ faculty/academicYear ออก
+    const response = await axios.get(`${API_URL}/event/${eventId}`, { params: { page } });
     return response.data;
   },
 

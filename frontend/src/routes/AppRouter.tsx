@@ -48,7 +48,7 @@ const router = createBrowserRouter([
 
       //@ สาธารณะ — ทุกคนดูได้
       { path: 'photos',                  element: <PhotoListPage /> },
-      { path: 'photos/event/:eventName', element: <EventPhotosPage /> },
+      { path: 'photos/event/:eventId', element: <EventPhotosPage /> },
       { path: 'activities',              element: <ActivityListPage /> },
       { path: 'activities/:id',          element: <ActivityDetailPage /> },
 

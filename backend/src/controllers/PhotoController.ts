@@ -208,18 +208,24 @@ export class PhotoController {
     }
   }
 
-  // --- [6. ดึงรูปตาม Event Name (หน้า Folder)] ---
+  // --- [6. ดึงรูปตาม Event ID (หน้า Folder)] ---
   static async getPhotosByEvent(req: Request, res: Response): Promise<void> {
     try {
-      const eventName = decodeURIComponent(req.params.eventName as string);
-      const page      = Math.max(1, parseInt(req.query.page as string) || 1);
-      const offset    = (page - 1) * PHOTO_PAGE_SIZE;
+      //? รับ event_id จาก URL param แทน event_name เพื่อให้ gallery ทำงานได้แม้ไม่มีรูป
+      const eventId = parseInt(req.params.eventId as string, 10);
+      const page    = Math.max(1, parseInt(req.query.page as string) || 1);
+      const offset  = (page - 1) * PHOTO_PAGE_SIZE;
+
+      if (isNaN(eventId)) {
+        res.status(400).json({ success: false, message: 'Event ID ไม่ถูกต้อง' });
+        return;
+      }
 
       const facultyCategory = req.query.faculty ? (req.query.faculty as string) : null;
 
       const [photos, total] = await Promise.all([
-        photoRepo.findByEventAndCategory(eventName, facultyCategory, PHOTO_PAGE_SIZE, offset),
-        photoRepo.countByEventAndCategory(eventName, facultyCategory),
+        photoRepo.findByEventAndCategory(eventId, facultyCategory, PHOTO_PAGE_SIZE, offset),
+        photoRepo.countByEventAndCategory(eventId, facultyCategory),
       ]);
 
       res.status(200).json({
@@ -235,10 +241,14 @@ export class PhotoController {
   // --- [7. ดึง Filter (คณะ / ปีการศึกษา) ตาม Event] ---
   static async getFiltersForEvent(req: Request, res: Response): Promise<void> {
     try {
-      const eventName = decodeURIComponent(req.params.eventName as string);
+      const eventId = parseInt(req.params.eventId as string, 10);
+      if (isNaN(eventId)) {
+        res.status(400).json({ success: false, message: 'Event ID ไม่ถูกต้อง' });
+        return;
+      }
       const [faculties, academicYears] = await Promise.all([
-        photoRepo.getFacultiesByEvent(eventName),
-        photoRepo.getAcademicYearsByEvent(eventName),
+        photoRepo.getFacultiesByEvent(eventId),
+        photoRepo.getAcademicYearsByEvent(eventId),
       ]);
       res.status(200).json({ success: true, data: { faculties, academicYears } });
     } catch (error: any) { sendError(res, error, 'โหลดข้อมูล filter ไม่สำเร็จ'); }
