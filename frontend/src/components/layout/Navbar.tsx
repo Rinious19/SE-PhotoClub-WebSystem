@@ -1,6 +1,4 @@
 //? Component: Navigation Bar
-//@ แถบเมนูด้านบนของเว็บไซต์
-
 import { NavLink } from 'react-router-dom';
 import { Navbar, Nav, Container } from 'react-bootstrap';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,33 +15,25 @@ export const AppNavbar = () => {
         </Navbar.Brand>
 
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
-
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
             <Nav.Link as={NavLink} to="/" className="text-secondary">หน้าแรก</Nav.Link>
             <Nav.Link as={NavLink} to="/photos" className="text-secondary">แกลเลอรี่</Nav.Link>
-            {/* ✅ อีเว้นท์ → หน้าสาธารณะ Coming Soon */}
             <Nav.Link as={NavLink} to="/activities" className="text-secondary">กิจกรรม</Nav.Link>
+            
             {/* ✅ จัดการอีเว้นท์ → เฉพาะ Admin/President */}
             {isAdminOrPresident(user) && (
-              <Nav.Link as={NavLink} to="/event-management" className="text-secondary">จัดการอีเว้นท์</Nav.Link>
+              <Nav.Link as={NavLink} to="/admin" className="text-primary">จัดการระบบ</Nav.Link>
             )}
           </Nav>
 
-          <Nav>
+          <Nav className="align-items-center">
             {isAuthenticated ? (
               <>
                 <Navbar.Text className="me-3 fw-medium text-dark">
-                  {user?.username}
+                  สวัสดี, {user?.username}
                 </Navbar.Text>
-
-                {isAdminOrPresident(user) && (
-                  <Nav.Link as={NavLink} to="/admin" className="text-primary fw-medium">
-                    จัดการระบบ
-                  </Nav.Link>
-                )}
-
-                <Nav.Link as={NavLink} to="/logout" className="text-danger fw-medium">
+                <Nav.Link as={NavLink} to="/logout" className="text-danger fw-medium ms-2">
                   ออกจากระบบ
                 </Nav.Link>
               </>

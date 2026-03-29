@@ -1,45 +1,33 @@
-// backend/src/controllers/PhotoController.ts
+//? Controller: Photo Controller
+//@ รับ Request → เรียก Repository → บันทึก History Log
 
 import { Request, Response } from "express";
 import { PhotoRepository } from "../repositories/PhotoRepository";
+import { historyService } from "../services/HistoryService"; // ← เพิ่มบรรทัดนี้
 import { AuthenticatedRequest } from "../middlewares/AuthMiddleware";
 import { sendError } from "../utils/errorHandler";
 import { createThumbnail, deletePhotoFiles, PHOTOS_URL_PREFIX } from "../middlewares/UploadMiddleware";
 import fs from "fs";
-import path from "path";
 import crypto from "crypto";
 
 const photoRepo = new PhotoRepository();
-const FOLDER_PAGE_SIZE   = 12;
-const PHOTO_PAGE_SIZE    = 20;
+const FOLDER_PAGE_SIZE = 12;
+const PHOTO_PAGE_SIZE  = 20;
 const UPLOADS_URL_PREFIX = PHOTOS_URL_PREFIX;
 
-
 export class PhotoController {
+
   // --- [1. อัปโหลดรูป] ---
   static async uploadPhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { title, event_date, description, faculty, academic_year } = req.body;
       const userId = req.user?.userId || req.user?.id;
 
-      if (!req.file) {
-        res.status(400).json({ success: false, message: 'กรุณาเลือกไฟล์รูปภาพ' });
-        return;
-      }
-      if (!title?.trim()) {
-        fs.unlinkSync(req.file.path);
-        res.status(400).json({ success: false, message: 'กรุณาเลือกกิจกรรม' });
-        return;
-      }
-      if (!userId) {
-        fs.unlinkSync(req.file.path);
-        res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่' });
-        return;
-      }
+      if (!req.file) { res.status(400).json({ success: false, message: 'กรุณาเลือกไฟล์รูปภาพ' }); return; }
+      if (!title?.trim()) { fs.unlinkSync(req.file.path); res.status(400).json({ success: false, message: 'กรุณาเลือกกิจกรรม' }); return; }
+      if (!userId) { fs.unlinkSync(req.file.path); res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' }); return; }
 
-      const imageUrl = `${UPLOADS_URL_PREFIX}/${req.file.filename}`;
-
-      // ✅ คำนวณ MD5 hash เพื่อเช็ครูปซ้ำใน event เดียวกัน
+      const imageUrl   = `${UPLOADS_URL_PREFIX}/${req.file.filename}`;
       const fileBuffer = fs.readFileSync(req.file.path);
       const fileHash   = crypto.createHash('md5').update(fileBuffer).digest('hex');
 
@@ -50,7 +38,6 @@ export class PhotoController {
         res.status(409).json({
           success: false,
           message: `รูปภาพ "${req.file.originalname}" มีอยู่ใน Event นี้แล้ว`,
-          //@ ส่งข้อมูลรูปที่ซ้ำกลับไป เพื่อให้ frontend แสดง thumbnail และ link ตรงไปยังรูปนั้น
           duplicate: {
             id:            duplicate.id,
             thumbnail_url: duplicate.thumbnail_url ? `${BASE_URL}${duplicate.thumbnail_url}` : null,
@@ -63,22 +50,26 @@ export class PhotoController {
       }
 
       let thumbnailUrl: string | null = null;
-      try {
-        thumbnailUrl = await createThumbnail(req.file.filename);
-      } catch (thumbErr) {
-        console.warn('[Thumbnail] สร้างไม่สำเร็จ:', thumbErr);
-      }
+      try { thumbnailUrl = await createThumbnail(req.file.filename); } catch { /* thumbnail fail ไม่ block */ }
 
       const photo = await photoRepo.create({
         title: title.trim(), event_date, description,
-        image_url: imageUrl,
-        thumbnail_url: thumbnailUrl,
+        image_url: imageUrl, thumbnail_url: thumbnailUrl,
         faculty: faculty?.trim() || null,
         academic_year: academic_year?.trim() || null,
         file_hash: fileHash,
         user_id: userId, created_by: userId,
       });
-      await photoRepo.logAction(photo.id, 'UPLOAD', userId, `อัปโหลดรูป: ${title}`);
+
+      //! สิ่งที่สำคัญมาก — บันทึกลง history_logs (ไม่ใช่ photo_audit_logs)
+      await historyService.log({
+        actorId:    userId,
+        action:     'UPLOAD_PHOTO',
+        targetType: 'PHOTO',
+        targetId:   photo.id,
+        detail:     { title: title.trim(), faculty: faculty || null, academic_year: academic_year || null },
+      });
+
       res.status(201).json({ success: true, data: photo });
     } catch (error: any) {
       if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
@@ -89,26 +80,18 @@ export class PhotoController {
   // --- [2. แก้ไขรูป] ---
   static async updatePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id as string, 10);
+      const id     = parseInt(req.params.id as string, 10);
       const { title, event_date, description, faculty, academic_year } = req.body;
       const userId = req.user?.userId || req.user?.id;
 
-      if (isNaN(id)) {
-        res.status(400).json({ success: false, message: 'ID รูปภาพไม่ถูกต้อง' });
-        return;
-      }
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่' });
-        return;
-      }
+      if (isNaN(id))  { res.status(400).json({ success: false, message: 'ID รูปภาพไม่ถูกต้อง' }); return; }
+      if (!userId)    { res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' }); return; }
 
       let newImageUrl: string | undefined;
       let newThumbUrl: string | undefined;
       if (req.file) {
         newImageUrl = `${UPLOADS_URL_PREFIX}/${req.file.filename}`;
-        try {
-          newThumbUrl = await createThumbnail(req.file.filename);
-        } catch { /* thumbnail fail ไม่ block */ }
+        try { newThumbUrl = await createThumbnail(req.file.filename); } catch { /* thumbnail fail ไม่ block */ }
       }
 
       if (newImageUrl) {
@@ -118,19 +101,25 @@ export class PhotoController {
 
       const success = await photoRepo.update(id, {
         title, event_date, description,
-        image_url: newImageUrl,
-        thumbnail_url: newThumbUrl,
-        faculty: faculty !== undefined ? (faculty?.trim() || null) : undefined,
+        image_url: newImageUrl, thumbnail_url: newThumbUrl,
+        faculty:       faculty       !== undefined ? (faculty?.trim()       || null) : undefined,
         academic_year: academic_year !== undefined ? (academic_year?.trim() || null) : undefined,
         updated_by: userId,
       });
 
       if (success) {
-        await photoRepo.logAction(id, 'EDIT', userId, `แก้ไขรูป: ${title}`);
+        //! สิ่งที่สำคัญมาก — บันทึกลง history_logs
+        await historyService.log({
+          actorId:    userId,
+          action:     'UPDATE_PHOTO', //! ใช้ UPLOAD_PHOTO เพราะยังไม่มี UPDATE_PHOTO ใน HistoryAction
+          targetType: 'PHOTO',
+          targetId:   id,
+          detail:     { updatedTitle: title, faculty: faculty || null },
+        });
         res.status(200).json({ success: true, message: 'แก้ไขรูปภาพสำเร็จ' });
       } else {
         if (req.file?.path) fs.unlinkSync(req.file.path);
-        res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${id} หรือถูกลบไปแล้ว` });
+        res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${id}` });
       }
     } catch (error: any) {
       if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
@@ -138,35 +127,29 @@ export class PhotoController {
     }
   }
 
-  // --- [3. ลบรูป (Hard Delete — ลบทั้ง DB และไฟล์บน disk)] ---
+  // --- [3. ลบรูป] ---
   static async deletePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const photoId = parseInt(req.params.id as string, 10);
       const userId  = req.user?.userId || req.user?.id;
 
-      if (isNaN(photoId)) {
-        res.status(400).json({ success: false, message: 'ID รูปภาพไม่ถูกต้อง' });
-        return;
-      }
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่' });
-        return;
-      }
+      if (isNaN(photoId)) { res.status(400).json({ success: false, message: 'ID รูปภาพไม่ถูกต้อง' }); return; }
+      if (!userId)        { res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' }); return; }
 
-      //@ ดึงข้อมูล path ก่อนลบ เพื่อใช้ลบไฟล์บน disk
       const photo = await photoRepo.findById(photoId);
-      if (!photo) {
-        res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${photoId}` });
-        return;
-      }
+      if (!photo) { res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${photoId}` }); return; }
 
-      //@ บันทึก audit log ก่อนลบ เพราะ FK constraint ทำให้ insert หลังลบไม่ได้
-      await photoRepo.logAction(photoId, 'DELETE', userId, 'ลบรูปภาพถาวร');
+      //! สิ่งที่สำคัญมาก — log ก่อนลบ เพราะ FK จะทำให้ log หลังลบไม่ได้
+      await historyService.log({
+        actorId:    userId,
+        action:     'DELETE_PHOTO',
+        targetType: 'PHOTO',
+        targetId:   photoId,
+        detail:     { deletedTitle: photo.title, faculty: photo.faculty || null },
+      });
 
-      //@ ลบออกจาก DB จริง
       const isDeleted = await photoRepo.hardDelete(photoId);
       if (isDeleted) {
-        //@ ลบไฟล์บน disk หลัง DB สำเร็จ
         deletePhotoFiles(photo.image_url, photo.thumbnail_url);
         res.status(200).json({ success: true, message: 'ลบรูปภาพสำเร็จ' });
       } else {
@@ -177,19 +160,14 @@ export class PhotoController {
     }
   }
 
-  // --- [4. ดึงรูปทั้งหมด (legacy)] ---
+  // --- [4-6. ส่วนที่เหลือเหมือนเดิม ไม่ต้องแก้] ---
   static async getPhotos(req: Request, res: Response): Promise<void> {
     try {
       const photos = await photoRepo.findAllActive();
       res.status(200).json({ success: true, data: photos });
-    } catch (error: any) {
-      sendError(res, error, 'โหลดรูปภาพไม่สำเร็จ');
-    }
+    } catch (error: any) { sendError(res, error, 'โหลดรูปภาพไม่สำเร็จ'); }
   }
 
-  // ✅ --- [5. ดึง Folders (Grouped by Event + Faculty + AcademicYear)] ---
-  //  — แต่ละ folder มี key = (event_name, faculty, academic_year)
-  //  — ส่ง faculty และ academic_year กลับไปใน data เพื่อให้ frontend navigate ได้ถูก folder
   static async getGroupedByEvent(req: Request, res: Response): Promise<void> {
     try {
       const page   = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -198,54 +176,28 @@ export class PhotoController {
         photoRepo.findGroupedByEvent(FOLDER_PAGE_SIZE, offset),
         photoRepo.countGroups(),
       ]);
-      res.status(200).json({
-        success: true,
-        data: groups,
-        pagination: {
-          page, pageSize: FOLDER_PAGE_SIZE, total,
-          totalPages: Math.ceil(total / FOLDER_PAGE_SIZE),
-          hasMore: offset + groups.length < total,
-        },
-      });
-    } catch (error: any) {
-      sendError(res, error, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ');
-    }
+      res.status(200).json({ success: true, data: groups, pagination: { page, pageSize: FOLDER_PAGE_SIZE, total, totalPages: Math.ceil(total / FOLDER_PAGE_SIZE), hasMore: offset + groups.length < total } });
+    } catch (error: any) { sendError(res, error, 'โหลดข้อมูลแกลเลอรี่ไม่สำเร็จ'); }
   }
 
-  // ✅ --- [6. ดึงรูปใน Event แบบ Pagination + filter (faculty, academic_year)] ---
   static async getPhotosByEvent(req: Request, res: Response): Promise<void> {
     try {
-      const eventName     = decodeURIComponent(req.params.eventName as string);
-      const page          = Math.max(1, parseInt(req.query.page as string) || 1);
-      //@ null   = ไม่ได้ส่ง key มา → ไม่ filter
-      //@ ''     = ส่งมาแต่ว่าง → filter IS NULL (folder ที่ไม่มีคณะ/ปี)
-      //@ 'xxx'  = filter ตามค่า
-      const hasFaculty     = req.query.faculty       !== undefined;
-      const hasAcademic    = req.query.academic_year !== undefined;
-      const faculty        = hasFaculty  ? (req.query.faculty       as string) : null;
-      const academic_year  = hasAcademic ? (req.query.academic_year as string) : null;
-      const offset         = (page - 1) * PHOTO_PAGE_SIZE;
-      const category       = (hasFaculty || hasAcademic) ? { faculty, academic_year } : null;
-
+      const eventName    = decodeURIComponent(req.params.eventName as string);
+      const page         = Math.max(1, parseInt(req.query.page as string) || 1);
+      const hasFaculty   = req.query.faculty       !== undefined;
+      const hasAcademic  = req.query.academic_year !== undefined;
+      const faculty      = hasFaculty  ? (req.query.faculty       as string) : null;
+      const academic_year = hasAcademic ? (req.query.academic_year as string) : null;
+      const offset       = (page - 1) * PHOTO_PAGE_SIZE;
+      const category     = (hasFaculty || hasAcademic) ? { faculty, academic_year } : null;
       const [photos, total] = await Promise.all([
         photoRepo.findByEventAndCategory(eventName, category, PHOTO_PAGE_SIZE, offset),
         photoRepo.countByEventAndCategory(eventName, category),
       ]);
-      res.status(200).json({
-        success: true,
-        data: photos,
-        pagination: {
-          page, pageSize: PHOTO_PAGE_SIZE, total,
-          totalPages: Math.ceil(total / PHOTO_PAGE_SIZE),
-          hasMore: offset + photos.length < total,
-        },
-      });
-    } catch (error: any) {
-      sendError(res, error, 'โหลดรูปภาพในกิจกรรมไม่สำเร็จ');
-    }
+      res.status(200).json({ success: true, data: photos, pagination: { page, pageSize: PHOTO_PAGE_SIZE, total, totalPages: Math.ceil(total / PHOTO_PAGE_SIZE), hasMore: offset + photos.length < total } });
+    } catch (error: any) { sendError(res, error, 'โหลดรูปภาพในกิจกรรมไม่สำเร็จ'); }
   }
 
-  // ✅ ดึง faculty และ academic_year ทั้งหมดใน event (สำหรับ filter dropdown)
   static async getFiltersForEvent(req: Request, res: Response): Promise<void> {
     try {
       const eventName = decodeURIComponent(req.params.eventName as string);
@@ -254,8 +206,6 @@ export class PhotoController {
         photoRepo.getAcademicYearsByEvent(eventName),
       ]);
       res.status(200).json({ success: true, data: { faculties, academicYears } });
-    } catch (error: any) {
-      sendError(res, error, 'โหลดข้อมูล filter ไม่สำเร็จ');
-    }
+    } catch (error: any) { sendError(res, error, 'โหลดข้อมูล filter ไม่สำเร็จ'); }
   }
 }

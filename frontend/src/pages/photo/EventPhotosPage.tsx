@@ -18,18 +18,30 @@ import { isAdminOrPresident } from '@/utils/roleChecker';
 import { parseApiError } from '@/utils/apiError';
 
 const BASE_URL = 'http://localhost:5000';
-const getImageUrl = (imageUrl: any): string => {
+const getImageUrl = (imageUrl: string | null | undefined): string => {
   if (!imageUrl) return '';
   if (typeof imageUrl === 'string') {
     return imageUrl.startsWith('http') ? imageUrl : `${BASE_URL}${imageUrl}`;
   }
-  try {
-    const arr = new Uint8Array(imageUrl.data || imageUrl);
-    let bin = '';
-    arr.forEach(b => { bin += String.fromCharCode(b); });
-    return `data:image/jpeg;base64,${btoa(bin)}`;
-  } catch { return ''; }
+  return '';
 };
+
+interface PhotoItem {
+  id:            number;
+  title:         string;
+  event_date:    string | null;
+  image_url:     string;
+  thumbnail_url: string | null;
+  faculty:       string | null;
+  academic_year: string | null;
+  description:   string | null;
+}
+
+interface EventItem {
+  id:         number;
+  event_name: string;
+  event_date: string;
+}
 
 const FACULTIES = [
   '', 'มหาวิทยาลัย', 'คณะวิศวกรรมศาสตร์', 'คณะครุศาสตร์อุตสาหกรรม',
@@ -144,7 +156,7 @@ export const EventPhotosPage: React.FC = () => {
   const folderFilterActiveRef = useRef(rawFaculty !== null || rawYear !== null);
   const decodedName = decodeURIComponent(eventName || '');
 
-  const [photos, setPhotos] = useState<any[]>([]);
+  const [photos, setPhotos]   = useState<PhotoItem[]>([]);
   const pageRef = useRef(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -153,7 +165,7 @@ export const EventPhotosPage: React.FC = () => {
   const [total, setTotal] = useState(0);
 
   // Lightbox
-  const [lightboxPhoto, setLightboxPhoto] = useState<any | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<PhotoItem | null>(null);
 
   // Single delete
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
@@ -172,7 +184,7 @@ export const EventPhotosPage: React.FC = () => {
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
   const [bulkEditing, setBulkEditing] = useState(false);
   const [bulkEditError, setBulkEditError] = useState<string | null>(null);
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents]   = useState<EventItem[]>([]);
   const [editForm, setEditForm] = useState({
     event_name: '',
     faculty: '',
@@ -203,30 +215,38 @@ export const EventPhotosPage: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const fetchPage = useCallback(async (pageNum: number) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-    try {
-      const params: Record<string, any> = { page: pageNum };
-      if (folderFilterActiveRef.current) {
-        params.faculty       = initFaculty;
-        params.academic_year = initYear;
-      }
-      const r = await axios.get(
-        `/api/photos/by-event/${encodeURIComponent(decodedName)}`,
-        { params }
-      );
-      const res = r.data;
-      if (res.success) {
-        setPhotos(prev => pageNum === 1 ? res.data : [...prev, ...res.data]);
-        setHasMore(res.pagination.hasMore);
-        setTotal(res.pagination.total);
-      }
-    } catch (err: any) { setError(parseApiError(err, 'โหลดรูปภาพไม่สำเร็จ')); }
-    finally { loadingRef.current = false; setLoadingMore(false); setInitialLoading(false); }
-  }, [decodedName, initFaculty, initYear]);
+  // ✅ แก้ fetchPage: Record<string, any> → สร้าง type
+const fetchPage = useCallback(async (pageNum: number) => {
+  if (loadingRef.current) return;
+  loadingRef.current = true;
+  try {
+    const params: Record<string, string | number> = { page: pageNum }; // ✅
+    if (folderFilterActiveRef.current) {
+      params.faculty       = initFaculty;
+      params.academic_year = initYear;
+    }
+    const r = await axios.get(
+      `/api/photos/by-event/${encodeURIComponent(decodedName)}`,
+      { params }
+    );
+    const res = r.data;
+    if (res.success) {
+      setPhotos(prev => pageNum === 1 ? res.data as PhotoItem[] : [...prev, ...res.data as PhotoItem[]]);
+      setHasMore(res.pagination.hasMore);
+      setTotal(res.pagination.total);
+    }
+  } catch (err: unknown) { // ✅ any → unknown
+    setError(parseApiError(err, 'โหลดรูปภาพไม่สำเร็จ'));
+  } finally {
+    loadingRef.current = false;
+    setLoadingMore(false);
+    setInitialLoading(false);
+  }
+}, [decodedName, initFaculty, initYear]);
 
-  useEffect(() => { fetchPage(1); }, []);
+  useEffect(() => {
+  fetchPage(1);
+}, [fetchPage]);
 
   useEffect(() => {
     if (!openPhotoId || photos.length === 0) return;
@@ -264,12 +284,18 @@ export const EventPhotosPage: React.FC = () => {
   };
 
   const toggleSelect = (id: number) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  setSelectedIds((prev) => {
+    const next = new Set(prev);
+
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+
+    return next;
+  });
+};
 
   const selectAll = () => setSelectedIds(new Set(photos.map(p => p.id)));
   const deselectAll = () => setSelectedIds(new Set());
@@ -293,7 +319,7 @@ export const EventPhotosPage: React.FC = () => {
         return updated;
       });
       setTotal(prev => prev - 1);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setDeleteError(parseApiError(err, 'ลบรูปภาพไม่สำเร็จ'));
     }
   };

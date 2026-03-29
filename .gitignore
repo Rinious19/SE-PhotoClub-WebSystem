@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 
+=======
 # Uploaded files
 backend/uploads/
 

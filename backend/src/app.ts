@@ -2,16 +2,31 @@
 //@ ไฟล์หลักสำหรับรัน Server Express
 
 import express from 'express';
+import adminRoutes from './routes/AdminRoutes';
+import historyRoutes from './routes/HistoryRoutes';
 import path from 'path';
 import cors from 'cors';
 import authRoutes from './routes/AuthRoutes';
 import photoRoutes from './routes/PhotoRoutes';
 import eventRoutes from './routes/EventRoutes';
+import { ErrorMiddleware } from './middlewares/ErrorMiddleware';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 //* context (Middleware พื้นฐาน)
+app.use(cors()); // อนุญาตให้ Frontend ยิง API มาได้    
+app.use(express.json()); // รับข้อมูลแบบ JSON
+app.use('/admin', adminRoutes);
+app.use('/history', historyRoutes);
+app.use('/api/admin', adminRoutes);
+app.use(ErrorMiddleware);
+
+// เชื่อมต่อ Module Auth
+app.use('/api/auth', authRoutes);
+
+//! สิ่งที่สำคัญมาก (Route สำหรับเช็คสถานะ Server)
+
 app.use(cors());
 
 // ✅ เพิ่ม limit เป็น 50MB เพื่อรองรับรูปภาพขนาดใหญ่
