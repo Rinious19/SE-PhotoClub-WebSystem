@@ -149,15 +149,16 @@ export class EventController {
     }
   }
 
-  // นับจำนวนรูปที่ผูกกับ event
+  // นับจำนวนรูปที่ผูกกับ event — ใช้ event_id แทน event_name
   static async getPhotoCount(req: Request, res: Response): Promise<void> {
     try {
-      const { event_name } = req.query;
-      if (!event_name) {
-        res.status(400).json({ success: false, message: 'กรุณาระบุชื่ออีเว้นท์' });
+      const eventId = parseInt(req.query.event_id as string, 10);
+      if (isNaN(eventId)) {
+        res.status(400).json({ success: false, message: 'กรุณาระบุ Event ID' });
         return;
       }
-      const count = await eventRepo.countPhotosByEventName(event_name as string);
+      //* context — ใช้ countPhotosByEventId แทน countPhotosByEventName
+      const count = await eventRepo.countPhotosByEventId(eventId);
       res.status(200).json({ success: true, count });
     } catch (error: any) {
       sendError(res, error, 'โหลดจำนวนรูปไม่สำเร็จ');

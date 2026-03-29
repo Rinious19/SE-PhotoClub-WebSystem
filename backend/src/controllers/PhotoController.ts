@@ -15,6 +15,16 @@ const FOLDER_PAGE_SIZE = 12;
 const PHOTO_PAGE_SIZE  = 20;
 const UPLOADS_URL_PREFIX = PHOTOS_URL_PREFIX;
 
+//! Windows fix — unlinkSync ทำให้เกิด EBUSY เพราะ OS ยังล็อคไฟล์อยู่
+//* context — ใช้ async unlink พร้อม retry แทน unlinkSync ทุกที่
+const safeUnlink = (filePath: string, retries = 3, delay = 100): void => {
+  fs.unlink(filePath, (err) => {
+    if (err && err.code === 'EBUSY' && retries > 0) {
+      setTimeout(() => safeUnlink(filePath, retries - 1, delay * 2), delay);
+    }
+  });
+};
+
 export class PhotoController {
 
   // --- [1. อัปโหลดรูป] ---
@@ -25,8 +35,8 @@ export class PhotoController {
       const userId = req.user?.userId || req.user?.id;
 
       if (!req.file) { res.status(400).json({ success: false, message: 'กรุณาเลือกไฟล์รูปภาพ' }); return; }
-      if (!title?.trim()) { fs.unlinkSync(req.file.path); res.status(400).json({ success: false, message: 'กรุณาเลือกกิจกรรม' }); return; }
-      if (!userId) { fs.unlinkSync(req.file.path); res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' }); return; }
+      if (!title?.trim()) { safeUnlink(req.file.path); res.status(400).json({ success: false, message: 'กรุณาเลือกกิจกรรม' }); return; }
+      if (!userId) { safeUnlink(req.file.path); res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' }); return; }
 
       const imageUrl   = `${UPLOADS_URL_PREFIX}/${req.file.filename}`;
       const fileBuffer = fs.readFileSync(req.file.path);
@@ -34,7 +44,7 @@ export class PhotoController {
 
       const duplicate = await photoRepo.findDuplicateHash(title.trim(), fileHash);
       if (duplicate) {
-        fs.unlinkSync(req.file.path);
+        safeUnlink(req.file.path);
         const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
         res.status(409).json({
           success: false,
@@ -79,7 +89,7 @@ export class PhotoController {
 
       res.status(201).json({ success: true, data: photo });
     } catch (error: any) {
-      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      if (req.file?.path && fs.existsSync(req.file.path)) safeUnlink(req.file.path);
       sendError(res, error, 'อัปโหลดรูปภาพไม่สำเร็จ');
     }
   }
@@ -131,11 +141,11 @@ export class PhotoController {
         });
         res.status(200).json({ success: true, message: 'แก้ไขรูปภาพสำเร็จ' });
       } else {
-        if (req.file?.path) fs.unlinkSync(req.file.path);
+        if (req.file?.path) safeUnlink(req.file.path);
         res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${id}` });
       }
     } catch (error: any) {
-      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      if (req.file?.path && fs.existsSync(req.file.path)) safeUnlink(req.file.path);
       sendError(res, error, 'แก้ไขรูปภาพไม่สำเร็จ');
     }
   }
@@ -211,7 +221,7 @@ export class PhotoController {
   // --- [6. ดึงรูปตาม Event ID (หน้า Folder)] ---
   static async getPhotosByEvent(req: Request, res: Response): Promise<void> {
     try {
-      //? รับ event_id จาก URL param แทน event_name เพื่อให้ gallery ทำงานได้แม้ไม่มีรูป
+      //? รับ event_id จาก URL param แทน event_name
       const eventId = parseInt(req.params.eventId as string, 10);
       const page    = Math.max(1, parseInt(req.query.page as string) || 1);
       const offset  = (page - 1) * PHOTO_PAGE_SIZE;

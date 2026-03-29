@@ -15,7 +15,6 @@ export const ActivityService = {
     dateFrom?: string;
     dateTo?:   string;
   } = {}) => {
-    // กรองค่าว่างออกก่อนส่ง query params
     const cleanParams = Object.fromEntries(
       Object.entries(params).filter(([, v]) => v !== '' && v !== undefined)
     );
@@ -30,11 +29,15 @@ export const ActivityService = {
   },
 
   //@ สร้างกิจกรรมใหม่ (CLUB_PRESIDENT)
+  //* context — เพิ่ม event_id, faculty, academic_year เพื่อให้ backend ดึงรูปด้วย FK แทน event_name
   create: async (data: {
     title:               string;
     description?:        string;
     category?:           string;
     event_name:          string;
+    event_id:            number;
+    faculty?:            string;
+    academic_year?:      string;
     start_at:            string;
     end_at:              string;
     excluded_photo_ids?: number[];

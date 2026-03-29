@@ -30,21 +30,23 @@ export class EventRepository {
     );
     if (oldRows.length === 0) throw new Error("ไม่พบกิจกรรมที่ต้องการแก้ไข");
 
-    const oldName = oldRows[0].event_name;
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
+      //? อัปเดต events table
       await connection.query<ResultSetHeader>(
         "UPDATE events SET event_name = ?, event_date = STR_TO_DATE(?, '%Y-%m-%d') WHERE id = ?",
         [data.event_name, data.event_date, id]
       );
 
+      //* context — sync event_name และ event_date ใน photos ด้วย event_id (FK)
+      //* ไม่ใช้ title = ? เพราะ title อาจซ้ำกันข้ามอีเว้นท์ได้
       const [cr] = await connection.query<ResultSetHeader>(
-        "UPDATE photos SET title = ?, event_date = STR_TO_DATE(?, '%Y-%m-%d') WHERE title = ? AND deleted_at IS NULL",
-        [data.event_name, data.event_date, oldName]
+        "UPDATE photos SET event_name = ?, event_date = STR_TO_DATE(?, '%Y-%m-%d') WHERE event_id = ? AND deleted_at IS NULL",
+        [data.event_name, data.event_date, id]
       );
-      console.log(`[Cascade Update] "${oldName}" → "${data.event_name}" : ${cr.affectedRows} รูป`);
+      console.log(`[Cascade Update] event_id=${id} → "${data.event_name}" : ${cr.affectedRows} รูป`);
 
       await connection.commit();
       return { id, ...data };
@@ -62,23 +64,21 @@ export class EventRepository {
     );
     if (rows.length === 0) throw new Error("ไม่พบกิจกรรมที่ต้องการลบ");
 
-    const eventName = rows[0].event_name;
-
-    //@ ดึง path ของรูปทั้งหมดใน event ก่อนลบ เพื่อใช้ลบไฟล์บน disk
+    //* context — ดึงรูปด้วย event_id (FK) ไม่ใช่ title = event_name
     const [photoRows] = await pool.query<RowDataPacket[]>(
-      "SELECT image_url, thumbnail_url FROM photos WHERE title = ? AND deleted_at IS NULL",
-      [eventName]
+      "SELECT image_url, thumbnail_url FROM photos WHERE event_id = ? AND deleted_at IS NULL",
+      [id]
     );
 
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      //@ Hard delete รูปทั้งหมดใน event นี้
+      //? Hard delete รูปทั้งหมดใน event นี้ด้วย event_id
       const [dr] = await connection.query<ResultSetHeader>(
-        "DELETE FROM photos WHERE title = ? AND deleted_at IS NULL", [eventName]
+        "DELETE FROM photos WHERE event_id = ? AND deleted_at IS NULL", [id]
       );
-      console.log(`[Cascade Delete] ลบรูป ${dr.affectedRows} รูปจาก "${eventName}"`);
+      console.log(`[Cascade Delete] ลบรูป ${dr.affectedRows} รูปจาก event_id=${id}`);
 
       await connection.query<ResultSetHeader>("DELETE FROM events WHERE id = ?", [id]);
       await connection.commit();
@@ -96,9 +96,23 @@ export class EventRepository {
     console.log(`[Cascade Delete] ลบไฟล์ ${photoRows.length} ไฟล์จาก disk`);
   }
 
+  //* context — นับรูปด้วย event_id แทน event_name string
   async countPhotosByEventName(eventName: string): Promise<number> {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT COUNT(*) as count FROM photos WHERE title = ? AND deleted_at IS NULL", [eventName]
+      `SELECT COUNT(*) as count 
+       FROM photos p
+       JOIN events e ON p.event_id = e.id
+       WHERE e.event_name = ? AND p.deleted_at IS NULL`,
+      [eventName]
+    );
+    return rows[0].count;
+  }
+
+  //* context — นับรูปด้วย event_id โดยตรง (ใช้ใน EventController)
+  async countPhotosByEventId(eventId: number): Promise<number> {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT COUNT(*) as count FROM photos WHERE event_id = ? AND deleted_at IS NULL",
+      [eventId]
     );
     return rows[0].count;
   }

@@ -88,19 +88,30 @@ export const createThumbnail = async (
 };
 
 // ✅ ลบทั้งรูปเต็มและ thumbnail
+//! Windows fix — ใช้ async unlink + retry แทน unlinkSync เพื่อหลีกเลี่ยง EBUSY
+//* context — fs.unlinkSync ทำให้เกิด EBUSY บน Windows เพราะ OS ยังล็อคไฟล์อยู่
+//  ฟังก์ชันนี้ไม่ block request — ลบ background แบบ async
+const safeUnlinkFile = (filepath: string, retries = 3, delay = 100): void => {
+  fs.unlink(filepath, (err) => {
+    if (!err) return; // ลบสำเร็จ
+    if (err.code === 'EBUSY' && retries > 0) {
+      // retry พร้อม exponential backoff
+      setTimeout(() => safeUnlinkFile(filepath, retries - 1, delay * 2), delay);
+    }
+    // ENOENT (ไม่มีไฟล์) หรือ error อื่น → ไม่ต้องทำอะไร
+  });
+};
+
 export const deletePhotoFiles = (
   imageUrl?: string,
   thumbnailUrl?: string,
 ): void => {
   const tryDelete = (url?: string, baseDir?: string) => {
-    if (!url) return;
-    try {
-      const filename = path.basename(url);
-      const filepath = path.join(baseDir!, filename);
-      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-    } catch {
-      /* ignore */
-    }
+    if (!url || !baseDir) return;
+    // แปลง URL path เป็น filesystem path
+    const filename = path.basename(url);
+    const filepath = path.join(baseDir, filename);
+    safeUnlinkFile(filepath);
   };
   tryDelete(imageUrl, PHOTOS_DIR);
   tryDelete(thumbnailUrl, THUMBNAILS_DIR);

@@ -49,6 +49,10 @@ export const CreateActivityPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [category,    setCategory]    = useState('');
   const [eventName,   setEventName]   = useState('');
+  //* context — เก็บ event_id คู่กับ event_name เพื่อส่งให้ PhotoService และ backend
+  const [eventId,     setEventId]     = useState<number | null>(null);
+  const [filterFaculty, setFilterFaculty] = useState('');
+  const [filterYear,    setFilterYear]    = useState('');
   const [startAt,     setStartAt]     = useState('');
   const [endAt,       setEndAt]       = useState('');
 
@@ -87,22 +91,23 @@ export const CreateActivityPage: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  //@ เมื่อเลือกอีเว้นท์ → ดึงรูปภาพทั้งหมดจากอีเว้นท์นั้น
+  //@ เมื่อเลือกอีเว้นท์ → ดึงรูปภาพทั้งหมดจากอีเว้นท์นั้นด้วย event_id
   useEffect(() => {
-    if (!eventName) {
+    if (!eventId) {
       setEventPhotos([]);
       setExcludedPhotoIds(new Set());
       return;
     }
     setPhotosLoading(true);
-    PhotoService.getByEvent(eventName, 1)
+    //* context — ใช้ eventId (number) แทน eventName (string) แก้ TypeScript error
+    PhotoService.getByEvent(eventId, 1)
       .then((res) => {
         setEventPhotos(res.data || []);
-        setExcludedPhotoIds(new Set()); // reset เมื่อเปลี่ยนอีเว้นท์
+        setExcludedPhotoIds(new Set());
       })
       .catch(() => setEventPhotos([]))
       .finally(() => setPhotosLoading(false));
-  }, [eventName]);
+  }, [eventId]);
 
   //@ toggle รูปเพื่อ include/exclude
   const toggleExclude = (photoId: number) => {
@@ -118,16 +123,28 @@ export const CreateActivityPage: React.FC = () => {
   };
 
   // จำนวนรูปที่จะอยู่ในกิจกรรมจริง
-  const includedCount = eventPhotos.length - excludedPhotoIds.size;
-
-  const filteredEvents = useMemo(
-    () => events.filter((ev) =>
-      ev.event_name.toLowerCase().includes(eventName.toLowerCase())
-    ),
-    [events, eventName]
-  );
-
   const isValidEvent = events.some((ev) => ev.event_name === eventName);
+
+  //? กรองรูปตาม faculty และ academic_year ที่เลือก
+  const displayedPhotos = useMemo(() => eventPhotos.filter(p => {
+    const facultyMatch = !filterFaculty || (p.faculty || '') === filterFaculty;
+    const yearMatch    = !filterYear    || (p.academic_year || '') === filterYear;
+    return facultyMatch && yearMatch;
+  }), [eventPhotos, filterFaculty, filterYear]);
+
+  const availableFaculties = useMemo(() =>
+    [...new Set(eventPhotos.map(p => p.faculty).filter(Boolean))] as string[],
+    [eventPhotos]);
+
+  const availableYears = useMemo(() =>
+    [...new Set(eventPhotos.map(p => p.academic_year).filter(Boolean))] as string[],
+    [eventPhotos]);
+
+  const includedCount = displayedPhotos.filter(p => !excludedPhotoIds.has(p.id)).length;
+
+  const filteredEvents = useMemo(() =>
+    events.filter(ev => ev.event_name.toLowerCase().includes(eventName.toLowerCase())),
+    [events, eventName]);
 
   //@ ตรวจสอบ form ก่อนเปิด Modal ยืนยัน
   const handleSubmitClick = (e: React.FormEvent) => {
@@ -168,10 +185,14 @@ export const CreateActivityPage: React.FC = () => {
         {
           title:               title.trim(),
           description:         description.trim() || undefined,
-          category:            category          || undefined,
+          category:            category           || undefined,
           event_name:          eventName,
-          start_at:            formatTimeToSubmit(startAt), // ส่งรูปแบบ YYYY-MM-DDTHH:mm:ssZ
-          end_at:              formatTimeToSubmit(endAt),   // ส่งรูปแบบ YYYY-MM-DDTHH:mm:ssZ
+          //* context — ส่ง event_id เพื่อให้ backend ดึงรูปด้วย FK แทน event_name string
+          event_id:            eventId!,
+          faculty:             filterFaculty      || undefined,
+          academic_year:       filterYear         || undefined,
+          start_at:            formatTimeToSubmit(startAt),
+          end_at:              formatTimeToSubmit(endAt),
           excluded_photo_ids:  Array.from(excludedPhotoIds),
         },
         token!
@@ -232,7 +253,7 @@ export const CreateActivityPage: React.FC = () => {
                   type="text"
                   placeholder="พิมพ์เพื่อค้นหาอีเว้นท์..."
                   value={eventName}
-                  onChange={(e) => { setEventName(e.target.value); setEventDropdownOpen(true); }}
+                  onChange={(e) => { setEventName(e.target.value); setEventId(null); setEventDropdownOpen(true); }}
                   onFocus={() => setEventDropdownOpen(true)}
                   autoComplete="off"
                 />
@@ -250,7 +271,7 @@ export const CreateActivityPage: React.FC = () => {
                         style={{ cursor: 'pointer' }}
                         onMouseOver={(e) => (e.currentTarget.style.background = '#f0f4ff')}
                         onMouseOut={(e)  => (e.currentTarget.style.background = '#fff')}
-                        onClick={() => { setEventName(ev.event_name); setEventDropdownOpen(false); }}
+                        onClick={() => { setEventName(ev.event_name); setEventId(ev.id); setEventDropdownOpen(false); }}
                       >
                         <span className="fw-bold text-primary">{ev.event_name}</span>
                         <span className="text-muted small ms-2">{ev.event_date?.split('T')[0]}</span>
@@ -363,54 +384,64 @@ export const CreateActivityPage: React.FC = () => {
 
               {!photosLoading && eventPhotos.length > 0 && (
                 <>
+                  {/* ─── Filter คณะ / ปีการศึกษา ─── */}
+                  {(availableFaculties.length > 0 || availableYears.length > 0) && (
+                    <div className="d-flex gap-2 mb-2 flex-wrap align-items-center">
+                      <small className="text-muted fw-bold">กรองรูป:</small>
+                      {availableFaculties.length > 0 && (
+                        <Form.Select size="sm" style={{ width: 'auto' }}
+                          value={filterFaculty}
+                          onChange={e => { setFilterFaculty(e.target.value); setExcludedPhotoIds(new Set()); }}>
+                          <option value="">-- ทุกคณะ --</option>
+                          {availableFaculties.map(f => <option key={f} value={f}>{f}</option>)}
+                        </Form.Select>
+                      )}
+                      {availableYears.length > 0 && (
+                        <Form.Select size="sm" style={{ width: 'auto' }}
+                          value={filterYear}
+                          onChange={e => { setFilterYear(e.target.value); setExcludedPhotoIds(new Set()); }}>
+                          <option value="">-- ทุกปี --</option>
+                          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                        </Form.Select>
+                      )}
+                      {(filterFaculty || filterYear) && (
+                        <Button size="sm" variant="outline-secondary"
+                          onClick={() => { setFilterFaculty(''); setFilterYear(''); setExcludedPhotoIds(new Set()); }}>
+                          ล้าง
+                        </Button>
+                      )}
+                      <Badge bg="secondary">{displayedPhotos.length} รูป</Badge>
+                    </div>
+                  )}
                   <p className="text-muted small mb-2">
                     กดที่รูปเพื่อ <strong className="text-danger">ยกเว้น</strong> ออกจากกิจกรรม
                     (รูปที่มีกากบาทจะไม่ถูกนำมาโหวต)
                   </p>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(4, 1fr)',
-                      gap: 6,
-                      maxHeight: 400,
-                      overflowY: 'auto',
-                      padding: 4,
-                    }}
-                  >
-                    {eventPhotos.map((photo) => {
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: 6, maxHeight: 400, overflowY: 'auto', padding: 4,
+                  }}>
+                    {displayedPhotos.map((photo) => {
                       const isExcluded = excludedPhotoIds.has(photo.id);
                       return (
-                        <div
-                          key={photo.id}
-                          onClick={() => toggleExclude(photo.id)}
+                        <div key={photo.id} onClick={() => toggleExclude(photo.id)}
                           style={{
-                            position: 'relative',
-                            borderRadius: 8,
-                            overflow: 'hidden',
-                            aspectRatio: '1',
-                            cursor: 'pointer',
-                            opacity: isExcluded ? 0.35 : 1,
-                            transition: 'opacity .2s',
-                            boxShadow: isExcluded
-                              ? '0 0 0 2px #dc3545'
-                              : '0 1px 4px rgba(0,0,0,.1)',
-                          }}
-                        >
-                          <img
-                            src={getImageUrl(photo.thumbnail_url || photo.image_url)}
+                            position: 'relative', borderRadius: 8, overflow: 'hidden',
+                            aspectRatio: '1', cursor: 'pointer',
+                            opacity: isExcluded ? 0.35 : 1, transition: 'opacity .2s',
+                            boxShadow: isExcluded ? '0 0 0 2px #dc3545' : '0 1px 4px rgba(0,0,0,.1)',
+                          }}>
+                          <img src={getImageUrl(photo.thumbnail_url || photo.image_url)}
                             alt={photo.title}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            loading="lazy"
-                          />
+                            loading="lazy" />
                           {isExcluded && (
                             <div style={{
-                              position: 'absolute', inset: 0,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              background: 'rgba(220,53,69,.25)',
-                              fontSize: 22, fontWeight: 'bold', color: '#dc3545',
-                            }}>
-                              ✕
-                            </div>
+                              position: 'absolute', inset: 0, display: 'flex',
+                              alignItems: 'center', justifyContent: 'center',
+                              background: 'rgba(220,53,69,.25)', fontSize: 22,
+                              fontWeight: 'bold', color: '#dc3545',
+                            }}>✕</div>
                           )}
                         </div>
                       );
