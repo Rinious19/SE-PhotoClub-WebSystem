@@ -15,12 +15,17 @@ export const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
 
   const SIDEBAR_ITEMS: SidebarItem[] = [
-    { to: "/admin", icon: "🏠", label: "Dashboard" },
-    { to: "/admin/users", icon: "👥", label: "จัดการสมาชิก" },
-    { to: "/admin/history", icon: "📋", label: "ประวัติการใช้งาน" },
-    { to: "/admin/event-management", icon: "📅", label: "จัดการอีเว้นท์" },
-    { to: "/photos/upload", icon: "📸", label: "อัปโหลดรูปภาพ" },
-  ];
+  { to: "/admin", icon: "🏠", label: "Dashboard" },
+
+  // ❌ ซ่อนสำหรับ admin
+  ...(user?.role && user.role !== "ADMIN"
+  ? [{ to: "/admin/users", icon: "👥", label: "จัดการสมาชิก" }]
+  : []),
+
+  { to: "/admin/history", icon: "📋", label: "ประวัติการใช้งาน" },
+  { to: "/admin/event-management", icon: "📅", label: "จัดการอีเว้นท์" },
+  { to: "/photos/upload", icon: "📸", label: "อัปโหลดรูปภาพ" },
+];
 
   const handleLogout = (e: React.MouseEvent) => {
     e.stopPropagation(); // 🔥 กัน event ทะลุ
@@ -62,7 +67,7 @@ export const DashboardLayout: React.FC = () => {
                 fontWeight: "bold",
               }}
             >
-              📷 SE PhotoClub
+              SE PhotoClub
             </NavLink>
           )}
           <GiHamburgerMenu
