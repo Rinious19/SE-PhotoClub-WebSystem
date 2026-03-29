@@ -29,6 +29,7 @@ export class EventRepository {
       "SELECT event_name FROM events WHERE id = ?", [id]
     );
     if (oldRows.length === 0) throw new Error("ไม่พบกิจกรรมที่ต้องการแก้ไข");
+    const oldEventName = oldRows[0].event_name; // เก็บชื่อเก่าไว้ใช้ค้นหารูป
 
     const connection = await pool.getConnection();
     try {
@@ -40,11 +41,11 @@ export class EventRepository {
         [data.event_name, data.event_date, id]
       );
 
-      //* context — sync event_name และ event_date ใน photos ด้วย event_id (FK)
-      //* ไม่ใช้ title = ? เพราะ title อาจซ้ำกันข้ามอีเว้นท์ได้
+      //* context — sync event_name และ event_date ใน photos
+      // ✅ อัปเดต: ค้นหาทั้งจาก event_id และ event_name เผื่อรูปเก่าไม่มี ID
       const [cr] = await connection.query<ResultSetHeader>(
-        "UPDATE photos SET event_name = ?, event_date = STR_TO_DATE(?, '%Y-%m-%d') WHERE event_id = ? AND deleted_at IS NULL",
-        [data.event_name, data.event_date, id]
+        "UPDATE photos SET event_name = ?, event_date = STR_TO_DATE(?, '%Y-%m-%d') WHERE (event_id = ? OR event_name = ?) AND deleted_at IS NULL",
+        [data.event_name, data.event_date, id, oldEventName]
       );
       console.log(`[Cascade Update] event_id=${id} → "${data.event_name}" : ${cr.affectedRows} รูป`);
 
@@ -63,20 +64,24 @@ export class EventRepository {
       "SELECT event_name FROM events WHERE id = ?", [id]
     );
     if (rows.length === 0) throw new Error("ไม่พบกิจกรรมที่ต้องการลบ");
+    const eventName = rows[0].event_name; // เก็บชื่อไว้ใช้ตอนลบรูป
 
-    //* context — ดึงรูปด้วย event_id (FK) ไม่ใช่ title = event_name
+    //* context — ดึงรูป
+    // ✅ อัปเดต: ค้นหาทั้งจาก event_id หรือ event_name
     const [photoRows] = await pool.query<RowDataPacket[]>(
-      "SELECT image_url, thumbnail_url FROM photos WHERE event_id = ? AND deleted_at IS NULL",
-      [id]
+      "SELECT image_url, thumbnail_url FROM photos WHERE (event_id = ? OR event_name = ?) AND deleted_at IS NULL",
+      [id, eventName]
     );
 
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      //? Hard delete รูปทั้งหมดใน event นี้ด้วย event_id
+      //? Hard delete รูปทั้งหมดใน event นี้
+      // ✅ อัปเดต: ลบทั้งจาก event_id หรือ event_name
       const [dr] = await connection.query<ResultSetHeader>(
-        "DELETE FROM photos WHERE event_id = ? AND deleted_at IS NULL", [id]
+        "DELETE FROM photos WHERE (event_id = ? OR event_name = ?) AND deleted_at IS NULL", 
+        [id, eventName]
       );
       console.log(`[Cascade Delete] ลบรูป ${dr.affectedRows} รูปจาก event_id=${id}`);
 
@@ -96,23 +101,25 @@ export class EventRepository {
     console.log(`[Cascade Delete] ลบไฟล์ ${photoRows.length} ไฟล์จาก disk`);
   }
 
-  //* context — นับรูปด้วย event_id แทน event_name string
+  //* context — นับรูปด้วย event_name string
+  // ✅ อัปเดต: ไม่ต้อง JOIN กับตาราง events แล้ว ให้นับจาก photos โดยตรงเลย
   async countPhotosByEventName(eventName: string): Promise<number> {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT COUNT(*) as count 
-       FROM photos p
-       JOIN events e ON p.event_id = e.id
-       WHERE e.event_name = ? AND p.deleted_at IS NULL`,
+      `SELECT COUNT(*) as count FROM photos WHERE event_name = ? AND deleted_at IS NULL`,
       [eventName]
     );
     return rows[0].count;
   }
 
   //* context — นับรูปด้วย event_id โดยตรง (ใช้ใน EventController)
+  // ✅ อัปเดต: หากันเหนียวโดยการดึงชื่ออีเว้นท์มาช่วยนับด้วย
   async countPhotosByEventId(eventId: number): Promise<number> {
+    const [eventRows] = await pool.query<RowDataPacket[]>("SELECT event_name FROM events WHERE id = ?", [eventId]);
+    const eventName = eventRows.length > 0 ? eventRows[0].event_name : null;
+
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT COUNT(*) as count FROM photos WHERE event_id = ? AND deleted_at IS NULL",
-      [eventId]
+      "SELECT COUNT(*) as count FROM photos WHERE (event_id = ? OR event_name = ?) AND deleted_at IS NULL",
+      [eventId, eventName]
     );
     return rows[0].count;
   }

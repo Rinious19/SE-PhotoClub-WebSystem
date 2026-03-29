@@ -36,14 +36,14 @@ export class ActivityService {
     const faculty      = dto.faculty       || null;
     const academicYear = dto.academic_year || null;
 
+    // ✅ แก้ไข: ส่ง academicYear เป็นพารามิเตอร์ตัวที่ 3 ให้ครบตามที่ PhotoRepository ต้องการ
     let eventPhotos = await this.photoRepo.findByEventAndCategory(
-      dto.event_id, faculty, 1000, 0
+      dto.event_id, 
+      faculty, 
+      academicYear, // ส่งปีการศึกษาไปให้ Database กรองให้เลย
+      1000, 
+      0
     );
-
-    //? กรอง academic_year เพิ่มเติม (findByEventAndCategory รับแค่ faculty)
-    if (academicYear) {
-      eventPhotos = eventPhotos.filter((p: any) => p.academic_year === academicYear);
-    }
 
     //? ลบรูปที่ user เลือก exclude ออก
     const excludedIds = new Set<number>(dto.excluded_photo_ids || []);

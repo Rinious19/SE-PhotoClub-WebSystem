@@ -48,7 +48,7 @@ import {
 import type { DateFilter } from "@/components/common/DateRangeFilter";
 import { parseApiError } from "@/utils/apiError";
 
-// ✅ แปลง image_url เป็น src URL โดยตรง (ไม่ต้อง base64 อีกต่อไป)
+// ✅ แปลง image_url เป็น src URL โดยตรง
 const BASE_URL = "http://localhost:5000";
 const getImageUrl = (imageUrl: string | null | undefined): string => {
   if (!imageUrl) return '';
@@ -58,7 +58,7 @@ const getImageUrl = (imageUrl: string | null | undefined): string => {
   return '';
 };
 
-// FolderCard component - ปรับปรุงใหม่ให้เป็นแบบ Stack
+// FolderCard component
 const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
   folder,
   onClick,
@@ -73,7 +73,7 @@ const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
         transition: "transform .18s ease-in-out",
         height: "100%",
         position: "relative",
-        paddingTop: "10px", // เผื่อพื้นที่ให้รูปที่เอียงขึ้นไป
+        paddingTop: "10px", 
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.transform = "translateY(-6px)";
@@ -86,7 +86,7 @@ const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
       <div
         style={{
           position: "relative",
-          height: 180, // เพิ่มความสูงเล็กน้อยให้ดูเด่น
+          height: 180, 
           width: "100%",
           marginBottom: 12,
         }}
@@ -168,7 +168,7 @@ const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
           </div>
         )}
 
-        {/* Badge แสดงจำนวนรูป (วางทับบนรูปหน้าสุด) */}
+        {/* Badge แสดงจำนวนรูป (ปรับให้ใหญ่ขึ้น) */}
         <div
           style={{
             position: "absolute",
@@ -178,8 +178,8 @@ const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
             backdropFilter: "blur(4px)",
             color: "#fff",
             borderRadius: 20,
-            padding: "3px 12px",
-            fontSize: 11,
+            padding: "4px 14px", // ขยาย padding
+            fontSize: 13, // เพิ่มขนาดตัวอักษร
             fontWeight: 700,
             zIndex: 10,
           }}
@@ -189,11 +189,11 @@ const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
       </div>
 
       {/* 🏷️ ข้อมูลอีเว้นท์ */}
-      <div style={{ textAlign: "center", padding: "0 4px" }}>
+      <div style={{ textAlign: "center", padding: "0 4px", marginTop: "8px" }}>
         <div
           style={{
             fontWeight: 700,
-            fontSize: 14,
+            fontSize: 16, // เพิ่มขนาดตัวอักษรชื่ออีเว้นท์
             color: "#2d3436",
             lineHeight: 1.4,
             display: "-webkit-box",
@@ -206,9 +206,42 @@ const FolderCard: React.FC<{ folder: FolderItem; onClick: () => void }> = ({
           {folder.event_name}
         </div>
         
-        {folder.faculty && (
-          <div style={{ fontSize: 11, color: "#0984e3", marginTop: 4, fontWeight: 500 }}>
-             {folder.faculty}
+        {/* ✅ ปรับปรุง: กรอบพื้นหลังสำหรับคณะและปีการศึกษา (Badge Style) */}
+        {(folder.faculty || folder.academic_year) && (
+          <div className="d-flex flex-wrap justify-content-center gap-2 mt-2 pt-1">
+            {folder.faculty && (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  backgroundColor: "#e0f2fe", // สีฟ้าอ่อน
+                  color: "#0284c7", // สีน้ำเงินเข้ม
+                  padding: "4px 10px",
+                  borderRadius: "12px",
+                  border: "1px solid #bae6fd",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                🏛 {folder.faculty}
+              </span>
+            )}
+            
+            {folder.academic_year && (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  backgroundColor: "#f1f5f9", // สีเทาอ่อน
+                  color: "#475569", // สีเทาเข้ม
+                  padding: "4px 10px",
+                  borderRadius: "12px",
+                  border: "1px solid #e2e8f0",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                📚 ปี {folder.academic_year}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -243,7 +276,7 @@ export const PhotoListPage: React.FC = () => {
 
   const YEARS = useMemo(() => ["2568", "2567"], []);
 
-  // Mouse wheel บน year dropdown (non-passive)
+  // Mouse wheel บน year dropdown
   useEffect(() => {
     const el = yearSelectRef.current;
     if (!el) return;
@@ -289,7 +322,7 @@ export const PhotoListPage: React.FC = () => {
     fetchPage(1);
   }, [fetchPage]);
 
-  // IntersectionObserver — load more เมื่อ scroll ถึง sentinel
+  // IntersectionObserver
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -328,6 +361,7 @@ export const PhotoListPage: React.FC = () => {
     dateFilter.to !== "" ||
     filterFaculty !== "" ||
     filterYear !== "";
+  
   const clearAll = () => {
     setSearchName("");
     setDateFilter(emptyDateFilter());
@@ -335,10 +369,14 @@ export const PhotoListPage: React.FC = () => {
     setFilterYear("");
   };
 
-//? navigate ด้วย event_id แทน event_name — ทำให้ gallery ยังแสดงแม้ไม่มีรูป
-const handleFolderClick = (folder: FolderItem) => {
-  navigate(`/photos/event/${folder.event_id}`);
-};
+  const handleFolderClick = (folder: FolderItem) => {
+    const params = new URLSearchParams();
+    if (folder.faculty) params.append("faculty", folder.faculty);
+    if (folder.academic_year) params.append("year", folder.academic_year);
+    
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    navigate(`/photos/event/${folder.event_id}${queryString}`);
+  };
 
   return (
     <Container className="py-5">
@@ -348,7 +386,7 @@ const handleFolderClick = (folder: FolderItem) => {
           <h2 className="fw-bold mb-0">
             แกลเลอรี่
             {!initialLoading && (
-              <span className="text-secondary fs-5 fw-normal ms-2">
+              <span className="text-secondary fs-4 fw-normal ms-2"> {/* ปรับ fs-4 ให้ใหญ่ขึ้น */}
                 ({hasFilter ? `${filteredFolders.length} / ` : ""}
                 {totalFolders} อีเว้นท์)
               </span>
@@ -358,7 +396,7 @@ const handleFolderClick = (folder: FolderItem) => {
         {canUpload && (
           <Link
             to="/photos/upload"
-            className="btn btn-success px-4 fw-bold shadow-sm rounded-pill"
+            className="btn btn-success px-4 py-2 fw-bold shadow-sm rounded-pill fs-6"
           >
             + อัปโหลดรูปภาพ
           </Link>
@@ -367,10 +405,10 @@ const handleFolderClick = (folder: FolderItem) => {
 
       {/* Search + Filter */}
       {!initialLoading && !error && folders.length > 0 && (
-        <div className="bg-light rounded-4 p-3 mb-4">
+        <div className="bg-light rounded-4 p-4 mb-4"> {/* ขยาย padding */}
           <Row className="g-3 align-items-end">
             <Col md={4}>
-              <Form.Label className="fw-medium small text-secondary mb-1">
+              <Form.Label className="fw-medium text-secondary mb-2 fs-6">
                 ชื่ออีเว้นท์
               </Form.Label>
               <InputGroup>
@@ -378,7 +416,7 @@ const handleFolderClick = (folder: FolderItem) => {
                   🔍
                 </InputGroup.Text>
                 <Form.Control
-                  className="border-start-0"
+                  className="border-start-0 py-2" // เพิ่มความสูง
                   placeholder="ค้นหาตามชื่ออีเว้นท์..."
                   value={searchName}
                   onChange={(e) => setSearchName(e.target.value)}
@@ -394,19 +432,19 @@ const handleFolderClick = (folder: FolderItem) => {
               </InputGroup>
             </Col>
             <Col md={3}>
-              <Form.Label className="fw-medium small text-secondary mb-1">
+              <Form.Label className="fw-medium text-secondary mb-2 fs-6">
                 กรองตามวันที่จัดอีเว้นท์
               </Form.Label>
               <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
             </Col>
             <Col md={3}>
-              <Form.Label className="fw-medium small text-secondary mb-1">
+              <Form.Label className="fw-medium text-secondary mb-2 fs-6">
                 สังกัด / ปีการศึกษา
               </Form.Label>
               <Row className="g-2">
                 <Col xs={7}>
                   <Form.Select
-                    size="sm"
+                    className="py-2" // เพิ่มความสูง (ลบ size="sm")
                     value={filterFaculty}
                     onChange={(e) => setFilterFaculty(e.target.value)}
                   >
@@ -425,7 +463,7 @@ const handleFolderClick = (folder: FolderItem) => {
                 </Col>
                 <Col xs={5}>
                   <Form.Select
-                    size="sm"
+                    className="py-2"
                     ref={yearSelectRef}
                     value={filterYear}
                     onChange={(e) => setFilterYear(e.target.value)}
@@ -443,8 +481,7 @@ const handleFolderClick = (folder: FolderItem) => {
             <Col md={2} className="d-flex flex-column justify-content-end">
               <Button
                 variant="outline-danger"
-                className="w-50"
-                style={{ fontSize: "0.85rem" }}
+                className="w-100 py-2 fw-medium"
                 onClick={clearAll}
                 disabled={!hasFilter}
               >
@@ -453,14 +490,14 @@ const handleFolderClick = (folder: FolderItem) => {
             </Col>
           </Row>
           {hasFilter && (
-            <div className="mt-2 pt-2 border-top">
-              <small className="text-muted">
+            <div className="mt-3 pt-3 border-top">
+              <span className="text-muted fs-6">
                 พบ{" "}
-                <strong className="text-primary">
+                <strong className="text-primary fs-5">
                   {filteredFolders.length}
                 </strong>{" "}
                 อีเว้นท์
-              </small>
+              </span>
             </div>
           )}
         </div>
@@ -470,17 +507,17 @@ const handleFolderClick = (folder: FolderItem) => {
       {initialLoading && (
         <div className="text-center py-5">
           <Spinner animation="border" variant="primary" />
-          <p className="mt-3 text-muted">กำลังโหลด...</p>
+          <p className="mt-3 text-muted fs-5">กำลังโหลด...</p>
         </div>
       )}
 
-      {error && <Alert variant="danger">{error}</Alert>}
+      {error && <Alert variant="danger" className="fs-5">{error}</Alert>}
 
       {/* Empty state */}
       {!initialLoading && !error && folders.length === 0 && (
         <div className="text-center py-5 text-muted">
-          <p className="fs-2">📭</p>
-          <h5>ยังไม่มีรูปภาพในระบบ</h5>
+          <p className="display-1">📭</p>
+          <h4 className="fw-medium">ยังไม่มีรูปภาพในระบบ</h4>
         </div>
       )}
 
@@ -490,9 +527,9 @@ const handleFolderClick = (folder: FolderItem) => {
         folders.length > 0 &&
         filteredFolders.length === 0 && (
           <div className="text-center py-5 text-muted">
-            <p className="fs-2">🔍</p>
-            <h5>ไม่พบอีเว้นท์ที่ตรงกับการค้นหา</h5>
-            <Button variant="outline-primary" size="sm" onClick={clearAll}>
+            <p className="display-1">🔍</p>
+            <h4 className="fw-medium mb-4">ไม่พบอีเว้นท์ที่ตรงกับการค้นหา</h4>
+            <Button variant="outline-primary" className="px-4 py-2" onClick={clearAll}>
               ล้างการค้นหา
             </Button>
           </div>
@@ -500,10 +537,10 @@ const handleFolderClick = (folder: FolderItem) => {
 
       {/* Folder Grid */}
       {filteredFolders.length > 0 && (
-        <Row xs={2} sm={3} md={4} lg={4} className="g-3">
+        <Row xs={2} sm={3} md={4} lg={4} className="g-4">
           {filteredFolders.map((folder, i) => (
             <Col
-              key={`${folder.event_name}-${folder.faculty || ""}-${folder.academic_year || ""}-${i}`}
+              key={`folder-${folder.event_id}-${folder.faculty || 'all'}-${folder.academic_year || 'all'}-${i}`}
             >
               <FolderCard
                 folder={folder}
@@ -514,18 +551,18 @@ const handleFolderClick = (folder: FolderItem) => {
         </Row>
       )}
 
-      {/* ✅ Sentinel div — IntersectionObserver จะ trigger load more ตรงนี้ */}
-      <div ref={sentinelRef} style={{ height: 40, marginTop: 24 }} />
+      {/* Sentinel div */}
+      <div ref={sentinelRef} style={{ height: 40, marginTop: 32 }} />
 
       {loadingMore && (
-        <div className="text-center py-3">
-          <Spinner animation="border" variant="secondary" size="sm" />
-          <span className="ms-2 text-muted small">กำลังโหลดเพิ่มเติม...</span>
+        <div className="text-center py-4">
+          <Spinner animation="border" variant="secondary" />
+          <span className="ms-3 text-muted fs-5">กำลังโหลดเพิ่มเติม...</span>
         </div>
       )}
 
       {!hasMore && folders.length > 0 && !hasFilter && (
-        <p className="text-center text-muted small mt-2">
+        <p className="text-center text-muted fs-6 mt-3">
           แสดงทั้งหมด {totalFolders} อีเว้นท์
         </p>
       )}

@@ -60,18 +60,35 @@ export class ActivityRepository {
     try {
       await conn.beginTransaction();
 
+      // ✅ 1. ดักจับค่า undefined ทุกตัว (ถ้าไม่ได้ส่งมาให้เป็น null แทน เพื่อให้ SQL ไม่พัง)
+      const title = data.title || 'Untitled';
+      const description = data.description || null;
+      const start_at = data.start_at || null;
+      const end_at = data.end_at || null;
+      const status = data.status || 'ACTIVE'; // ถ้าไม่ส่งสถานะมา ให้บังคับเป็น ACTIVE
+      const created_by = data.created_by || null;
+
       const [res] = await conn.query<ResultSetHeader>(
         `INSERT INTO activities (title, description, start_at, end_at, status, created_by) VALUES (?,?,?,?,?,?)`,
-        [data.title, data.description, data.start_at, data.end_at, data.status, data.created_by]
+        [title, description, start_at, end_at, status, created_by]
       );
 
       const activityId = res.insertId;
 
-      if (photoIds && photoIds.length > 0) {
-        const values = photoIds.map((pid, idx) => [activityId, pid, idx]);
+      // ✅ 2. เปลี่ยนวิธี Bulk Insert เพื่อหลีกเลี่ยง Syntax Error "near NULL" ของ mysql2
+      if (Array.isArray(photoIds) && photoIds.length > 0) {
+        // สร้าง (?, ?, ?) ตามจำนวนรูปภาพ
+        const placeholders = photoIds.map(() => '(?, ?, ?)').join(', ');
+        
+        // ยุบรวมข้อมูลเป็น Array 1 มิติ (Flat Array)
+        const flatValues = photoIds.reduce((acc: any[], pid: number, idx: number) => {
+          acc.push(activityId, pid, idx);
+          return acc;
+        }, []);
+
         await conn.query(
-          "INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES ?",
-          [values]
+          `INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES ${placeholders}`,
+          flatValues
         );
       }
 
@@ -88,9 +105,15 @@ export class ActivityRepository {
 
   //@ อัปเดตกิจกรรม
   async update(id: number, data: any): Promise<boolean> {
+    // ✅ ดักจับค่าว่างตอน Update ด้วยเช่นกัน
+    const title = data.title || 'Untitled';
+    const description = data.description || null;
+    const start_at = data.start_at || null;
+    const end_at = data.end_at || null;
+
     const [result] = await pool.query<ResultSetHeader>(
       "UPDATE activities SET title=?, description=?, start_at=?, end_at=? WHERE id=?",
-      [data.title, data.description, data.start_at, data.end_at, id]
+      [title, description, start_at, end_at, id]
     );
     return result.affectedRows > 0;
   }

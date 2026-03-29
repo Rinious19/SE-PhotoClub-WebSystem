@@ -9,6 +9,7 @@ import { sendError } from "../utils/errorHandler";
 import { createThumbnail, deletePhotoFiles, PHOTOS_URL_PREFIX } from "../middlewares/UploadMiddleware";
 import fs from "fs";
 import crypto from "crypto";
+import { pool } from "../config/Database";
 
 const photoRepo = new PhotoRepository();
 const FOLDER_PAGE_SIZE = 12;
@@ -16,7 +17,6 @@ const PHOTO_PAGE_SIZE  = 20;
 const UPLOADS_URL_PREFIX = PHOTOS_URL_PREFIX;
 
 //! Windows fix — unlinkSync ทำให้เกิด EBUSY เพราะ OS ยังล็อคไฟล์อยู่
-//* context — ใช้ async unlink พร้อม retry แทน unlinkSync ทุกที่
 const safeUnlink = (filePath: string, retries = 3, delay = 100): void => {
   fs.unlink(filePath, (err) => {
     if (err && err.code === 'EBUSY' && retries > 0) {
@@ -27,10 +27,57 @@ const safeUnlink = (filePath: string, retries = 3, delay = 100): void => {
 
 export class PhotoController {
 
+  // ✅ ฟังก์ชันผู้ช่วย: เดาหมวดหมู่ของกิจกรรมโหวตจากรูปภาพข้างใน และดึงรูปเข้าอัตโนมัติ
+  static async autoSyncPhotoToActivities(photoId: number, eventId: number | null, faculty: string | null, year: string | null) {
+    if (!eventId) return;
+
+    // ค้นหากิจกรรมที่ Active และดูว่ารูปภาพข้างในกิจกรรมนั้นเป็นของ Event/คณะ/ปี ไหน
+    const sql = `
+      SELECT a.id AS activity_id,
+             MIN(p.event_id) AS min_event, MAX(p.event_id) AS max_event,
+             MIN(p.faculty) AS min_fac, MAX(p.faculty) AS max_fac,
+             MIN(p.academic_year) AS min_year, MAX(p.academic_year) AS max_year
+      FROM activities a
+      JOIN activity_photos ap ON a.id = ap.activity_id
+      JOIN photos p ON ap.photo_id = p.id
+      WHERE a.status != 'ENDED'
+      GROUP BY a.id
+    `;
+    const [activeActs]: any = await pool.query(sql);
+
+    for (const act of activeActs) {
+      // 1. เช็คว่าเป็นกิจกรรมโหวตของ Event เดียวกันหรือไม่
+      if (act.min_event === eventId && act.max_event === eventId) {
+        let isMatch = true;
+
+        // 2. ถ้ากิจกรรมโหวตนี้มีแต่รูปของ "คณะเดียว" ล้วนๆ รูปใหม่ก็ต้องเป็นคณะนั้นด้วย
+        if (act.min_fac !== null && act.min_fac === act.max_fac && faculty !== act.min_fac) {
+          isMatch = false;
+        }
+        // 3. ถ้ากิจกรรมโหวตนี้มีแต่รูปของ "ปีเดียวกัน" ล้วนๆ รูปใหม่ก็ต้องเป็นปีนั้นด้วย
+        if (act.min_year !== null && act.min_year === act.max_year && year !== act.min_year) {
+          isMatch = false;
+        }
+
+        // ถ้ารูปใหม่คุณสมบัติตรงกับกิจกรรมโหวตนี้ ก็ยัดใส่ลงไปเลย
+        if (isMatch) {
+          const [check]: any = await pool.query('SELECT id FROM activity_photos WHERE activity_id = ? AND photo_id = ?', [act.activity_id, photoId]);
+          if (check.length === 0) { // กันเหนียว ไม่ให้รูปซ้ำ
+            const [maxSortRows]: any = await pool.query('SELECT MAX(sort_order) as maxSort FROM activity_photos WHERE activity_id = ?', [act.activity_id]);
+            const nextSort = (maxSortRows[0]?.maxSort || 0) + 1;
+            await pool.query(
+              'INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES (?, ?, ?)',
+              [act.activity_id, photoId, nextSort]
+            );
+          }
+        }
+      }
+    }
+  }
+
   // --- [1. อัปโหลดรูป] ---
   static async uploadPhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      //! สิ่งที่สำคัญมาก — เพิ่ม event_id เพื่อผูก FK กับตาราง events
       const { title, event_date, description, faculty, academic_year, event_id } = req.body;
       const userId = req.user?.userId || req.user?.id;
 
@@ -61,11 +108,10 @@ export class PhotoController {
       }
 
       let thumbnailUrl: string | null = null;
-      try { thumbnailUrl = await createThumbnail(req.file.filename); } catch { /* thumbnail fail ไม่ block */ }
+      try { thumbnailUrl = await createThumbnail(req.file.filename); } catch { /* fail ไม่ block */ }
 
       const photo = await photoRepo.create({
         title: title.trim(),
-        //* context — แปลง event_id เป็น number ถ้ามี ถ้าไม่มีให้เป็น null
         event_id: event_id ? parseInt(event_id) : null,
         event_date,
         description,
@@ -78,7 +124,9 @@ export class PhotoController {
         created_by: userId,
       });
 
-      //! สิ่งที่สำคัญมาก — บันทึกลง history_logs (ไม่ใช่ photo_audit_logs)
+      // ✅ ค้นหาและดึงรูปลงกิจกรรมโหวตอัตโนมัติ (สืบจากรูปที่มีอยู่)
+      await PhotoController.autoSyncPhotoToActivities(photo.id, photo.event_id, photo.faculty, photo.academic_year);
+
       await historyService.log({
         actorId:    userId,
         action:     'UPLOAD_PHOTO',
@@ -98,28 +146,31 @@ export class PhotoController {
   static async updatePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const id     = parseInt(req.params.id as string, 10);
-      //! สิ่งที่สำคัญมาก — เพิ่ม event_id เพื่ออัปเดต FK ไปยังตาราง events ด้วย
       const { title, event_date, description, faculty, academic_year, event_id } = req.body;
       const userId = req.user?.userId || req.user?.id;
 
       if (isNaN(id))  { res.status(400).json({ success: false, message: 'ID รูปภาพไม่ถูกต้อง' }); return; }
       if (!userId)    { res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' }); return; }
 
+      const oldPhoto = await photoRepo.findById(id);
+      if (!oldPhoto) {
+        res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${id}` });
+        return;
+      }
+
       let newImageUrl: string | undefined;
       let newThumbUrl: string | undefined;
       if (req.file) {
         newImageUrl = `${UPLOADS_URL_PREFIX}/${req.file.filename}`;
-        try { newThumbUrl = await createThumbnail(req.file.filename); } catch { /* thumbnail fail ไม่ block */ }
+        try { newThumbUrl = await createThumbnail(req.file.filename); } catch { /* fail ไม่ block */ }
       }
 
       if (newImageUrl) {
-        const old = await photoRepo.findById(id);
-        if (old) deletePhotoFiles(old.image_url, old.thumbnail_url);
+        deletePhotoFiles(oldPhoto.image_url, oldPhoto.thumbnail_url);
       }
 
       const success = await photoRepo.update(id, {
         title,
-        //* context — ถ้า event_id ถูกส่งมาให้แปลงเป็น number, ถ้าไม่มีให้ไม่เปลี่ยนค่าเดิม (undefined)
         event_id: event_id !== undefined ? (event_id ? parseInt(event_id) : null) : undefined,
         event_date,
         description,
@@ -131,7 +182,20 @@ export class PhotoController {
       });
 
       if (success) {
-        //! สิ่งที่สำคัญมาก — บันทึกลง history_logs
+        const newEventId = event_id !== undefined ? (event_id ? parseInt(event_id) : null) : oldPhoto.event_id;
+        const newFaculty = faculty !== undefined ? (faculty?.trim() || null) : oldPhoto.faculty;
+        const newYear = academic_year !== undefined ? (academic_year?.trim() || null) : oldPhoto.academic_year;
+
+        // ถ้าย้ายหมวดหมู่ (คณะ, ปี, อีเว้นท์) ให้จัดการเรื่องการโหวต
+        if (oldPhoto.event_id !== newEventId || oldPhoto.faculty !== newFaculty || oldPhoto.academic_year !== newYear) {
+          
+          // เตะรูปนี้ออกจาก "กิจกรรมโหวต" เดิม
+          await pool.query('DELETE FROM activity_photos WHERE photo_id = ?', [id]);
+
+          // ✅ ส่งไปค้นหาที่อยู่ใหม่ ถ้าระบบเจอโหวตที่ตรงสเปก มันจะเข้าไปอยู่เองอัตโนมัติ
+          await PhotoController.autoSyncPhotoToActivities(id, newEventId, newFaculty, newYear);
+        }
+
         await historyService.log({
           actorId:    userId,
           action:     'UPDATE_PHOTO',
@@ -157,12 +221,11 @@ export class PhotoController {
       const userId  = req.user?.userId || req.user?.id;
 
       if (isNaN(photoId)) { res.status(400).json({ success: false, message: 'ID รูปภาพไม่ถูกต้อง' }); return; }
-      if (!userId)        { res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' }); return; }
+      if (!userId)         { res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' }); return; }
 
       const photo = await photoRepo.findById(photoId);
       if (!photo) { res.status(404).json({ success: false, message: `ไม่พบรูปภาพ ID ${photoId}` }); return; }
 
-      //! สิ่งที่สำคัญมาก — log ก่อนลบ เพราะ FK จะทำให้ log หลังลบไม่ได้
       await historyService.log({
         actorId:    userId,
         action:     'DELETE_PHOTO',
@@ -221,7 +284,6 @@ export class PhotoController {
   // --- [6. ดึงรูปตาม Event ID (หน้า Folder)] ---
   static async getPhotosByEvent(req: Request, res: Response): Promise<void> {
     try {
-      //? รับ event_id จาก URL param แทน event_name
       const eventId = parseInt(req.params.eventId as string, 10);
       const page    = Math.max(1, parseInt(req.query.page as string) || 1);
       const offset  = (page - 1) * PHOTO_PAGE_SIZE;
@@ -231,17 +293,24 @@ export class PhotoController {
         return;
       }
 
-      const facultyCategory = req.query.faculty ? (req.query.faculty as string) : null;
+      const faculty = req.query.faculty ? (req.query.faculty as string) : null;
+      const year    = req.query.year ? (req.query.year as string) : (req.query.academic_year as string || null);
 
       const [photos, total] = await Promise.all([
-        photoRepo.findByEventAndCategory(eventId, facultyCategory, PHOTO_PAGE_SIZE, offset),
-        photoRepo.countByEventAndCategory(eventId, facultyCategory),
+        photoRepo.findByEventAndCategory(eventId, faculty, year, PHOTO_PAGE_SIZE, offset),
+        photoRepo.countByEventAndCategory(eventId, faculty, year),
       ]);
 
       res.status(200).json({
         success: true,
         data: photos,
-        pagination: { page, pageSize: PHOTO_PAGE_SIZE, total, totalPages: Math.ceil(total / PHOTO_PAGE_SIZE), hasMore: offset + photos.length < total }
+        pagination: { 
+          page, 
+          pageSize: PHOTO_PAGE_SIZE, 
+          total, 
+          totalPages: Math.ceil(total / PHOTO_PAGE_SIZE), 
+          hasMore: offset + photos.length < total 
+        }
       });
     } catch (error: any) {
       sendError(res, error, 'โหลดรูปภาพในกิจกรรมไม่สำเร็จ');

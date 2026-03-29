@@ -1,5 +1,6 @@
 //? Page: Event Photos Page
 //@ แสดงรูปทั้งหมดในอีเว้นท์นั้น — Lazy Load เมื่อ scroll ถึงด้านล่าง
+//  ✅ กรองเฉพาะคณะ (faculty) และ ปีการศึกษา (year) ที่ได้รับจาก URL
 //  ✅ แสดงรูปแบบ Grid, คลิกขยายได้ (lightbox)
 //  ✅ ปุ่มแก้ไข/ลบ สำหรับ Admin/President
 //  ✅ แก้ไขหลายรูปพร้อมกัน (edit mode) — เปลี่ยน event/faculty/year/description
@@ -148,6 +149,9 @@ export const EventPhotosPage: React.FC = () => {
 
   const [searchParams] = useSearchParams();
   const openPhotoId = searchParams.get('openPhotoId') ? parseInt(searchParams.get('openPhotoId')!) : null;
+  // ✅ ดึง faculty และ year จาก URL
+  const facultyParam = searchParams.get('faculty');
+  const yearParam = searchParams.get('year');
 
   const parsedEventId = parseInt(eventId || '', 10);
   //* context — เก็บ eventId ใน ref เพื่อให้ fetchPage เข้าถึงได้เสมอโดยไม่ต้องอยู่ใน dependency
@@ -198,7 +202,7 @@ export const EventPhotosPage: React.FC = () => {
     event_name: '',
     faculty: '',
     academic_year: '',
-    description: '',   // ✅ เพิ่ม description
+    description: '',
   });
   const [editDropdownOpen, setEditDropdownOpen] = useState(false);
   const editDropdownRef = useRef<HTMLDivElement>(null);
@@ -230,8 +234,14 @@ export const EventPhotosPage: React.FC = () => {
     if (isNaN(eventIdRef.current)) return;
     loadingRef.current = true;
     try {
-      //* context — ใช้ eventIdRef แทน parsedEventId เพื่อหลีกเลี่ยง NaN จาก stale closure
-      const r = await axios.get(`/api/photos/event/${eventIdRef.current}`, { params: { page: pageNum } });
+      // ✅ ส่ง faculty และ year ไปที่ Backend ผ่าน Query Params
+      const r = await axios.get(`/api/photos/event/${eventIdRef.current}`, { 
+        params: { 
+          page: pageNum,
+          faculty: facultyParam || undefined,
+          academic_year: yearParam || undefined 
+        } 
+      });
       const res = r.data;
       if (res.success) {
         setPhotos(prev => pageNum === 1 ? res.data as PhotoItem[] : [...prev, ...res.data as PhotoItem[]]);
@@ -245,7 +255,7 @@ export const EventPhotosPage: React.FC = () => {
       setLoadingMore(false);
       setInitialLoading(false);
     }
-  }, []);
+  }, [facultyParam, yearParam]); // ✅ เพิ่ม dependencies
 
   //? รอให้ parsedEventId พร้อมก่อนค่อย fetch — ป้องกัน NaN
   useEffect(() => {
@@ -368,8 +378,8 @@ export const EventPhotosPage: React.FC = () => {
   const openBulkEditModal = () => {
     setEditForm({
       event_name: eventName,
-      faculty: '',
-      academic_year: '',
+      faculty: facultyParam || '',
+      academic_year: yearParam || '',
       description: '',
     });
     setBulkEditError(null);
@@ -426,6 +436,9 @@ export const EventPhotosPage: React.FC = () => {
   const goUpload = () => {
     const params = new URLSearchParams();
     if (eventName) params.set('event', eventName);
+    // ✅ ส่ง faculty และ year ปัจจุบันไปที่หน้า Upload ด้วย
+    if (facultyParam) params.set('faculty', facultyParam);
+    if (yearParam) params.set('year', yearParam);
     navigate(`/photos/upload?${params.toString()}`);
   };
 
@@ -445,8 +458,12 @@ export const EventPhotosPage: React.FC = () => {
           </Button>
           <div>
             <h2 className="fw-bold mb-0">📂 {eventName || '...'}</h2>
+            <div className="mt-1">
+              {facultyParam && <Badge bg="primary" className="me-2 fs-6">คณะ{facultyParam}</Badge>}
+              {yearParam && <Badge bg="info" className="me-2 fs-6 text-dark">ปี {yearParam}</Badge>}
+            </div>
             {!initialLoading && (
-              <p className="text-muted small mb-0">{total} รูปภาพ</p>
+              <p className="text-muted small mb-0 mt-1">{total} รูปภาพ</p>
             )}
           </div>
         </div>
@@ -461,7 +478,7 @@ export const EventPhotosPage: React.FC = () => {
                     onClick={() => enterMode('delete')}>
                     ลบ
                   </Button>
-                  {/*  แก้ไข — ระหว่าง ลบ กับ อัปโหลด */}
+                  {/* แก้ไข — ระหว่าง ลบ กับ อัปโหลด */}
                   <Button variant="outline-warning" size="sm" className="rounded-pill px-3"
                     onClick={() => enterMode('edit')}>
                      แก้ไข
@@ -512,7 +529,7 @@ export const EventPhotosPage: React.FC = () => {
       {!initialLoading && photos.length === 0 && (
         <div className="text-center py-5 text-muted">
           <p className="fs-2">📭</p>
-          <h5>ไม่มีรูปภาพในอีเว้นท์นี้</h5>
+          <h5>ไม่มีรูปภาพในหมวดหมู่นี้</h5>
         </div>
       )}
 
@@ -655,7 +672,6 @@ export const EventPhotosPage: React.FC = () => {
             </Col>
           </Row>
 
-          {/* ✅ คำอธิบายเพิ่มเติม */}
           <Form.Group className="mb-2">
             <Form.Label className="fw-bold">คำอธิบายเพิ่มเติม</Form.Label>
             <Form.Control

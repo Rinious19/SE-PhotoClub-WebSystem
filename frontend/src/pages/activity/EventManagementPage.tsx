@@ -125,23 +125,23 @@ export const EventManagementPage: React.FC = () => {
       setShowAddModal(false);
       await loadEvents();
     } catch (err: unknown) {
-  const e = err as AxiosError<{ message?: string }>;
+      const e = err as AxiosError<{ message?: string }>;
 
-  const status = e.response?.status;
-  const msg = e.response?.data?.message || e.message || "";
+      const status = e.response?.status;
+      const msg = e.response?.data?.message || e.message || "";
 
-  if (status === 401 || msg.toLowerCase().includes("unauthorized")) {
-    setSaveError("หมดเวลาเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่");
-  } else if (status === 400) {
-    setSaveError(msg || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
-  } else if (status === 409) {
-    setSaveError(msg || "ชื่ออีเว้นท์นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
-  } else {
-    setSaveError(
-      parseApiError(err, "เพิ่มอีเว้นท์ไม่สำเร็จ — กรุณาลองใหม่อีกครั้ง")
-    );
-  }
-} finally {
+      if (status === 401 || msg.toLowerCase().includes("unauthorized")) {
+        setSaveError("หมดเวลาเข้าสู่ระบบ — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่");
+      } else if (status === 400) {
+        setSaveError(msg || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+      } else if (status === 409) {
+        setSaveError(msg || "ชื่ออีเว้นท์นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
+      } else {
+        setSaveError(
+          parseApiError(err, "เพิ่มอีเว้นท์ไม่สำเร็จ — กรุณาลองใหม่อีกครั้ง")
+        );
+      }
+    } finally {
       setSaving(false);
     }
   };
@@ -175,29 +175,29 @@ export const EventManagementPage: React.FC = () => {
       setShowEditModal(false);
       await loadEvents();
     } catch (err: unknown) {
-  if (
-    typeof err === "object" &&
-    err !== null &&
-    "response" in err
-  ) {
-    const e = err as {
-      response?: {
-        status?: number;
-        data?: { message?: string };
-      };
-    };
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "response" in err
+      ) {
+        const e = err as {
+          response?: {
+            status?: number;
+            data?: { message?: string };
+          };
+        };
 
-    const msg = e.response?.data?.message;
+        const msg = e.response?.data?.message;
 
-    if (e.response?.status === 400) {
-      setEditError(msg || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
-    } else {
-      setEditError(parseApiError(err, "แก้ไขอีเว้นท์ไม่สำเร็จ"));
-    }
-  } else {
-    setEditError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
-  }
-} finally {
+        if (e.response?.status === 400) {
+          setEditError(msg || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+        } else {
+          setEditError(parseApiError(err, "แก้ไขอีเว้นท์ไม่สำเร็จ"));
+        }
+      } else {
+        setEditError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
+      }
+    } finally {
       setEditing(false);
     }
   };
@@ -208,11 +208,12 @@ export const EventManagementPage: React.FC = () => {
     setDeleteError(null);
     setShowDeleteModal(true);
     try {
-      const res = await EventService.getPhotoCount(ev.event_name);
+      // ✅ แก้ไขจุดนี้: ส่ง ev.id ไปแทนที่จะเป็น ev.event_name
+      const res = await EventService.getPhotoCount(ev.id);
       setDeleteInfo({ photoCount: res.count || 0 });
     } catch {
-  setDeleteInfo({ photoCount: 0 });
-}
+      setDeleteInfo({ photoCount: 0 });
+    }
   };
 
   const handleDelete = async () => {
