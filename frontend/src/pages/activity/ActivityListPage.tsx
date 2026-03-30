@@ -10,26 +10,15 @@ import {
 import { Link, useNavigate }              from 'react-router-dom';
 import { useActivities }                  from '@/hooks/useActivities';
 import { useAuth }                        from '@/hooks/useAuth';
-// ✅ แก้ไข: ใช้ชื่อ Type เป็น Activity ให้ตรงกับที่มีอยู่ในไฟล์ '@/types/Activity'
 import type { Activity }                  from '@/types/Activity';
 
-// ✅ สร้าง Extended Type ขึ้นมาสวมทับ เพื่อให้ TypeScript ยอมรับฟิลด์ใหม่ๆ โดยไม่ต้องใช้ any
+// ✅ เอา category และ faculty ออกจาก ExtendedType
 export type ExtendedActivity = Activity & {
-  category?:    string;
-  faculty?:     string;
   photo_count?: number;
   vote_count?:  number;
 };
 
-const CATEGORIES = [
-  'มหาวิทยาลัย','คณะวิศวกรรมศาสตร์','คณะครุศาสตร์อุตสาหกรรม',
-  'คณะวิทยาศาสตร์ประยุกต์','คณะเทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล',
-  'คณะศิลปศาสตร์ประยุกต์','คณะสถาปัตยกรรมและการออกแบบ',
-  'คณะพัฒนาธุรกิจและอุตสาหกรรม','วิทยาลัยเทคโนโลยีอุตสาหกรรม','วิทยาลัยนานาชาติ',
-];
-
 // ─── ActivityCard ────────────────────────────────────────────
-// ✅ เปลี่ยน type ตรงนี้เป็น ExtendedActivity แทน
 const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) => {
   const { user }  = useAuth();
   const isActive  = activity.status === 'ACTIVE';
@@ -39,9 +28,6 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
       year:'numeric', month:'short', day:'numeric',
       hour:'2-digit', minute:'2-digit',
     });
-
-  // ✅ ดึงข้อมูลออกมาใช้ได้ตรงๆ แบบไม่มี error
-  const displayCategory = activity.category || activity.faculty;
 
   return (
     <Card
@@ -67,11 +53,7 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
           <Badge bg={isActive ? 'success' : 'secondary'} className="rounded-pill" style={{ fontSize:11 }}>
             {isActive ? '🟢 กำลังดำเนินการ' : '⚫ สิ้นสุดแล้ว'}
           </Badge>
-          {displayCategory && (
-            <Badge bg="info" text="dark" className="rounded-pill" style={{ fontSize:11 }}>
-              🏷️ {displayCategory}
-            </Badge>
-          )}
+          {/* ลบ Badge แสดงประเภทกิจกรรมออกไปแล้ว */}
         </div>
         <h6 className="fw-bold mb-1 text-dark" style={{ lineHeight:1.3 }}>{activity.title}</h6>
         <p className="text-muted small mb-2" style={{ fontSize:12 }}>📂 {activity.event_name}</p>
@@ -108,7 +90,7 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
 const ActivitySection: React.FC<{
   title:     string;
   dot:       string;
-  items:     ExtendedActivity[]; // ✅ รับค่าเป็น ExtendedActivity
+  items:     ExtendedActivity[];
   loading:   boolean;
   emptyText: string;
   emptyIcon: string;
@@ -157,12 +139,10 @@ export const ActivityListPage: React.FC = () => {
   const [keyword,   setKeyword]   = useState('');
   const [dateInput, setDateInput] = useState('');
   const [dateValue, setDateValue] = useState('');
-  const [category,  setCategory]  = useState('');
   const [tabStatus, setTabStatus] = useState<'all'|'ACTIVE'|'ENDED'>('all');
 
   const { activities = [], loading, error, refetch } = useActivities("");
 
-  // ✅ แปลง Type ให้อยู่ในรูปแบบที่เราใช้งานได้
   const extendedActivities = activities as unknown as ExtendedActivity[];
 
   const filtered = useMemo(() => {
@@ -170,10 +150,6 @@ export const ActivityListPage: React.FC = () => {
 
     if (keyword) {
       list = list.filter(a => a.title.toLowerCase().includes(keyword.toLowerCase()));
-    }
-
-    if (category) {
-      list = list.filter(a => (a.category || a.faculty || '') === category);
     }
 
     if (dateValue) {
@@ -199,15 +175,16 @@ export const ActivityListPage: React.FC = () => {
     }
 
     return list;
-  }, [extendedActivities, keyword, category, dateValue, tabStatus]);
+  }, [extendedActivities, keyword, dateValue, tabStatus]);
 
   const activeItems = filtered.filter(a => a.status === 'ACTIVE');
   const endedItems  = filtered.filter(a => a.status === 'ENDED');
-  const hasFilter   = keyword !== '' || dateValue !== '' || category !== '' || tabStatus !== 'all';
+  // ✅ ปรับเงื่อนไข hasFilter โดยเอา category ออก
+  const hasFilter   = keyword !== '' || dateValue !== '' || tabStatus !== 'all';
 
   const clearAll = () => {
     setKeyword(''); setDateInput(''); setDateValue('');
-    setCategory(''); setTabStatus('all');
+    setTabStatus('all');
   };
 
   const handleDateInput = (raw: string) => {
@@ -237,7 +214,8 @@ export const ActivityListPage: React.FC = () => {
 
       <div className="bg-light rounded-4 p-3 mb-4">
         <Row className="g-3 align-items-end">
-          <Col md={4}>
+          {/* ✅ ปรับความกว้างของช่องค้นหาชื่อและวันที่ให้กว้างขึ้น เพื่อทดแทนช่องประเภทที่หายไป */}
+          <Col md={5}>
             <Form.Label className="fw-medium small text-secondary mb-1">ชื่อกิจกรรม</Form.Label>
             <InputGroup>
               <InputGroup.Text className="bg-white border-end-0">🔍</InputGroup.Text>
@@ -246,7 +224,7 @@ export const ActivityListPage: React.FC = () => {
               {keyword && <Button variant="outline-secondary" onClick={() => setKeyword('')}>✕</Button>}
             </InputGroup>
           </Col>
-          <Col md={3}>
+          <Col md={5}>
             <Form.Label className="fw-medium small text-secondary mb-1">วันที่จัดกิจกรรม</Form.Label>
             <InputGroup>
               <InputGroup.Text className="bg-white border-end-0">📅</InputGroup.Text>
@@ -258,13 +236,7 @@ export const ActivityListPage: React.FC = () => {
               )}
             </InputGroup>
           </Col>
-          <Col md={3}>
-            <Form.Label className="fw-medium small text-secondary mb-1">ประเภทกิจกรรม</Form.Label>
-            <Form.Select value={category} onChange={e => setCategory(e.target.value)}>
-              <option value="">-- ทุกประเภท --</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </Form.Select>
-          </Col>
+          
           <Col md={2} className="d-flex flex-column justify-content-end">
             <Button variant="outline-danger" className="w-100" style={{ fontSize:'0.85rem' }}
               onClick={clearAll} disabled={!hasFilter}>

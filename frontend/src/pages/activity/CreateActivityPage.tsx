@@ -32,14 +32,6 @@ const getImageUrl = (url: string | null | undefined): string => {
   return url.startsWith('http') ? url : `${BASE_URL}${url}`;
 };
 
-//@ รายการประเภทกิจกรรม (ใช้ร่วมกับ filter ในหน้ากิจกรรม)
-const CATEGORIES = [
-  '', 'มหาวิทยาลัย', 'คณะวิศวกรรมศาสตร์', 'คณะครุศาสตร์อุตสาหกรรม',
-  'คณะวิทยาศาสตร์ประยุกต์', 'คณะเทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล',
-  'คณะศิลปศาสตร์ประยุกต์', 'คณะสถาปัตยกรรมและการออกแบบ',
-  'คณะพัฒนาธุรกิจและอุตสาหกรรม', 'วิทยาลัยเทคโนโลยีอุตสาหกรรม', 'วิทยาลัยนานาชาติ',
-];
-
 export const CreateActivityPage: React.FC = () => {
   const navigate     = useNavigate();
   const dropdownRef  = useRef<HTMLDivElement>(null);
@@ -47,7 +39,6 @@ export const CreateActivityPage: React.FC = () => {
   // ===== Form fields =====
   const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
-  const [category,    setCategory]    = useState('');
   const [eventName,   setEventName]   = useState('');
   //* context — เก็บ event_id คู่กับ event_name เพื่อส่งให้ PhotoService และ backend
   const [eventId,     setEventId]     = useState<number | null>(null);
@@ -173,11 +164,8 @@ export const CreateActivityPage: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       
-      // ✅ FIX: เทคนิคเติม Z เพื่อบังคับให้เซฟเวลา "ตามตาเห็น" (YYYY-MM-DDTHH:mm:ssZ)
-      // การเติม Z หลอกๆ จะทำให้เวลานี้ไม่โดนหัก Offset 7 ชม. ตอนแปลงเป็น ISO
       const formatTimeToSubmit = (timeStr: string) => {
         if (!timeStr) return '';
-        // timeStr จาก input จะเป็น "YYYY-MM-DDTHH:mm" เติม :00Z ต่อท้าย
         return `${timeStr}:00Z`;
       };
 
@@ -185,9 +173,7 @@ export const CreateActivityPage: React.FC = () => {
         {
           title:               title.trim(),
           description:         description.trim() || undefined,
-          category:            category           || undefined,
           event_name:          eventName,
-          //* context — ส่ง event_id เพื่อให้ backend ดึงรูปด้วย FK แทน event_name string
           event_id:            eventId!,
           faculty:             filterFaculty      || undefined,
           academic_year:       filterYear         || undefined,
@@ -232,16 +218,6 @@ export const CreateActivityPage: React.FC = () => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
-              </Form.Group>
-
-              {/* ประเภทกิจกรรม */}
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold">ประเภทกิจกรรม</Form.Label>
-                <Form.Select value={category} onChange={(e) => setCategory(e.target.value)}>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c || '-- ไม่ระบุ --'}</option>
-                  ))}
-                </Form.Select>
               </Form.Group>
 
               {/* อีเว้นท์ (Searchable Dropdown) */}

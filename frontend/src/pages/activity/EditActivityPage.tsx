@@ -12,33 +12,21 @@ interface ActivityForEdit {
   id:           number;
   title:        string;
   description?: string;
-  category?:    string;
   event_name:   string;
   start_at:     string;
   end_at:       string;
   status:       'UPCOMING' | 'ACTIVE' | 'ENDED';
 }
 
-// ✅ FIX: ปรับปรุงฟังก์ชันแปลง ISO → ค่าที่ input datetime-local รับได้ (YYYY-MM-DDTHH:mm)
-// โดยการหักวินาทีและ 'Z' ออกตรงๆ เพื่อให้ Input แสดงเวลา "ตามที่บันทึกไว้" โดยไม่โดน Timezone Browser กวน
+// แปลง ISO → ค่าที่ input datetime-local รับได้ (YYYY-MM-DDTHH:mm)
 const toDatetimeLocal = (isoStr: string): string => {
   if (!isoStr) return '';
   try {
-    // isoStr จาก DB จะเป็น "YYYY-MM-DDTHH:mm:ss.000Z"
-    // เราตัดเอาแค่ "YYYY-MM-DDTHH:mm" เพื่อส่งให้ input
     return isoStr.substring(0, 16);
   } catch {
     return '';
   }
 };
-
-//@ รายการประเภทกิจกรรม (เหมือนกับ CreateActivityPage)
-const CATEGORIES = [
-  '', 'มหาวิทยาลัย', 'คณะวิศวกรรมศาสตร์', 'คณะครุศาสตร์อุตสาหกรรม',
-  'คณะวิทยาศาสตร์ประยุกต์', 'คณะเทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล',
-  'คณะศิลปศาสตร์ประยุกต์', 'คณะสถาปัตยกรรมและการออกแบบ',
-  'คณะพัฒนาธุรกิจและอุตสาหกรรม', 'วิทยาลัยเทคโนโลยีอุตสาหกรรม', 'วิทยาลัยนานาชาติ',
-];
 
 export const EditActivityPage: React.FC = () => {
   const { id }   = useParams<{ id: string }>();
@@ -47,7 +35,6 @@ export const EditActivityPage: React.FC = () => {
   // ===== Form fields =====
   const [title,       setTitle]       = useState('');
   const [description, setDescription] = useState('');
-  const [category,    setCategory]    = useState('');
   const [startAt,     setStartAt]     = useState('');
   const [endAt,       setEndAt]       = useState('');
 
@@ -72,8 +59,6 @@ export const EditActivityPage: React.FC = () => {
         setOriginalData(a);
         setTitle(a.title             || '');
         setDescription(a.description || '');
-        setCategory(a.category       || '');
-        //! ✅ FIX: ใช้ฟังก์ชันที่ตัด 'Z' ออก เพื่อแสดงเวลาไทยตรงๆ
         setStartAt(toDatetimeLocal(a.start_at));
         setEndAt(toDatetimeLocal(a.end_at));
       } catch (err: unknown) {
@@ -88,7 +73,6 @@ export const EditActivityPage: React.FC = () => {
   const hasChanges = originalData !== null && (
     title.trim()       !== (originalData.title        || '') ||
     description.trim() !== (originalData.description  || '') ||
-    category           !== (originalData.category     || '') ||
     startAt            !== toDatetimeLocal(originalData.start_at) ||
     endAt              !== toDatetimeLocal(originalData.end_at)
   );
@@ -119,10 +103,8 @@ export const EditActivityPage: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       
-      // ✅ FIX: เทคนิคเติม Z ตอนส่งบันทึก เพื่อบังคับเวลา "ตามตาเห็น" (YYYY-MM-DDTHH:mm:ssZ)
       const formatTimeToSubmit = (timeStr: string) => {
         if (!timeStr) return '';
-        // เติม :00Z ต่อท้าย หลอกระบบว่าเป็น UTC เพื่อไม่ให้โดนหัก 7 ชม.
         return `${timeStr}:00Z`;
       };
 
@@ -131,8 +113,6 @@ export const EditActivityPage: React.FC = () => {
         {
           title:       title.trim(),
           description: description.trim() || undefined,
-          category:    category           || undefined,
-          //! ✅ FIX: ส่งรูปแบบ YYYY-MM-DDTHH:mm:ssZ
           start_at:    formatTimeToSubmit(startAt),
           end_at:      formatTimeToSubmit(endAt),
         },
@@ -146,7 +126,6 @@ export const EditActivityPage: React.FC = () => {
     }
   };
 
-  // ─── Loading / Error ───────────────────────────────────────
   if (loading) {
     return (
       <Container className="py-5 text-center">
@@ -203,18 +182,6 @@ export const EditActivityPage: React.FC = () => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
-              </Form.Group>
-            </Col>
-
-            {/* ประเภทกิจกรรม */}
-            <Col xs={12}>
-              <Form.Group>
-                <Form.Label className="fw-bold">ประเภทกิจกรรม</Form.Label>
-                <Form.Select value={category} onChange={(e) => setCategory(e.target.value)}>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c || '-- ไม่ระบุ --'}</option>
-                  ))}
-                </Form.Select>
               </Form.Group>
             </Col>
 
