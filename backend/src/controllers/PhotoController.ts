@@ -28,13 +28,14 @@ const safeUnlink = (filePath: string, retries = 3, delay = 100): void => {
 export class PhotoController {
 
   // ✅ ระบบอัจฉริยะ: ดึงรูปเข้ากิจกรรมโหวตอัตโนมัติเมื่อรูปถูกอัปโหลดหรือย้ายมาที่แกลลอรี่
-  static async autoAddPhotoToEventActivities(photoId: number, eventId: number | null) {
-    if (!eventId) return;
+  // เปลี่ยน eventId เป็น eventName (string) ให้ตรงกับฐานข้อมูล
+  static async autoAddPhotoToEventActivities(photoId: number, eventName: string | null) {
+    if (!eventName) return;
     try {
       // หากิจกรรมทั้งหมดที่สร้างจากแกลลอรี่ (event) นี้ และกิจกรรมต้องยังไม่สิ้นสุด
       const [activities]: any = await pool.query(
-        `SELECT id FROM activities WHERE event_id = ? AND status != 'ENDED'`,
-        [eventId]
+        `SELECT id FROM activities WHERE event_name = ? AND status != 'ENDED'`,
+        [eventName] // ค้นหาด้วยชื่อ Event
       );
 
       for (const act of activities) {
@@ -115,7 +116,7 @@ export class PhotoController {
       });
 
       // ✅ สั่งให้เพิ่มรูปเข้ากิจกรรมโหวตอัตโนมัติ ทันทีที่อัปโหลดเสร็จ
-      await PhotoController.autoAddPhotoToEventActivities(photo.id, photo.event_id);
+      await PhotoController.autoAddPhotoToEventActivities(photo.id, photo.event_name);
 
       await historyService.log({
         actorId:    userId,
@@ -177,7 +178,16 @@ export class PhotoController {
         // ✅ ถ้าย้ายแกลลอรี่ (event_id เปลี่ยน) ให้ลบออกจากโหวตเก่า แล้วยัดเข้าโหวตใหม่อัตโนมัติ
         if (oldPhoto.event_id !== newEventId) {
           await pool.query('DELETE FROM activity_photos WHERE photo_id = ?', [id]);
-          await PhotoController.autoAddPhotoToEventActivities(id, newEventId);
+          
+          // ดึง event_name ใหม่จากฐานข้อมูลก่อนส่งไปแอดเข้าโหวต
+          let newEventName: string | null = null;
+          if (newEventId) {
+            const [eventRows]: any = await pool.query('SELECT event_name FROM events WHERE id = ?', [newEventId]);
+            if (eventRows.length > 0) {
+              newEventName = eventRows[0].event_name;
+            }
+          }
+          await PhotoController.autoAddPhotoToEventActivities(id, newEventName);
         }
 
         await historyService.log({

@@ -16,10 +16,10 @@ export class ActivityRepository {
       params.push(filters.status);
     }
 
-    // ✅ ใช้ COALESCE: ถ้า a.faculty เป็นว่าง ให้แอบไปดูว่ารูปภาพข้างในเป็นคณะอะไร แล้วดึงมาเป็น category แทน!
+    // ✅ แก้ไข: เปลี่ยน a.faculty เป็น a.category ให้ตรงกับตาราง activities
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT a.*, 
-        COALESCE(a.faculty, (
+        COALESCE(a.category, (
           SELECT p.faculty 
           FROM activity_photos ap 
           JOIN photos p ON ap.photo_id = p.id 
@@ -40,9 +40,10 @@ export class ActivityRepository {
 
   //@ ดึงกิจกรรมตาม ID
   async findByIdWithPhotos(id: number): Promise<any | null> {
+    // ✅ แก้ไข: เปลี่ยน a.faculty เป็น a.category
     const [actRows] = await pool.query<RowDataPacket[]>(
       `SELECT a.*, 
-        COALESCE(a.faculty, (
+        COALESCE(a.category, (
           SELECT p.faculty 
           FROM activity_photos ap 
           JOIN photos p ON ap.photo_id = p.id 
@@ -84,13 +85,15 @@ export class ActivityRepository {
       const end_at = data.end_at || null;
       const status = data.status || 'ACTIVE';
       const created_by = data.created_by || null;
-      const event_id = data.event_id || null;
-      const faculty = data.faculty || data.category || null;
-      const academic_year = data.academic_year || null;
+      
+      // ✅ แก้ไข: ดึง event_name และ category (ถ้าไม่มีให้ fallback ไปหา faculty)
+      const event_name = data.event_name || ''; 
+      const category = data.category || data.faculty || null;
 
+      // ✅ แก้ไข: ลบ event_id, faculty, academic_year ออกจากคำสั่ง SQL
       const [res] = await conn.query<ResultSetHeader>(
-        `INSERT INTO activities (title, description, start_at, end_at, status, created_by, event_id, faculty, academic_year) VALUES (?,?,?,?,?,?,?,?,?)`,
-        [title, description, start_at, end_at, status, created_by, event_id, faculty, academic_year]
+        `INSERT INTO activities (title, description, start_at, end_at, status, created_by, event_name, category) VALUES (?,?,?,?,?,?,?,?)`,
+        [title, description, start_at, end_at, status, created_by, event_name, category]
       );
 
       const activityId = res.insertId;
@@ -124,11 +127,14 @@ export class ActivityRepository {
     const description = data.description || null;
     const start_at = data.start_at || null;
     const end_at = data.end_at || null;
-    const faculty = data.faculty || data.category || null;
+    
+    // ✅ แก้ไข: ใช้ category แทน faculty
+    const category = data.category || data.faculty || null;
 
+    // ✅ แก้ไข: เปลี่ยนคำสั่งอัปเดตเป็น category=?
     const [result] = await pool.query<ResultSetHeader>(
-      "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, faculty=? WHERE id=?",
-      [title, description, start_at, end_at, faculty, id]
+      "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, category=? WHERE id=?",
+      [title, description, start_at, end_at, category, id]
     );
     return result.affectedRows > 0;
   }
