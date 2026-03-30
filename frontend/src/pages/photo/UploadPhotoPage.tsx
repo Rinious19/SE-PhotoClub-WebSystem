@@ -99,7 +99,7 @@ export const UploadPhotoPage: React.FC = () => {
   // ✅ FIX: บังคับให้ค่าเริ่มต้นเป็นคำว่า "ไม่ระบุ" ตรงๆ (ห้ามเป็นค่าว่าง)
   const [formData, setFormData] = useState({
     title: searchParams.get("event") || "",
-    event_date: "",
+    event_date: "ตั้งแต่วันที่...",
     description: "",
     faculty: searchParams.get("faculty") || "ไม่ระบุ",
     academic_year: searchParams.get("year") || searchParams.get("academic_year") || "ไม่ระบุ",
@@ -419,7 +419,7 @@ export const UploadPhotoPage: React.FC = () => {
 
               <Form.Group className="mb-3">
                 <Form.Label className="fw-bold text-secondary">วันที่จัดอีเว้นท์ (ระบบกำหนดให้)</Form.Label>
-                <Form.Control type="date" value={formData.event_date} readOnly className="bg-light" tabIndex={-1} />
+                <Form.Control type="text" value={formData.event_date} readOnly className="bg-light" tabIndex={-1} />
                 {isValidEvent && (
                   <Form.Text className="text-muted">อีเว้นท์: <strong>{formData.title}</strong></Form.Text>
                 )}
@@ -473,7 +473,7 @@ export const UploadPhotoPage: React.FC = () => {
           </Form.Group>
           <Form.Group>
             <Form.Label className="fw-medium">วันที่จัดอีเว้นท์ <span className="text-danger">*</span></Form.Label>
-            <div><CustomDatePicker value={newEventData.date} max={todayStr} onChange={(v) => setNewEventData({ ...newEventData, date: v })} placeholder="DD/MM/YYYY" /></div>
+            <div><CustomDatePicker value={newEventData.date} max={todayStr} onChange={(v) => setNewEventData({ ...newEventData, date: v })} placeholder="ตั้งแต่วันที่..." /></div>
             <Form.Text className="text-muted">เลือกได้เฉพาะวันนี้หรือวันที่ผ่านมา</Form.Text>
           </Form.Group>
         </Modal.Body>

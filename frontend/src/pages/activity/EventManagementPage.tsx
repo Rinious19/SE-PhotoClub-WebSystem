@@ -450,7 +450,7 @@ export const EventManagementPage: React.FC = () => {
                 value={newEventData.date}
                 max={todayStr}
                 onChange={(v) => setNewEventData({ ...newEventData, date: v })}
-                placeholder="DD/MM/YYYY"
+                placeholder="ตั้งแต่วันที่..."
               />
             </div>
             <Form.Text className="text-muted">
@@ -513,7 +513,7 @@ export const EventManagementPage: React.FC = () => {
                 value={editData.date}
                 max={todayStr}
                 onChange={(v) => setEditData({ ...editData, date: v })}
-                placeholder="DD/MM/YYYY"
+                placeholder="ตั้งแต่วันที่..."
               />
             </div>
             <Form.Text className="text-muted">

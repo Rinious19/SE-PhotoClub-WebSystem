@@ -149,7 +149,7 @@ export const PhotoListPage: React.FC = () => {
             แกลเลอรี่
             {!initialLoading && (
               <span className="text-secondary fs-4 fw-normal ms-2"> 
-                ({hasFilter ? `${filteredFolders.length} / ` : ""}{totalFolders} อีเว้นท์)
+                ({hasFilter ? `${filteredFolders.length} / ` : ""}{totalFolders} แกลเลอรี่)
               </span>
             )}
           </h2>
@@ -180,7 +180,7 @@ export const PhotoListPage: React.FC = () => {
                 <Col xs={7}>
                   <Form.Select className="py-2" value={filterFaculty} onChange={(e) => setFilterFaculty(e.target.value)}>
                     <option value="">-- โชว์ทั้งหมด --</option>
-                    <option value="ไม่ระบุ">หมวดหมู่: ไม่ระบุ</option>
+                    <option value="ไม่ระบุ">ไม่ระบุ</option>
                     <option value="มหาวิทยาลัย">มหาวิทยาลัย</option>
                     <option value="คณะวิศวกรรมศาสตร์">คณะวิศวกรรมศาสตร์</option>
                     <option value="คณะครุศาสตร์อุตสาหกรรม">คณะครุศาสตร์อุตสาหกรรม</option>
@@ -226,7 +226,7 @@ export const PhotoListPage: React.FC = () => {
 
       <div ref={sentinelRef} style={{ height: 40, marginTop: 32 }} />
       {loadingMore && <div className="text-center py-4"><Spinner animation="border" variant="secondary" /><span className="ms-3 text-muted fs-5">กำลังโหลดเพิ่มเติม...</span></div>}
-      {!hasMore && folders.length > 0 && !hasFilter && <p className="text-center text-muted fs-6 mt-3">แสดงทั้งหมด {totalFolders} อีเว้นท์</p>}
+      {!hasMore && folders.length > 0 && !hasFilter && <p className="text-center text-muted fs-6 mt-3">แสดงทั้งหมด {totalFolders} แกลเลอรี่</p>}
     </Container>
   );
 };
