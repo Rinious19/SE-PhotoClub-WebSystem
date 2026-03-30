@@ -12,10 +12,10 @@ import { useActivities }                  from '@/hooks/useActivities';
 import { useAuth }                        from '@/hooks/useAuth';
 import type { Activity }                  from '@/types/Activity';
 
-// ✅ เอา category และ faculty ออกจาก ExtendedType
+// ✅ แก้ไข: เปลี่ยน vote_count เป็น total_votes ให้ตรงกับที่ Backend ส่งมา
 export type ExtendedActivity = Activity & {
   photo_count?: number;
-  vote_count?:  number;
+  total_votes?: number; 
 };
 
 // ─── ActivityCard ────────────────────────────────────────────
@@ -53,7 +53,6 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
           <Badge bg={isActive ? 'success' : 'secondary'} className="rounded-pill" style={{ fontSize:11 }}>
             {isActive ? '🟢 กำลังดำเนินการ' : '⚫ สิ้นสุดแล้ว'}
           </Badge>
-          {/* ลบ Badge แสดงประเภทกิจกรรมออกไปแล้ว */}
         </div>
         <h6 className="fw-bold mb-1 text-dark" style={{ lineHeight:1.3 }}>{activity.title}</h6>
         <p className="text-muted small mb-2" style={{ fontSize:12 }}>📂 {activity.event_name}</p>
@@ -63,7 +62,8 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
         </div>
         <div className="d-flex gap-3 mt-2 mb-3">
           <span className="text-muted small">🖼️ {activity.photo_count || 0} รูป</span>
-          <span className="text-muted small">🗳️ {activity.vote_count || 0} โหวต</span>
+          {/* ✅ แสดงจำนวนโหวตที่แท้จริงจาก total_votes */}
+          <span className="text-muted small">🗳️ {activity.total_votes || 0} โหวต</span>
         </div>
         <div className="d-flex gap-2">
           <Link
@@ -179,7 +179,6 @@ export const ActivityListPage: React.FC = () => {
 
   const activeItems = filtered.filter(a => a.status === 'ACTIVE');
   const endedItems  = filtered.filter(a => a.status === 'ENDED');
-  // ✅ ปรับเงื่อนไข hasFilter โดยเอา category ออก
   const hasFilter   = keyword !== '' || dateValue !== '' || tabStatus !== 'all';
 
   const clearAll = () => {
@@ -214,7 +213,6 @@ export const ActivityListPage: React.FC = () => {
 
       <div className="bg-light rounded-4 p-3 mb-4">
         <Row className="g-3 align-items-end">
-          {/* ✅ ปรับความกว้างของช่องค้นหาชื่อและวันที่ให้กว้างขึ้น เพื่อทดแทนช่องประเภทที่หายไป */}
           <Col md={5}>
             <Form.Label className="fw-medium small text-secondary mb-1">ชื่อกิจกรรม</Form.Label>
             <InputGroup>

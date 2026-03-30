@@ -9,6 +9,7 @@ import { sendError } from "../utils/errorHandler";
 import { createThumbnail, deletePhotoFiles, PHOTOS_URL_PREFIX } from "../middlewares/UploadMiddleware";
 import fs from "fs";
 import crypto from "crypto";
+// ✅ ต้อง import pool เพื่อยิงคำสั่งเข้าไปแอดรูปอัตโนมัติ
 import { pool } from "../config/Database";
 
 const photoRepo = new PhotoRepository();
@@ -16,7 +17,6 @@ const FOLDER_PAGE_SIZE = 12;
 const PHOTO_PAGE_SIZE  = 20;
 const UPLOADS_URL_PREFIX = PHOTOS_URL_PREFIX;
 
-//! Windows fix — unlinkSync ทำให้เกิด EBUSY เพราะ OS ยังล็อคไฟล์อยู่
 const safeUnlink = (filePath: string, retries = 3, delay = 100): void => {
   fs.unlink(filePath, (err) => {
     if (err && err.code === 'EBUSY' && retries > 0) {
@@ -27,51 +27,41 @@ const safeUnlink = (filePath: string, retries = 3, delay = 100): void => {
 
 export class PhotoController {
 
-  // ✅ ฟังก์ชันผู้ช่วย: เดาหมวดหมู่ของกิจกรรมโหวตจากรูปภาพข้างใน และดึงรูปเข้าอัตโนมัติ
-  static async autoSyncPhotoToActivities(photoId: number, eventId: number | null, faculty: string | null, year: string | null) {
+  // ✅ ระบบอัจฉริยะ: ดึงรูปเข้ากิจกรรมโหวตอัตโนมัติเมื่อรูปถูกอัปโหลดหรือย้ายมาที่แกลลอรี่
+  static async autoAddPhotoToEventActivities(photoId: number, eventId: number | null) {
     if (!eventId) return;
+    try {
+      // หากิจกรรมทั้งหมดที่สร้างจากแกลลอรี่ (event) นี้ และกิจกรรมต้องยังไม่สิ้นสุด
+      const [activities]: any = await pool.query(
+        `SELECT id FROM activities WHERE event_id = ? AND status != 'ENDED'`,
+        [eventId]
+      );
 
-    // ค้นหากิจกรรมที่ Active และดูว่ารูปภาพข้างในกิจกรรมนั้นเป็นของ Event/คณะ/ปี ไหน
-    const sql = `
-      SELECT a.id AS activity_id,
-             MIN(p.event_id) AS min_event, MAX(p.event_id) AS max_event,
-             MIN(p.faculty) AS min_fac, MAX(p.faculty) AS max_fac,
-             MIN(p.academic_year) AS min_year, MAX(p.academic_year) AS max_year
-      FROM activities a
-      JOIN activity_photos ap ON a.id = ap.activity_id
-      JOIN photos p ON ap.photo_id = p.id
-      WHERE a.status != 'ENDED'
-      GROUP BY a.id
-    `;
-    const [activeActs]: any = await pool.query(sql);
+      for (const act of activities) {
+        const actId = act.id;
+        
+        // เช็คก่อนว่าในกิจกรรมนี้มีรูปนี้ซ้ำอยู่แล้วหรือเปล่า
+        const [check]: any = await pool.query(
+          `SELECT id FROM activity_photos WHERE activity_id = ? AND photo_id = ?`,
+          [actId, photoId]
+        );
 
-    for (const act of activeActs) {
-      // 1. เช็คว่าเป็นกิจกรรมโหวตของ Event เดียวกันหรือไม่
-      if (act.min_event === eventId && act.max_event === eventId) {
-        let isMatch = true;
+        if (check.length === 0) {
+          // ถ้ารูปยังไม่อยู่ในกิจกรรม ให้หาลำดับ (sort_order) ตัวสุดท้าย แล้วยัดต่อท้ายเลย
+          const [maxSortRows]: any = await pool.query(
+            `SELECT MAX(sort_order) as maxSort FROM activity_photos WHERE activity_id = ?`,
+            [actId]
+          );
+          const nextSort = (maxSortRows[0]?.maxSort || 0) + 1;
 
-        // 2. ถ้ากิจกรรมโหวตนี้มีแต่รูปของ "คณะเดียว" ล้วนๆ รูปใหม่ก็ต้องเป็นคณะนั้นด้วย
-        if (act.min_fac !== null && act.min_fac === act.max_fac && faculty !== act.min_fac) {
-          isMatch = false;
-        }
-        // 3. ถ้ากิจกรรมโหวตนี้มีแต่รูปของ "ปีเดียวกัน" ล้วนๆ รูปใหม่ก็ต้องเป็นปีนั้นด้วย
-        if (act.min_year !== null && act.min_year === act.max_year && year !== act.min_year) {
-          isMatch = false;
-        }
-
-        // ถ้ารูปใหม่คุณสมบัติตรงกับกิจกรรมโหวตนี้ ก็ยัดใส่ลงไปเลย
-        if (isMatch) {
-          const [check]: any = await pool.query('SELECT id FROM activity_photos WHERE activity_id = ? AND photo_id = ?', [act.activity_id, photoId]);
-          if (check.length === 0) { // กันเหนียว ไม่ให้รูปซ้ำ
-            const [maxSortRows]: any = await pool.query('SELECT MAX(sort_order) as maxSort FROM activity_photos WHERE activity_id = ?', [act.activity_id]);
-            const nextSort = (maxSortRows[0]?.maxSort || 0) + 1;
-            await pool.query(
-              'INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES (?, ?, ?)',
-              [act.activity_id, photoId, nextSort]
-            );
-          }
+          await pool.query(
+            `INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES (?, ?, ?)`,
+            [actId, photoId, nextSort]
+          );
         }
       }
+    } catch (err) {
+      console.error("Auto Sync Photo Error:", err);
     }
   }
 
@@ -124,8 +114,8 @@ export class PhotoController {
         created_by: userId,
       });
 
-      // ✅ ค้นหาและดึงรูปลงกิจกรรมโหวตอัตโนมัติ (สืบจากรูปที่มีอยู่)
-      await PhotoController.autoSyncPhotoToActivities(photo.id, photo.event_id, photo.faculty, photo.academic_year);
+      // ✅ สั่งให้เพิ่มรูปเข้ากิจกรรมโหวตอัตโนมัติ ทันทีที่อัปโหลดเสร็จ
+      await PhotoController.autoAddPhotoToEventActivities(photo.id, photo.event_id);
 
       await historyService.log({
         actorId:    userId,
@@ -142,7 +132,7 @@ export class PhotoController {
     }
   }
 
-  // --- [2. แก้ไขรูป] ---
+  // --- [2. แก้ไขรูป/ย้ายแกลลอรี่] ---
   static async updatePhoto(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const id     = parseInt(req.params.id as string, 10);
@@ -183,17 +173,11 @@ export class PhotoController {
 
       if (success) {
         const newEventId = event_id !== undefined ? (event_id ? parseInt(event_id) : null) : oldPhoto.event_id;
-        const newFaculty = faculty !== undefined ? (faculty?.trim() || null) : oldPhoto.faculty;
-        const newYear = academic_year !== undefined ? (academic_year?.trim() || null) : oldPhoto.academic_year;
 
-        // ถ้าย้ายหมวดหมู่ (คณะ, ปี, อีเว้นท์) ให้จัดการเรื่องการโหวต
-        if (oldPhoto.event_id !== newEventId || oldPhoto.faculty !== newFaculty || oldPhoto.academic_year !== newYear) {
-          
-          // เตะรูปนี้ออกจาก "กิจกรรมโหวต" เดิม
+        // ✅ ถ้าย้ายแกลลอรี่ (event_id เปลี่ยน) ให้ลบออกจากโหวตเก่า แล้วยัดเข้าโหวตใหม่อัตโนมัติ
+        if (oldPhoto.event_id !== newEventId) {
           await pool.query('DELETE FROM activity_photos WHERE photo_id = ?', [id]);
-
-          // ✅ ส่งไปค้นหาที่อยู่ใหม่ ถ้าระบบเจอโหวตที่ตรงสเปก มันจะเข้าไปอยู่เองอัตโนมัติ
-          await PhotoController.autoSyncPhotoToActivities(id, newEventId, newFaculty, newYear);
+          await PhotoController.autoAddPhotoToEventActivities(id, newEventId);
         }
 
         await historyService.log({

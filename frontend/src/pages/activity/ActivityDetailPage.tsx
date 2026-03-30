@@ -47,7 +47,7 @@ interface ActivityDetail {
   title:        string;
   description?: string;
   category?:    string;
-  faculty?:     string; // ✅ เพิ่มบรรทัดนี้ เพื่อให้ระบบรู้จัก faculty โดยไม่ต้องใช้ any
+  faculty?:     string;
   event_name:   string;
   start_at:     string;
   end_at:       string;
@@ -216,7 +216,7 @@ export const ActivityDetailPage: React.FC = () => {
   };
   const badge = statusBadge[activity.status] ?? { label: activity.status, bg: 'light' };
 
-  // ✅ แสดงประเภทกิจกรรม โดยดึงค่าตรงๆ ไม่มี any มาเกะกะแล้ว
+  // ✅ แสดงประเภทกิจกรรม โดยดึงค่าตรงๆ
   const displayCategory = activity.faculty || activity.category;
 
   return (
@@ -263,6 +263,7 @@ export const ActivityDetailPage: React.FC = () => {
           )}
         </div>
 
+        {/* แถบหลอดความคืบหน้าของระยะเวลากิจกรรม (อันนี้ของตัวกิจกรรม ไม่ใช่ของรูปภาพ) */}
         {activity.status === 'ACTIVE' && (
           <div className="mt-3">
             <div className="d-flex justify-content-between small text-muted mb-1">
@@ -295,7 +296,6 @@ export const ActivityDetailPage: React.FC = () => {
         {activity.photos.map((photo) => {
           const imgSrc      = getImageUrl(photo.thumbnail_url || photo.image_url);
           const isWinner    = activity.status === 'ENDED' && photo.vote_count === maxVote && maxVote > 0;
-          const votePct     = totalVotes > 0 ? Math.round((photo.vote_count / totalVotes) * 100) : 0;
 
           return (
             <Col key={photo.activity_photo_id}>
@@ -340,18 +340,11 @@ export const ActivityDetailPage: React.FC = () => {
                 </div>
 
                 <Card.Body className="p-2">
+                  {/* ✅ เอา Progress Bar และ % ออกตามรีเควสต์ เหลือแค่ตัวเลขโหวต */}
                   {activity.status !== 'UPCOMING' && (
-                    <>
-                      <div className="d-flex justify-content-between small text-muted mb-1">
-                        <span>{photo.vote_count} โหวต</span>
-                        <span>{votePct}%</span>
-                      </div>
-                      <ProgressBar
-                        now={votePct}
-                        variant={isWinner ? 'warning' : 'primary'}
-                        style={{ height: 4, borderRadius: 4, marginBottom: 8 }}
-                      />
-                    </>
+                    <div className="text-center small fw-bold text-muted mb-2 mt-1">
+                      {photo.vote_count} โหวต
+                    </div>
                   )}
 
                   <VoteButton
