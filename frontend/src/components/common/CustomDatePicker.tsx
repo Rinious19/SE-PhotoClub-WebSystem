@@ -16,18 +16,20 @@ interface Props {
 const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
-// แปลง YYYY-MM-DD → DD/MM/YYYY สำหรับแสดงผล
+// ✅ 1. แปลง YYYY-MM-DD → DD/MM/YYYY (พ.ศ.) สำหรับแสดงผล
 const toDisplay = (v: string) => {
   if (!v) return '';
   const [y, m, d] = v.split('-');
-  return `${d}/${m}/${y}`;
+  return `${d}/${m}/${parseInt(y) + 543}`;
 };
 
-// แปลง DD/MM/YYYY → YYYY-MM-DD
+// ✅ 2. แปลง DD/MM/YYYY (พ.ศ.) → YYYY-MM-DD (ค.ศ.) สำหรับส่งเข้าสูประบบ
 const toInternal = (v: string): string => {
   const parts = v.replace(/[^0-9/]/g, '').split('/');
   if (parts.length === 3 && parts[2].length === 4) {
-    return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+    let year = parseInt(parts[2]);
+    if (year > 2500) year -= 543; // ถ้ากรอก พ.ศ. มาให้ลบ 543 กลับเป็น ค.ศ.
+    return `${year}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
   }
   return '';
 };
@@ -145,7 +147,6 @@ export const CustomDatePicker: React.FC<Props> = ({
             e.preventDefault();
             const dir = e.deltaY > 0 ? 1 : -1; // scroll down = next, up = prev
             if (mode === 'day') {
-              // เลื่อนทีละเดือน
               if (dir === 1) {
                 if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
                 else setViewMonth(m => m + 1);
@@ -188,18 +189,20 @@ export const CustomDatePicker: React.FC<Props> = ({
                   </button>
                   <button onClick={() => setMode('year')}
                     style={{ border:'none', background:'none', fontWeight:600, fontSize:13, cursor:'pointer', borderRadius:6, padding:'2px 6px' }}>
-                    {viewYear}
+                    {viewYear + 543} {/* ✅ 3. บวก พ.ศ. ตรงหัวปฏิทิน */}
                   </button>
                 </>
               )}
               {mode === 'month' && (
                 <button onClick={() => setMode('year')}
                   style={{ border:'none', background:'none', fontWeight:600, fontSize:13, cursor:'pointer', borderRadius:6, padding:'2px 6px' }}>
-                  {viewYear}
+                  {viewYear + 543} {/* ✅ 3. บวก พ.ศ. ตรงหัวปฏิทิน */}
                 </button>
               )}
               {mode === 'year' && (
-                <span style={{ fontWeight:600, fontSize:13 }}>{yearStart} – {yearStart+11}</span>
+                <span style={{ fontWeight:600, fontSize:13 }}>
+                  {yearStart + 543} – {yearStart + 11 + 543} {/* ✅ 3. บวก พ.ศ. ตรงหัวปฏิทิน */}
+                </span>
               )}
             </div>
 
@@ -271,7 +274,9 @@ export const CustomDatePicker: React.FC<Props> = ({
                     color: selY === y ? '#fff' : viewYear === y ? '#0d6efd' : '#212529',
                     fontWeight: viewYear === y ? 600 : 400,
                     transition: 'background .1s',
-                  }}>{y}</button>
+                  }}>
+                  {y + 543} {/* ✅ 4. แสดงปุ่มปีเป็น พ.ศ. */}
+                </button>
               ))}
             </div>
           )}

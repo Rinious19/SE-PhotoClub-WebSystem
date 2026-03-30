@@ -1,6 +1,5 @@
 //? Page: ActivityListPage
 //@ หน้ากิจกรรมโหวตภาพถ่าย
-//  วางไฟล์นี้ที่: frontend/src/pages/activity/ActivityListPage.tsx
 
 import React, { useState, useMemo }       from 'react';
 import {
@@ -11,8 +10,8 @@ import { Link, useNavigate }              from 'react-router-dom';
 import { useActivities }                  from '@/hooks/useActivities';
 import { useAuth }                        from '@/hooks/useAuth';
 import type { Activity }                  from '@/types/Activity';
+import { CustomDatePicker }               from '@/components/common/CustomDatePicker';
 
-// ✅ แก้ไข: เปลี่ยน vote_count เป็น total_votes ให้ตรงกับที่ Backend ส่งมา
 export type ExtendedActivity = Activity & {
   photo_count?: number;
   total_votes?: number; 
@@ -23,11 +22,15 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
   const { user }  = useAuth();
   const isActive  = activity.status === 'ACTIVE';
 
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleString('th-TH', {
-      year:'numeric', month:'short', day:'numeric',
-      hour:'2-digit', minute:'2-digit',
-    });
+  const fmt = (iso: string) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = d.toLocaleDateString('th-TH', { month: 'short' });
+    const yy = d.getFullYear() + 543;
+    const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    return `${dd} ${mm} ${yy} ${time}`;
+  };
 
   return (
     <Card
@@ -62,7 +65,6 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
         </div>
         <div className="d-flex gap-3 mt-2 mb-3">
           <span className="text-muted small">🖼️ {activity.photo_count || 0} รูป</span>
-          {/* ✅ แสดงจำนวนโหวตที่แท้จริงจาก total_votes */}
           <span className="text-muted small">🗳️ {activity.total_votes || 0} โหวต</span>
         </div>
         <div className="d-flex gap-2">
@@ -137,63 +139,60 @@ export const ActivityListPage: React.FC = () => {
   const isPresident = user?.role === 'CLUB_PRESIDENT';
 
   const [keyword,   setKeyword]   = useState('');
-  const [dateInput, setDateInput] = useState('');
-  const [dateValue, setDateValue] = useState('');
+  
+  // ✅ แยก State สำหรับช่วงวันที่ ค้นหาตั้งแต่ - ถึง
+  const [startDate, setStartDate] = useState('');
+  const [endDate,   setEndDate]   = useState(''); 
+  
   const [tabStatus, setTabStatus] = useState<'all'|'ACTIVE'|'ENDED'>('all');
 
   const { activities = [], loading, error, refetch } = useActivities("");
-
   const extendedActivities = activities as unknown as ExtendedActivity[];
 
   const filtered = useMemo(() => {
     let list = extendedActivities;
 
+    // กรองชื่อ
     if (keyword) {
       list = list.filter(a => a.title.toLowerCase().includes(keyword.toLowerCase()));
     }
 
-    if (dateValue) {
-      const selectedDate = new Date(dateValue);
-      selectedDate.setHours(0, 0, 0, 0);
-      const selTime = selectedDate.getTime();
+    // ✅ กรองช่วงวันที่ (Overlap Logic)
+    if (startDate) {
+      const filterStart = new Date(startDate);
+      filterStart.setHours(0, 0, 0, 0);
+
+      // ถ้าไม่กรอกวันสิ้นสุด ให้ถือว่าค้นหาแค่วันเดียว
+      const filterEnd = new Date(endDate || startDate);
+      filterEnd.setHours(23, 59, 59, 999);
 
       list = list.filter(a => {
         if (!a.start_at || !a.end_at) return false;
-        
-        const start = new Date(a.start_at);
-        start.setHours(0, 0, 0, 0);
-        
-        const end = new Date(a.end_at);
-        end.setHours(23, 59, 59, 999);
+        const actStart = new Date(a.start_at);
+        const actEnd   = new Date(a.end_at);
 
-        return selTime >= start.getTime() && selTime <= end.getTime();
+        // เช็คว่ากิจกรรมนี้จัดอยู่ในช่วงเวลาที่เลือกหรือไม่ (คาบเกี่ยวกัน)
+        return actStart.getTime() <= filterEnd.getTime() && actEnd.getTime() >= filterStart.getTime();
       });
     }
 
+    // กรองสถานะ
     if (tabStatus !== 'all') {
       list = list.filter(a => a.status === tabStatus);
     }
 
     return list;
-  }, [extendedActivities, keyword, dateValue, tabStatus]);
+  }, [extendedActivities, keyword, startDate, endDate, tabStatus]);
 
   const activeItems = filtered.filter(a => a.status === 'ACTIVE');
   const endedItems  = filtered.filter(a => a.status === 'ENDED');
-  const hasFilter   = keyword !== '' || dateValue !== '' || tabStatus !== 'all';
+  const hasFilter   = keyword !== '' || startDate !== '' || tabStatus !== 'all';
 
   const clearAll = () => {
-    setKeyword(''); setDateInput(''); setDateValue('');
+    setKeyword(''); 
+    setStartDate(''); 
+    setEndDate('');
     setTabStatus('all');
-  };
-
-  const handleDateInput = (raw: string) => {
-    const d = raw.replace(/\D/g,'').slice(0,8);
-    let fmt = d;
-    if (d.length > 4) fmt = `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`;
-    else if (d.length > 2) fmt = `${d.slice(0,2)}/${d.slice(2)}`;
-    setDateInput(fmt);
-    if (d.length === 8) setDateValue(`${d.slice(4)}-${d.slice(2,4)}-${d.slice(0,2)}`);
-    else setDateValue('');
   };
 
   return (
@@ -222,21 +221,42 @@ export const ActivityListPage: React.FC = () => {
               {keyword && <Button variant="outline-secondary" onClick={() => setKeyword('')}>✕</Button>}
             </InputGroup>
           </Col>
+
+          {/* ✅ ส่วนเลือกช่วงวันที่ */}
           <Col md={5}>
             <Form.Label className="fw-medium small text-secondary mb-1">วันที่จัดกิจกรรม</Form.Label>
-            <InputGroup>
-              <InputGroup.Text className="bg-white border-end-0">📅</InputGroup.Text>
-              <Form.Control className="border-start-0" placeholder="DD/MM/YYYY"
-                value={dateInput} maxLength={10} onChange={e => handleDateInput(e.target.value)} />
-              {dateInput && (
-                <Button variant="outline-secondary"
-                  onClick={() => { setDateInput(''); setDateValue(''); }}>✕</Button>
+            <div className="d-flex gap-2 w-100" style={{ transition: 'all 0.3s ease' }}>
+              <div className="flex-fill">
+                <CustomDatePicker 
+                  value={startDate} 
+                  onChange={(val) => {
+                    setStartDate(val);
+                    if (!val) setEndDate(''); // ถ้าล้างวันเริ่มต้น ให้ล้างวันสิ้นสุดด้วย
+                  }} 
+                  placeholder="ตั้งแต่วันที่..."
+                  size="md"
+                />
+              </div>
+              
+              {/* ซ่อนไว้จนกว่าจะมีค่า startDate */}
+              {startDate && (
+                <div className="flex-fill" style={{ animation: 'fadeIn 0.2s ease' }}>
+                  <CustomDatePicker 
+                    value={endDate} 
+                    min={startDate} // ห้ามเลือกก่อนวันเริ่มต้น
+                    onChange={(val) => setEndDate(val)} 
+                    placeholder="ถึงวันที่..."
+                    size="md"
+                  />
+                </div>
               )}
-            </InputGroup>
+            </div>
+            {/* อนิเมชั่นสำหรับการโผล่ขึ้นมาของปฏิทินที่ 2 */}
+            <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }`}</style>
           </Col>
           
           <Col md={2} className="d-flex flex-column justify-content-end">
-            <Button variant="outline-danger" className="w-100" style={{ fontSize:'0.85rem' }}
+            <Button variant="outline-danger" className="w-100 py-2" style={{ fontSize:'0.85rem' }}
               onClick={clearAll} disabled={!hasFilter}>
               ล้างทั้งหมด
             </Button>

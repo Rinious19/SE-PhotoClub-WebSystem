@@ -4,86 +4,114 @@
 //  - EXTERNAL_USER → โหวตได้ 1 ครั้งต่อกิจกรรม
 //  - ADMIN / CLUB_PRESIDENT → ลบรูปออกจากกิจกรรมได้
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from "react";
 import {
-  Container, Row, Col, Card, Button, Modal,
-  Spinner, Alert, Badge, ProgressBar,
-} from 'react-bootstrap';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ActivityService }              from '@/services/ActivityService';
-import { VoteService }                  from '@/services/VoteService';
-import { VoteButton }                   from '@/components/activity/VoteButton';
-import { useAuth }                      from '@/hooks/useAuth';
-import { isAdminOrPresident }           from '@/utils/roleChecker';
-import { parseApiError }                from '@/utils/apiError';
+  Container,
+  Row,
+  Col,
+  Card,
+  Button,
+  Modal,
+  Spinner,
+  Alert,
+  Badge,
+  ProgressBar,
+} from "react-bootstrap";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ActivityService } from "@/services/ActivityService";
+import { VoteService } from "@/services/VoteService";
+import { VoteButton } from "@/components/activity/VoteButton";
+import { useAuth } from "@/hooks/useAuth";
+import { isAdminOrPresident } from "@/utils/roleChecker";
+import { parseApiError } from "@/utils/apiError";
 
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = "http://localhost:5000";
 
 //@ แปลง image_url เป็น src URL ที่ใช้ได้
 const getImageUrl = (imageUrl: unknown): string => {
-  if (!imageUrl) return '';
-  if (typeof imageUrl === 'string') {
-    return imageUrl.startsWith('http') ? imageUrl : `${BASE_URL}${imageUrl}`;
+  if (!imageUrl) return "";
+  if (typeof imageUrl === "string") {
+    return imageUrl.startsWith("http") ? imageUrl : `${BASE_URL}${imageUrl}`;
   }
-  return '';
+  return "";
 };
 
 //@ กำหนด type ของรูปใน Activity (activity_photos join photos)
 interface ActivityPhoto {
   activity_photo_id: number; // id ใน activity_photos
-  photo_id:          number; // id ใน photos
-  image_url:         string;
-  thumbnail_url:     string | null;
-  photo_title:       string;
-  faculty?:          string;
-  academic_year?:    string;
-  vote_count:        number;
-  sort_order:        number;
+  photo_id: number; // id ใน photos
+  image_url: string;
+  thumbnail_url: string | null;
+  photo_title: string;
+  faculty?: string;
+  academic_year?: string;
+  vote_count: number;
+  sort_order: number;
 }
 
 //@ กำหนด type ของ Activity ที่รับมาจาก API
 interface ActivityDetail {
-  id:           number;
-  title:        string;
+  id: number;
+  title: string;
   description?: string;
-  category?:    string;
-  faculty?:     string;
-  event_name:   string;
-  start_at:     string;
-  end_at:       string;
-  status:       'UPCOMING' | 'ACTIVE' | 'ENDED';
+  category?: string;
+  faculty?: string;
+  event_name: string;
+  start_at: string;
+  end_at: string;
+  status: "UPCOMING" | "ACTIVE" | "ENDED";
   creator_name: string;
-  vote_count:   number;
-  photos:       ActivityPhoto[];
+  vote_count: number;
+  photos: ActivityPhoto[];
 }
 
+//@ ฟังก์ชันแปลงวันที่ให้เป็น พ.ศ. ชัวร์ๆ (บวก 543)
+const formatThaiDate = (dateString: string) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const day = date.getDate();
+  const month = date.toLocaleDateString("th-TH", { month: "short" }); // จะได้ ม.ค., ก.พ. ฯลฯ
+  const year = date.getFullYear() + 543; // บังคับบวก 543 ให้อัตโนมัติ
+  const time = date.toLocaleTimeString("th-TH", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }); // จะได้ HH:mm
+
+  return `${day} ${month} ${year} ${time} น.`;
+};
+
 export const ActivityDetailPage: React.FC = () => {
-  const { id }             = useParams<{ id: string }>();
-  const navigate           = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const canManage = isAdminOrPresident(user);
 
   //* ===== States =====
-  const [activity,          setActivity]          = useState<ActivityDetail | null>(null);
-  const [loading,           setLoading]           = useState(true);
-  const [error,             setError]             = useState<string | null>(null);
+  const [activity, setActivity] = useState<ActivityDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // สถานะโหวตของ user ปัจจุบัน
-  const [userVotedPhotoId,  setUserVotedPhotoId]  = useState<number | null>(null);
+  const [userVotedPhotoId, setUserVotedPhotoId] = useState<number | null>(null);
 
   // Modal ยืนยันโหวต
-  const [pendingVotePhotoId, setPendingVotePhotoId] = useState<number | null>(null);
-  const [voteLoading,        setVoteLoading]        = useState(false);
-  const [voteResultMsg,      setVoteResultMsg]      = useState<{
-    show: boolean; success: boolean; msg: string;
-  }>({ show: false, success: false, msg: '' });
+  const [pendingVotePhotoId, setPendingVotePhotoId] = useState<number | null>(
+    null,
+  );
+  const [voteLoading, setVoteLoading] = useState(false);
+  const [voteResultMsg, setVoteResultMsg] = useState<{
+    show: boolean;
+    success: boolean;
+    msg: string;
+  }>({ show: false, success: false, msg: "" });
 
   // Modal สำหรับ Guest ที่ยังไม่ Login
-  const [showGuestModal,    setShowGuestModal]    = useState(false);
+  const [showGuestModal, setShowGuestModal] = useState(false);
 
   // Modal ลบรูปออกจากกิจกรรม (Admin/President)
-  const [deletePhotoTarget,    setDeletePhotoTarget]    = useState<ActivityPhoto | null>(null);
-  const [deletePhotoLoading,   setDeletePhotoLoading]   = useState(false);
+  const [deletePhotoTarget, setDeletePhotoTarget] =
+    useState<ActivityPhoto | null>(null);
+  const [deletePhotoLoading, setDeletePhotoLoading] = useState(false);
 
   //@ โหลดข้อมูลกิจกรรม
   const loadActivity = useCallback(async () => {
@@ -96,18 +124,18 @@ export const ActivityDetailPage: React.FC = () => {
 
       //@ ถ้า login แล้ว → ตรวจสอบว่าโหวตไปแล้วหรือยัง
       if (isAuthenticated) {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
         if (token) {
           const voteRes = await VoteService.getMyVotes([Number(id)], token);
-          const myVote  = (voteRes.data || []).find(
+          const myVote = (voteRes.data || []).find(
             (v: { activity_id: number; photo_id: number }) =>
-              v.activity_id === Number(id)
+              v.activity_id === Number(id),
           );
           if (myVote) setUserVotedPhotoId(myVote.photo_id);
         }
       }
     } catch (err: unknown) {
-      setError(parseApiError(err, 'โหลดกิจกรรมไม่สำเร็จ'));
+      setError(parseApiError(err, "โหลดกิจกรรมไม่สำเร็จ"));
     } finally {
       setLoading(false);
     }
@@ -131,16 +159,20 @@ export const ActivityDetailPage: React.FC = () => {
     if (!pendingVotePhotoId || !activity) return;
     setVoteLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       await VoteService.castVote(
         { activity_id: activity.id, photo_id: pendingVotePhotoId },
-        token!
+        token!,
       );
       setUserVotedPhotoId(pendingVotePhotoId);
-      setVoteResultMsg({ show: true, success: true, msg: '✅ โหวตสำเร็จ! ขอบคุณที่ร่วมโหวต' });
+      setVoteResultMsg({
+        show: true,
+        success: true,
+        msg: "✅ โหวตสำเร็จ! ขอบคุณที่ร่วมโหวต",
+      });
       await loadActivity();
     } catch (err: unknown) {
-      const msg = parseApiError(err, 'โหวตไม่สำเร็จ');
+      const msg = parseApiError(err, "โหวตไม่สำเร็จ");
       setVoteResultMsg({ show: true, success: false, msg });
     } finally {
       setVoteLoading(false);
@@ -153,16 +185,16 @@ export const ActivityDetailPage: React.FC = () => {
     if (!deletePhotoTarget || !activity) return;
     setDeletePhotoLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       await ActivityService.removePhoto(
         activity.id,
         deletePhotoTarget.activity_photo_id,
-        token!
+        token!,
       );
       setDeletePhotoTarget(null);
       await loadActivity();
     } catch (err: unknown) {
-      alert(parseApiError(err, 'ลบรูปไม่สำเร็จ'));
+      alert(parseApiError(err, "ลบรูปไม่สำเร็จ"));
     } finally {
       setDeletePhotoLoading(false);
     }
@@ -172,10 +204,10 @@ export const ActivityDetailPage: React.FC = () => {
   const getProgressPercent = (): number => {
     if (!activity) return 0;
     const start = new Date(activity.start_at).getTime();
-    const end   = new Date(activity.end_at).getTime();
-    const now   = Date.now();
+    const end = new Date(activity.end_at).getTime();
+    const now = Date.now();
     if (now <= start) return 0;
-    if (now >= end)   return 100;
+    if (now >= end) return 100;
     return Math.round(((now - start) / (end - start)) * 100);
   };
 
@@ -196,25 +228,31 @@ export const ActivityDetailPage: React.FC = () => {
   if (error || !activity) {
     return (
       <Container className="py-5">
-        <Alert variant="danger">{error || 'ไม่พบกิจกรรมนี้'}</Alert>
-        <Button variant="outline-secondary" onClick={() => navigate('/activities')}>
+        <Alert variant="danger">{error || "ไม่พบกิจกรรมนี้"}</Alert>
+        <Button
+          variant="outline-secondary"
+          onClick={() => navigate("/activities")}
+        >
           ← กลับ
         </Button>
       </Container>
     );
   }
 
-  const maxVote       = getMaxVote();
-  const totalVotes    = activity.vote_count;
-  const progressPct   = getProgressPercent();
-  const hasVoted      = userVotedPhotoId !== null;
+  const maxVote = getMaxVote();
+  const totalVotes = activity.vote_count;
+  const progressPct = getProgressPercent();
+  const hasVoted = userVotedPhotoId !== null;
 
   const statusBadge: Record<string, { label: string; bg: string }> = {
-    ACTIVE:   { label: '🟢 กำลังโหวต',      bg: 'success' },
-    UPCOMING: { label: '🕐 รอเปิดกิจกรรม',  bg: 'warning' },
-    ENDED:    { label: '🔴 สิ้นสุดแล้ว',     bg: 'secondary' },
+    ACTIVE: { label: "🟢 กำลังโหวต", bg: "success" },
+    UPCOMING: { label: "🕐 รอเปิดกิจกรรม", bg: "warning" },
+    ENDED: { label: "🔴 สิ้นสุดแล้ว", bg: "secondary" },
   };
-  const badge = statusBadge[activity.status] ?? { label: activity.status, bg: 'light' };
+  const badge = statusBadge[activity.status] ?? {
+    label: activity.status,
+    bg: "light",
+  };
 
   // ✅ แสดงประเภทกิจกรรม โดยดึงค่าตรงๆ
   const displayCategory = activity.faculty || activity.category;
@@ -225,7 +263,7 @@ export const ActivityDetailPage: React.FC = () => {
         variant="outline-secondary"
         size="sm"
         className="mb-4 rounded-pill px-3"
-        onClick={() => navigate('/activities')}
+        onClick={() => navigate("/activities")}
       >
         ← กลับ
       </Button>
@@ -243,8 +281,8 @@ export const ActivityDetailPage: React.FC = () => {
               </Badge>
             )}
             <p className="text-muted small mt-2 mb-0">
-              📅 {new Date(activity.start_at).toLocaleString('th-TH')} –{' '}
-              {new Date(activity.end_at).toLocaleString('th-TH')}
+              📅 {formatThaiDate(activity.start_at)} –{" "}
+              {formatThaiDate(activity.end_at)}
             </p>
             {activity.description && (
               <p className="text-secondary mt-2 mb-0">{activity.description}</p>
@@ -264,13 +302,17 @@ export const ActivityDetailPage: React.FC = () => {
         </div>
 
         {/* แถบหลอดความคืบหน้าของระยะเวลากิจกรรม (อันนี้ของตัวกิจกรรม ไม่ใช่ของรูปภาพ) */}
-        {activity.status === 'ACTIVE' && (
+        {activity.status === "ACTIVE" && (
           <div className="mt-3">
             <div className="d-flex justify-content-between small text-muted mb-1">
               <span>ความคืบหน้า</span>
               <span>{progressPct}%</span>
             </div>
-            <ProgressBar now={progressPct} variant="success" style={{ height: 6, borderRadius: 4 }} />
+            <ProgressBar
+              now={progressPct}
+              variant="success"
+              style={{ height: 6, borderRadius: 4 }}
+            />
           </div>
         )}
 
@@ -286,7 +328,7 @@ export const ActivityDetailPage: React.FC = () => {
         </div>
       </Card>
 
-      {hasVoted && activity.status === 'ACTIVE' && (
+      {hasVoted && activity.status === "ACTIVE" && (
         <Alert variant="success" className="rounded-3 mb-4">
           ✅ คุณได้โหวตในกิจกรรมนี้แล้ว ขอบคุณที่ร่วมกิจกรรม!
         </Alert>
@@ -294,8 +336,11 @@ export const ActivityDetailPage: React.FC = () => {
 
       <Row xs={2} sm={3} md={4} lg={4} className="g-3">
         {activity.photos.map((photo) => {
-          const imgSrc      = getImageUrl(photo.thumbnail_url || photo.image_url);
-          const isWinner    = activity.status === 'ENDED' && photo.vote_count === maxVote && maxVote > 0;
+          const imgSrc = getImageUrl(photo.thumbnail_url || photo.image_url);
+          const isWinner =
+            activity.status === "ENDED" &&
+            photo.vote_count === maxVote &&
+            maxVote > 0;
 
           return (
             <Col key={photo.activity_photo_id}>
@@ -303,34 +348,55 @@ export const ActivityDetailPage: React.FC = () => {
                 className="border-0 h-100 rounded-3 overflow-hidden"
                 style={{
                   boxShadow: isWinner
-                    ? '0 0 0 3px #ffc107, 0 4px 16px rgba(0,0,0,.15)'
-                    : '0 2px 8px rgba(0,0,0,.08)',
+                    ? "0 0 0 3px #ffc107, 0 4px 16px rgba(0,0,0,.15)"
+                    : "0 2px 8px rgba(0,0,0,.08)",
                 }}
               >
-                <div style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    position: "relative",
+                    aspectRatio: "1",
+                    overflow: "hidden",
+                  }}
+                >
                   <img
                     src={imgSrc}
                     alt={photo.photo_title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
                     loading="lazy"
                   />
                   {isWinner && (
-                    <div style={{
-                      position: 'absolute', top: 8, left: 8,
-                      background: '#ffc107', color: '#000',
-                      borderRadius: 20, padding: '2px 10px',
-                      fontSize: 12, fontWeight: 700,
-                    }}>
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 8,
+                        left: 8,
+                        background: "#ffc107",
+                        color: "#000",
+                        borderRadius: 20,
+                        padding: "2px 10px",
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
                       🏆 อันดับ 1
                     </div>
                   )}
-                  {canManage && activity.status !== 'ENDED' && (
+                  {canManage && activity.status !== "ENDED" && (
                     <Button
                       size="sm"
                       variant="danger"
                       style={{
-                        position: 'absolute', top: 6, right: 6,
-                        padding: '2px 8px', fontSize: 11, borderRadius: 6,
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        padding: "2px 8px",
+                        fontSize: 11,
+                        borderRadius: 6,
                       }}
                       onClick={() => setDeletePhotoTarget(photo)}
                     >
@@ -341,7 +407,7 @@ export const ActivityDetailPage: React.FC = () => {
 
                 <Card.Body className="p-2">
                   {/* ✅ เอา Progress Bar และ % ออกตามรีเควสต์ เหลือแค่ตัวเลขโหวต */}
-                  {activity.status !== 'UPCOMING' && (
+                  {activity.status !== "UPCOMING" && (
                     <div className="text-center small fw-bold text-muted mb-2 mt-1">
                       {photo.vote_count} โหวต
                     </div>
@@ -374,7 +440,9 @@ export const ActivityDetailPage: React.FC = () => {
         </Modal.Header>
         <Modal.Body className="text-center py-3">
           <p className="fs-5 mb-1">ต้องการโหวตให้รูปภาพนี้ใช่หรือไม่?</p>
-          <small className="text-muted">คุณสามารถโหวตได้ 1 ครั้งต่อกิจกรรมเท่านั้น</small>
+          <small className="text-muted">
+            คุณสามารถโหวตได้ 1 ครั้งต่อกิจกรรมเท่านั้น
+          </small>
         </Modal.Body>
         <Modal.Footer className="justify-content-center gap-2">
           <Button
@@ -384,8 +452,20 @@ export const ActivityDetailPage: React.FC = () => {
           >
             ยกเลิก
           </Button>
-          <Button variant="primary" className="fw-bold" onClick={confirmVote} disabled={voteLoading}>
-            {voteLoading ? <><Spinner size="sm" className="me-1" />กำลังโหวต...</> : 'ยืนยันโหวต'}
+          <Button
+            variant="primary"
+            className="fw-bold"
+            onClick={confirmVote}
+            disabled={voteLoading}
+          >
+            {voteLoading ? (
+              <>
+                <Spinner size="sm" className="me-1" />
+                กำลังโหวต...
+              </>
+            ) : (
+              "ยืนยันโหวต"
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -397,16 +477,22 @@ export const ActivityDetailPage: React.FC = () => {
       >
         <Modal.Header
           closeButton
-          className={voteResultMsg.success ? 'bg-success text-white' : 'bg-danger text-white'}
+          className={
+            voteResultMsg.success
+              ? "bg-success text-white"
+              : "bg-danger text-white"
+          }
         >
           <Modal.Title className="fw-bold">
-            {voteResultMsg.success ? '✅ สำเร็จ' : '❌ เกิดข้อผิดพลาด'}
+            {voteResultMsg.success ? "✅ สำเร็จ" : "❌ เกิดข้อผิดพลาด"}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body className="text-center py-3 fs-5">{voteResultMsg.msg}</Modal.Body>
+        <Modal.Body className="text-center py-3 fs-5">
+          {voteResultMsg.msg}
+        </Modal.Body>
         <Modal.Footer className="justify-content-center">
           <Button
-            variant={voteResultMsg.success ? 'success' : 'danger'}
+            variant={voteResultMsg.success ? "success" : "danger"}
             onClick={() => setVoteResultMsg((p) => ({ ...p, show: false }))}
           >
             ตกลง
@@ -414,19 +500,33 @@ export const ActivityDetailPage: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showGuestModal} onHide={() => setShowGuestModal(false)} centered>
+      <Modal
+        show={showGuestModal}
+        onHide={() => setShowGuestModal(false)}
+        centered
+      >
         <Modal.Header closeButton>
-          <Modal.Title className="fw-bold">🔒 ต้องเข้าสู่ระบบก่อนโหวต</Modal.Title>
+          <Modal.Title className="fw-bold">
+            🔒 ต้องเข้าสู่ระบบก่อนโหวต
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body className="text-center py-4">
           <p className="fs-5 mb-1">กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อน</p>
           <p className="text-muted small">เพื่อร่วมโหวตในกิจกรรมนี้</p>
         </Modal.Body>
         <Modal.Footer className="justify-content-center gap-2">
-          <Link to="/login"    className="btn btn-primary fw-bold px-4"  onClick={() => setShowGuestModal(false)}>
+          <Link
+            to="/login"
+            className="btn btn-primary fw-bold px-4"
+            onClick={() => setShowGuestModal(false)}
+          >
             เข้าสู่ระบบ
           </Link>
-          <Link to="/register" className="btn btn-outline-primary px-4" onClick={() => setShowGuestModal(false)}>
+          <Link
+            to="/register"
+            className="btn btn-outline-primary px-4"
+            onClick={() => setShowGuestModal(false)}
+          >
             สมัครสมาชิก
           </Link>
         </Modal.Footer>
@@ -437,11 +537,16 @@ export const ActivityDetailPage: React.FC = () => {
         onHide={() => !deletePhotoLoading && setDeletePhotoTarget(null)}
         centered
       >
-        <Modal.Header closeButton={!deletePhotoLoading} className="bg-danger text-white">
+        <Modal.Header
+          closeButton={!deletePhotoLoading}
+          className="bg-danger text-white"
+        >
           <Modal.Title className="fw-bold">🗑️ ลบรูปออกจากกิจกรรม</Modal.Title>
         </Modal.Header>
         <Modal.Body className="text-center py-3">
-          <p className="fs-5 mb-1">ต้องการลบรูปภาพนี้ออกจากกิจกรรมใช่หรือไม่?</p>
+          <p className="fs-5 mb-1">
+            ต้องการลบรูปภาพนี้ออกจากกิจกรรมใช่หรือไม่?
+          </p>
           <small className="text-muted">รูปต้นฉบับในแกลเลอรี่จะยังคงอยู่</small>
         </Modal.Body>
         <Modal.Footer className="justify-content-center gap-2">
@@ -452,10 +557,20 @@ export const ActivityDetailPage: React.FC = () => {
           >
             ยกเลิก
           </Button>
-          <Button variant="danger" className="fw-bold" onClick={confirmDeletePhoto} disabled={deletePhotoLoading}>
-            {deletePhotoLoading
-              ? <><Spinner size="sm" className="me-1" />กำลังลบ...</>
-              : 'ยืนยันลบ'}
+          <Button
+            variant="danger"
+            className="fw-bold"
+            onClick={confirmDeletePhoto}
+            disabled={deletePhotoLoading}
+          >
+            {deletePhotoLoading ? (
+              <>
+                <Spinner size="sm" className="me-1" />
+                กำลังลบ...
+              </>
+            ) : (
+              "ยืนยันลบ"
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
