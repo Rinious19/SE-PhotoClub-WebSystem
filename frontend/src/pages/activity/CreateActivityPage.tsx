@@ -10,14 +10,12 @@ import { PhotoService }     from '@/services/PhotoService';
 import { parseApiError }    from '@/utils/apiError';
 import { CustomDatePicker } from '@/components/common/CustomDatePicker';
 
-//@ กำหนด type ของ Event จาก API
 interface EventItem {
   id:         number;
   event_name: string;
   event_date: string;
 }
 
-//@ กำหนด type ของ Photo จาก API
 interface PhotoItem {
   id:            number;
   title:         string;
@@ -33,25 +31,42 @@ const getImageUrl = (url: string | null | undefined): string => {
   return url.startsWith('http') ? url : `${BASE_URL}${url}`;
 };
 
-const formatThaiDateTime = (isoStr: string) => {
-  if (!isoStr) return '-';
-  const d = new Date(isoStr);
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear() + 543;
-  const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-  return `${dd}/${mm}/${yyyy} เวลา ${time} น.`;
+const formatThaiDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr.split('T')[0] + "T12:00:00"); 
+    if (isNaN(d.getTime())) return dateStr;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear() + 543;
+    return `${dd}/${mm}/${yyyy}`;
+  } catch {
+    return dateStr;
+  }
 };
 
-// ✅ คอมโพเนนต์กรอกเวลา (อัปเดต: ป้องกันหน้าเว็บเลื่อนตาม และ ป้องกันคลุมดำ)
+const formatThaiDateTime = (isoStr: string) => {
+  if (!isoStr) return '-';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear() + 543;
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy} เวลา ${hh}:${min} น.`;
+  } catch {
+    return isoStr;
+  }
+};
+
 const TimePicker24: React.FC<{ value: string, onChange: (v: string) => void }> = ({ value, onChange }) => {
   const [h, m] = (value || '00:00').split(':');
-  
   const startY = useRef<number | null>(null);
   const startVal = useRef<number>(0);
-  const containerRef = useRef<HTMLDivElement>(null); // 👈 ใช้ดักจับ Event ล้อเมาส์ระดับ Native
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // 🛡️ ป้องกันหน้าเว็บเลื่อนตอนหมุนล้อเมาส์
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -105,13 +120,8 @@ const TimePicker24: React.FC<{ value: string, onChange: (v: string) => void }> =
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, type: 'h' | 'm') => {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      updateTime(type, type === 'h' ? h : m, 1);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      updateTime(type, type === 'h' ? h : m, -1);
-    }
+    if (e.key === 'ArrowUp') { e.preventDefault(); updateTime(type, type === 'h' ? h : m, 1); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); updateTime(type, type === 'h' ? h : m, -1); }
   };
 
   const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,44 +151,10 @@ const TimePicker24: React.FC<{ value: string, onChange: (v: string) => void }> =
   };
 
   return (
-    <div 
-      ref={containerRef}
-      className="d-flex align-items-center justify-content-center border border-secondary-subtle rounded bg-white px-2" 
-      style={{ height: '38px', width: '100px', transition: 'border-color 0.15s' }}
-    >
-      <input
-        type="text"
-        className="border-0 bg-transparent text-center p-0"
-        style={{ outline: 'none', fontWeight: '500', width: '28px', fontSize: '15px', touchAction: 'none', cursor: 'ns-resize', userSelect: 'none' }}
-        value={h}
-        maxLength={2}
-        onChange={handleHourChange}
-        onBlur={handleHourBlur}
-        onWheel={(e) => handleWheel(e, 'h')}
-        onPointerDown={(e) => handlePointerDown(e, 'h')}
-        onPointerMove={(e) => handlePointerMove(e, 'h')}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onKeyDown={(e) => handleKeyDown(e, 'h')}
-        placeholder="00"
-      />
+    <div ref={containerRef} className="d-flex align-items-center justify-content-center border border-secondary-subtle rounded bg-white px-2" style={{ height: '38px', width: '100px', transition: 'border-color 0.15s' }}>
+      <input type="text" className="border-0 bg-transparent text-center p-0" style={{ outline: 'none', fontWeight: '500', width: '28px', fontSize: '15px', touchAction: 'none', cursor: 'ns-resize', userSelect: 'none' }} value={h} maxLength={2} onChange={handleHourChange} onBlur={handleHourBlur} onWheel={(e) => handleWheel(e, 'h')} onPointerDown={(e) => handlePointerDown(e, 'h')} onPointerMove={(e) => handlePointerMove(e, 'h')} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onKeyDown={(e) => handleKeyDown(e, 'h')} placeholder="00" />
       <span className="fw-bold text-secondary mx-1 mb-1" style={{ userSelect: 'none' }}>:</span>
-      <input
-        type="text"
-        className="border-0 bg-transparent text-center p-0"
-        style={{ outline: 'none', fontWeight: '500', width: '28px', fontSize: '15px', touchAction: 'none', cursor: 'ns-resize', userSelect: 'none' }}
-        value={m}
-        maxLength={2}
-        onChange={handleMinuteChange}
-        onBlur={handleMinuteBlur}
-        onWheel={(e) => handleWheel(e, 'm')}
-        onPointerDown={(e) => handlePointerDown(e, 'm')}
-        onPointerMove={(e) => handlePointerMove(e, 'm')}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onKeyDown={(e) => handleKeyDown(e, 'm')}
-        placeholder="00"
-      />
+      <input type="text" className="border-0 bg-transparent text-center p-0" style={{ outline: 'none', fontWeight: '500', width: '28px', fontSize: '15px', touchAction: 'none', cursor: 'ns-resize', userSelect: 'none' }} value={m} maxLength={2} onChange={handleMinuteChange} onBlur={handleMinuteBlur} onWheel={(e) => handleWheel(e, 'm')} onPointerDown={(e) => handlePointerDown(e, 'm')} onPointerMove={(e) => handlePointerMove(e, 'm')} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onKeyDown={(e) => handleKeyDown(e, 'm')} placeholder="00" />
     </div>
   );
 };
@@ -250,6 +226,24 @@ export const CreateActivityPage: React.FC = () => {
       .finally(() => setPhotosLoading(false));
   }, [eventId]);
 
+  const displayedPhotos = useMemo(() => eventPhotos.filter(p => {
+    const facultyMatch = !filterFaculty || (p.faculty || '') === filterFaculty;
+    const yearMatch    = !filterYear    || (p.academic_year || '') === filterYear;
+    return facultyMatch && yearMatch;
+  }), [eventPhotos, filterFaculty, filterYear]);
+
+  const allDisplayedSelected = useMemo(() => {
+    if (displayedPhotos.length === 0) return false;
+    return !displayedPhotos.some(p => excludedPhotoIds.has(p.id));
+  }, [displayedPhotos, excludedPhotoIds]);
+
+  const availableFaculties = useMemo(() => [...new Set(eventPhotos.map(p => p.faculty).filter(Boolean))] as string[], [eventPhotos]);
+  const availableYears = useMemo(() => [...new Set(eventPhotos.map(p => p.academic_year).filter(Boolean))] as string[], [eventPhotos]);
+
+  const includedCount = displayedPhotos.filter(p => !excludedPhotoIds.has(p.id)).length;
+  const filteredEvents = useMemo(() => events.filter(ev => ev.event_name.toLowerCase().includes(eventName.toLowerCase())), [events, eventName]);
+  const isValidEvent = events.some((ev) => ev.event_name === eventName);
+
   const toggleExclude = (photoId: number) => {
     setExcludedPhotoIds((prev) => {
       const next = new Set(prev);
@@ -259,27 +253,21 @@ export const CreateActivityPage: React.FC = () => {
     });
   };
 
-  const isValidEvent = events.some((ev) => ev.event_name === eventName);
+  const selectAllDisplayed = () => {
+    setExcludedPhotoIds(prev => {
+      const next = new Set(prev);
+      displayedPhotos.forEach(p => next.delete(p.id));
+      return next;
+    });
+  };
 
-  const displayedPhotos = useMemo(() => eventPhotos.filter(p => {
-    const facultyMatch = !filterFaculty || (p.faculty || '') === filterFaculty;
-    const yearMatch    = !filterYear    || (p.academic_year || '') === filterYear;
-    return facultyMatch && yearMatch;
-  }), [eventPhotos, filterFaculty, filterYear]);
-
-  const availableFaculties = useMemo(() =>
-    [...new Set(eventPhotos.map(p => p.faculty).filter(Boolean))] as string[],
-    [eventPhotos]);
-
-  const availableYears = useMemo(() =>
-    [...new Set(eventPhotos.map(p => p.academic_year).filter(Boolean))] as string[],
-    [eventPhotos]);
-
-  const includedCount = displayedPhotos.filter(p => !excludedPhotoIds.has(p.id)).length;
-
-  const filteredEvents = useMemo(() =>
-    events.filter(ev => ev.event_name.toLowerCase().includes(eventName.toLowerCase())),
-    [events, eventName]);
+  const deselectAllDisplayed = () => {
+    setExcludedPhotoIds(prev => {
+      const next = new Set(prev);
+      displayedPhotos.forEach(p => next.add(p.id));
+      return next;
+    });
+  };
 
   const handleSubmitClick = (e: React.FormEvent) => {
     e.preventDefault();
@@ -308,21 +296,21 @@ export const CreateActivityPage: React.FC = () => {
       const token = localStorage.getItem('token');
       const formatTimeToSubmit = (timeStr: string) => timeStr ? `${timeStr}:00Z` : '';
 
-      const res = await ActivityService.create(
+      await ActivityService.create(
         {
           title:               title.trim(),
           description:         description.trim() || undefined,
           event_name:          eventName,
           event_id:            eventId!,
-          faculty:             filterFaculty      || undefined,
-          academic_year:       filterYear         || undefined,
+          faculty:             filterFaculty      || undefined, 
+          academic_year:       filterYear         || undefined, 
           start_at:            formatTimeToSubmit(startAt),
           end_at:              formatTimeToSubmit(endAt),
           excluded_photo_ids:  Array.from(excludedPhotoIds),
         },
         token!
       );
-      if (res.success) navigate(`/activities/${res.data.id}`);
+      navigate(`/activities`);
     } catch (err: unknown) {
       setFormError(parseApiError(err, 'สร้างกิจกรรมไม่สำเร็จ'));
     } finally {
@@ -382,7 +370,7 @@ export const CreateActivityPage: React.FC = () => {
                         onClick={() => { setEventName(ev.event_name); setEventId(ev.id); setEventDropdownOpen(false); }}
                       >
                         <span className="fw-bold text-primary">{ev.event_name}</span>
-                        <span className="text-muted small ms-2">{ev.event_date?.split('T')[0]}</span>
+                        <span className="text-muted small ms-2">{formatThaiDate(ev.event_date)}</span>
                       </div>
                     ))}
                   </div>
@@ -399,13 +387,7 @@ export const CreateActivityPage: React.FC = () => {
                   </Form.Label>
                   <div className="d-flex gap-2">
                     <div className="flex-grow-1">
-                      <CustomDatePicker 
-                        value={startDate} 
-                        min={todayStr}
-                        onChange={setStartDate} 
-                        placeholder="เลือกวันที่เริ่มต้น"
-                        size="md"
-                      />
+                      <CustomDatePicker value={startDate} min={todayStr} onChange={setStartDate} placeholder="เลือกวันที่เริ่มต้น" size="md" />
                     </div>
                     <TimePicker24 value={startTime} onChange={setStartTime} />
                   </div>
@@ -417,13 +399,7 @@ export const CreateActivityPage: React.FC = () => {
                   </Form.Label>
                   <div className="d-flex gap-2">
                     <div className="flex-grow-1">
-                      <CustomDatePicker 
-                        value={endDate} 
-                        min={startDate || todayStr}
-                        onChange={setEndDate} 
-                        placeholder="เลือกวันที่สิ้นสุด"
-                        size="md"
-                      />
+                      <CustomDatePicker value={endDate} min={startDate || todayStr} onChange={setEndDate} placeholder="เลือกวันที่สิ้นสุด" size="md" />
                     </div>
                     <TimePicker24 value={endTime} onChange={setEndTime} />
                   </div>
@@ -432,13 +408,7 @@ export const CreateActivityPage: React.FC = () => {
 
               <Form.Group className="mb-4">
                 <Form.Label className="fw-bold">คำอธิบาย</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
-                  placeholder="รายละเอียดกิจกรรม (optional)"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
+                <Form.Control as="textarea" rows={3} placeholder="รายละเอียดกิจกรรม (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
               </Form.Group>
 
               <Button type="submit" variant="primary" className="w-100 fw-bold rounded-pill py-2" disabled={submitting || !isValidEvent}>
@@ -455,10 +425,29 @@ export const CreateActivityPage: React.FC = () => {
                   รูปภาพในกิจกรรม
                   {includedCount > 0 && <Badge bg="primary" className="ms-2 rounded-pill">{includedCount} รูป</Badge>}
                 </Form.Label>
-                {excludedPhotoIds.size > 0 && (
-                  <Button variant="link" size="sm" className="text-danger p-0" onClick={() => setExcludedPhotoIds(new Set())}>
-                    รีเซ็ต
-                  </Button>
+
+                {eventPhotos.length > 0 && displayedPhotos.length > 0 && (
+                  allDisplayedSelected ? (
+                    <button 
+                      type="button"
+                      onClick={deselectAllDisplayed}
+                      className="d-flex align-items-center justify-content-center px-3 py-1 border-0"
+                      style={{ borderRadius: '20px', fontSize: '13px', fontWeight: '500', background: '#6c757d', color: '#fff', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                    >
+                      <span style={{ fontSize: '15px', marginRight: '6px', lineHeight: 1 }}>✕</span> 
+                      ยกเลิกทั้งหมด
+                    </button>
+                  ) : (
+                    <button 
+                      type="button"
+                      onClick={selectAllDisplayed}
+                      className="d-flex align-items-center justify-content-center px-3 py-1 bg-white"
+                      style={{ borderRadius: '20px', fontSize: '13px', fontWeight: '500', color: '#6842ff', border: '1px solid #ced4da', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}
+                    >
+                      <span style={{ background: '#6842ff', color: '#fff', borderRadius: '4px', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '6px', fontSize: '11px' }}>✓</span> 
+                      เลือกทั้งหมด
+                    </button>
+                  )
                 )}
               </div>
 
@@ -485,38 +474,36 @@ export const CreateActivityPage: React.FC = () => {
                     <div className="d-flex gap-2 mb-2 flex-wrap align-items-center">
                       <small className="text-muted fw-bold">กรองรูป:</small>
                       {availableFaculties.length > 0 && (
-                        <Form.Select size="sm" style={{ width: 'auto' }} value={filterFaculty} onChange={e => { setFilterFaculty(e.target.value); setExcludedPhotoIds(new Set()); }}>
+                        <Form.Select size="sm" style={{ width: 'auto' }} value={filterFaculty} onChange={e => { setFilterFaculty(e.target.value); }}>
                           <option value="">-- ทุกคณะ --</option>
                           {availableFaculties.map(f => <option key={f} value={f}>{f}</option>)}
                         </Form.Select>
                       )}
                       {availableYears.length > 0 && (
-                        <Form.Select size="sm" style={{ width: 'auto' }} value={filterYear} onChange={e => { setFilterYear(e.target.value); setExcludedPhotoIds(new Set()); }}>
+                        <Form.Select size="sm" style={{ width: 'auto' }} value={filterYear} onChange={e => { setFilterYear(e.target.value); }}>
                           <option value="">-- ทุกปี --</option>
                           {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
                         </Form.Select>
                       )}
                       {(filterFaculty || filterYear) && (
-                        <Button size="sm" variant="outline-secondary" onClick={() => { setFilterFaculty(''); setFilterYear(''); setExcludedPhotoIds(new Set()); }}>ล้าง</Button>
+                        <Button size="sm" variant="outline-secondary" onClick={() => { setFilterFaculty(''); setFilterYear(''); }}>ล้าง</Button>
                       )}
-                      <Badge bg="secondary">{displayedPhotos.length} รูป</Badge>
                     </div>
                   )}
-                  <p className="text-muted small mb-2">กดที่รูปเพื่อ <strong className="text-danger">ยกเว้น</strong> ออกจากกิจกรรม</p>
+                  <p className="text-muted small mb-2">กดที่รูปเพื่อเพิ่ม/นำออกจากกิจกรรม <strong className="text-success">(กรอบเขียว = อยู่ในกิจกรรม)</strong></p>
+                  
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, maxHeight: 400, overflowY: 'auto', padding: 4 }}>
                     {displayedPhotos.map((photo) => {
                       const isExcluded = excludedPhotoIds.has(photo.id);
+                      const isSelected = !isExcluded;
                       return (
                         <div key={photo.id} onClick={() => toggleExclude(photo.id)}
                           style={{
                             position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', cursor: 'pointer',
-                            opacity: isExcluded ? 0.35 : 1, transition: 'opacity .2s',
-                            boxShadow: isExcluded ? '0 0 0 2px #dc3545' : '0 1px 4px rgba(0,0,0,.1)',
+                            opacity: isSelected ? 1 : 0.4, transition: 'all .2s',
+                            boxShadow: isSelected ? '0 0 0 3px #198754' : '0 1px 4px rgba(0,0,0,.1)',
                           }}>
                           <img src={getImageUrl(photo.thumbnail_url || photo.image_url)} alt={photo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                          {isExcluded && (
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(220,53,69,.25)', fontSize: 22, fontWeight: 'bold', color: '#dc3545' }}>✕</div>
-                          )}
                         </div>
                       );
                     })}

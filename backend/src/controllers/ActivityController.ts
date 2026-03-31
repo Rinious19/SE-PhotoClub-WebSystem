@@ -51,6 +51,13 @@ export class ActivityController {
   static async update(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const id = parseInt(req.params.id as string);
+      
+      // 🚨 ใส่บรรทัดนี้ลงไปเพื่อ TEST
+      console.log("==========================================");
+      console.log("🚀 [HOT TEST] มีการยิง API UPDATE เข้ามาแล้ว!");
+      console.log("📦 ข้อมูลรูปที่ส่งมา:", req.body.excluded_photo_ids);
+      console.log("==========================================");
+
       await activityService.update(id, req.body);
       res.status(200).json({ success: true, message: 'อัปเดตกิจกรรมสำเร็จ' });
     } catch (e: any) {

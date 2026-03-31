@@ -16,7 +16,6 @@ export class ActivityRepository {
       params.push(filters.status);
     }
 
-    // ✅ แก้ไข: เปลี่ยน a.faculty เป็น a.category ให้ตรงกับตาราง activities
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT a.*, 
         COALESCE(a.category, (
@@ -38,9 +37,9 @@ export class ActivityRepository {
     return rows;
   }
 
+
   //@ ดึงกิจกรรมตาม ID
   async findByIdWithPhotos(id: number): Promise<any | null> {
-    // ✅ แก้ไข: เปลี่ยน a.faculty เป็น a.category
     const [actRows] = await pool.query<RowDataPacket[]>(
       `SELECT a.*, 
         COALESCE(a.category, (
@@ -60,6 +59,7 @@ export class ActivityRepository {
 
     const [photoRows] = await pool.query<RowDataPacket[]>(
       `SELECT ap.id AS activity_photo_id, p.id AS photo_id, p.image_url, p.thumbnail_url, p.title AS photo_title,
+        p.description AS photo_description, /* ✅ เพิ่มการดึง Description ตรงนี้ */
         p.faculty, p.academic_year,
         (SELECT COUNT(*) FROM votes v WHERE v.activity_id = ap.activity_id AND v.activity_photo_id = ap.id) AS vote_count,
         ap.sort_order
@@ -86,11 +86,9 @@ export class ActivityRepository {
       const status = data.status || 'ACTIVE';
       const created_by = data.created_by || null;
       
-      // ✅ แก้ไข: ดึง event_name และ category (ถ้าไม่มีให้ fallback ไปหา faculty)
       const event_name = data.event_name || ''; 
       const category = data.category || data.faculty || null;
 
-      // ✅ แก้ไข: ลบ event_id, faculty, academic_year ออกจากคำสั่ง SQL
       const [res] = await conn.query<ResultSetHeader>(
         `INSERT INTO activities (title, description, start_at, end_at, status, created_by, event_name, category) VALUES (?,?,?,?,?,?,?,?)`,
         [title, description, start_at, end_at, status, created_by, event_name, category]
@@ -121,24 +119,64 @@ export class ActivityRepository {
     }
   }
 
-  //@ อัปเดตกิจกรรม
-  async update(id: number, data: any): Promise<boolean> {
-    const title = data.title || 'Untitled';
-    const description = data.description || null;
-    const start_at = data.start_at || null;
-    const end_at = data.end_at || null;
-    
-    // ✅ แก้ไข: ใช้ category แทน faculty
-    const category = data.category || data.faculty || null;
+  //@ อัปเดตกิจกรรม (✅ เพิ่มการอัปเดตตาราง activity_photos แบบ Transaction)
+  async update(id: number, data: any, newPhotoIds?: number[]): Promise<boolean> {
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
 
-    // ✅ แก้ไข: เปลี่ยนคำสั่งอัปเดตเป็น category=?
-    const [result] = await pool.query<ResultSetHeader>(
-      "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, category=? WHERE id=?",
-      [title, description, start_at, end_at, category, id]
-    );
-    return result.affectedRows > 0;
+      const title = data.title || 'Untitled';
+      const description = data.description || null;
+      const start_at = data.start_at || null;
+      const end_at = data.end_at || null;
+      const category = data.category || data.faculty || null;
+      const status = data.status || null; // รับสถานะที่อาจคำนวณใหม่จาก Service มาด้วย
+
+      // 1. อัปเดตข้อมูลกิจกรรมหลัก
+      let updateSql = "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, category=?";
+      let updateParams: any[] = [title, description, start_at, end_at, category];
+      
+      if (status) {
+        updateSql += ", status=?";
+        updateParams.push(status);
+      }
+      
+      updateSql += " WHERE id=?";
+      updateParams.push(id);
+
+      await conn.query(updateSql, updateParams);
+
+      // 2. อัปเดตรูปภาพ ถ้ามีการเปลี่ยนแปลง (มี Array ส่งเข้ามา)
+      if (newPhotoIds && Array.isArray(newPhotoIds)) {
+        // ลบของเก่าทิ้งทั้งหมดก่อน
+        await conn.query('DELETE FROM activity_photos WHERE activity_id = ?', [id]);
+        
+        // ถ้ายังมีรูปเหลืออยู่ ให้เพิ่มเข้าไปใหม่
+        if (newPhotoIds.length > 0) {
+          const placeholders = newPhotoIds.map(() => '(?, ?, ?)').join(', ');
+          const flatValues = newPhotoIds.reduce((acc: any[], pid: number, idx: number) => {
+            acc.push(id, pid, idx);
+            return acc;
+          }, []);
+
+          await conn.query(
+            `INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES ${placeholders}`,
+            flatValues
+          );
+        }
+      }
+
+      await conn.commit();
+      return true;
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
   }
 
+  //@ ลบรูปออกจากกิจกรรม
   async removePhotoFromActivity(activityId: number, activityPhotoId: number): Promise<boolean> {
     const [result] = await pool.query<ResultSetHeader>(
       `DELETE FROM activity_photos WHERE activity_id = ? AND id = ?`,

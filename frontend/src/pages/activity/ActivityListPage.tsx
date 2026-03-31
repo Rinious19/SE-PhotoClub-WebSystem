@@ -1,16 +1,16 @@
 //? Page: ActivityListPage
-//@ หน้ากิจกรรมโหวตภาพถ่าย
+//@ frontend/src/pages/activity/ActivityListPage.tsx
 
-import React, { useState, useMemo }       from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Container, Row, Col, Form, Button,
   InputGroup, Badge, Alert, Card,
 } from 'react-bootstrap';
 import { Link, useNavigate }              from 'react-router-dom';
-import { useActivities }                  from '@/hooks/useActivities';
-import { useAuth }                        from '@/hooks/useAuth';
-import type { Activity }                  from '@/types/Activity';
-import { CustomDatePicker }               from '@/components/common/CustomDatePicker';
+import { useActivities }                   from '@/hooks/useActivities';
+import { useAuth }                         from '@/hooks/useAuth';
+import type { Activity }                   from '@/types/Activity';
+import { CustomDatePicker }                from '@/components/common/CustomDatePicker';
 
 export type ExtendedActivity = Activity & {
   photo_count?: number;
@@ -20,41 +20,48 @@ export type ExtendedActivity = Activity & {
 // ─── ActivityCard ────────────────────────────────────────────
 const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) => {
   const { user }  = useAuth();
-  const isActive  = activity.status === 'ACTIVE';
+  
+  const statusConfig = {
+    UPCOMING: { color: '#ffc107', label: '🟡 รอดำเนินงาน', btn: 'btn-outline-warning' },
+    ACTIVE:   { color: '#198754', label: '🟢 กำลังดำเนินการ', btn: 'btn-success' },
+    ENDED:    { color: '#6c757d', label: '⚫ สิ้นสุดแล้ว', btn: 'btn-outline-secondary' },
+  };
+
+  const config = statusConfig[activity.status as keyof typeof statusConfig] || statusConfig.ENDED;
 
   const fmt = (iso: string) => {
     if (!iso) return '-';
-    const d = new Date(iso);
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = d.toLocaleDateString('th-TH', { month: 'short' });
-    const yy = d.getFullYear() + 543;
-    const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-    return `${dd} ${mm} ${yy} ${time}`;
+    try {
+      const d = new Date(iso);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = d.toLocaleDateString('th-TH', { month: 'short' });
+      const yy = d.getFullYear() + 543;
+      const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      return `${dd} ${mm} ${yy} ${time}`;
+    } catch { return '-'; }
   };
 
   return (
     <Card
       className="h-100 border-0 rounded-4 overflow-hidden"
       style={{
-        boxShadow: isActive ? '0 4px 20px rgba(25,135,84,.15)' : '0 2px 10px rgba(0,0,0,.07)',
+        boxShadow: '0 2px 10px rgba(0,0,0,.07)',
         transition: 'transform .18s, box-shadow .18s',
       }}
       onMouseEnter={e => {
         (e.currentTarget as HTMLElement).style.transform  = 'translateY(-3px)';
-        (e.currentTarget as HTMLElement).style.boxShadow  = isActive
-          ? '0 8px 28px rgba(25,135,84,.2)' : '0 8px 20px rgba(0,0,0,.12)';
+        (e.currentTarget as HTMLElement).style.boxShadow  = '0 8px 20px rgba(0,0,0,.12)';
       }}
       onMouseLeave={e => {
         (e.currentTarget as HTMLElement).style.transform  = '';
-        (e.currentTarget as HTMLElement).style.boxShadow  = isActive
-          ? '0 4px 20px rgba(25,135,84,.15)' : '0 2px 10px rgba(0,0,0,.07)';
+        (e.currentTarget as HTMLElement).style.boxShadow  = '0 2px 10px rgba(0,0,0,.07)';
       }}
     >
-      <div style={{ height: 4, background: isActive ? '#198754' : '#6c757d' }} />
+      <div style={{ height: 4, background: config.color }} />
       <Card.Body className="p-3">
         <div className="d-flex justify-content-between align-items-start mb-2 gap-2 flex-wrap">
-          <Badge bg={isActive ? 'success' : 'secondary'} className="rounded-pill" style={{ fontSize:11 }}>
-            {isActive ? '🟢 กำลังดำเนินการ' : '⚫ สิ้นสุดแล้ว'}
+          <Badge bg="white" className="rounded-pill border text-dark" style={{ fontSize:11 }}>
+            {config.label}
           </Badge>
         </div>
         <h6 className="fw-bold mb-1 text-dark" style={{ lineHeight:1.3 }}>{activity.title}</h6>
@@ -70,10 +77,10 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
         <div className="d-flex gap-2">
           <Link
             to={`/activities/${activity.id}`}
-            className={`btn btn-sm rounded-pill flex-fill fw-bold ${isActive ? 'btn-success' : 'btn-outline-secondary'}`}
+            className={`btn btn-sm rounded-pill flex-fill fw-bold ${config.btn}`}
             style={{ fontSize:12 }}
           >
-            {isActive ? '🗳️ โหวตเลย' : '🔍 ดูผลโหวต'}
+            {activity.status === 'ACTIVE' ? '🗳️ โหวตเลย' : '🔍 ดูรายละเอียด'}
           </Link>
           {(user?.role === 'ADMIN' || user?.role === 'CLUB_PRESIDENT') && (
             <Link
@@ -136,56 +143,47 @@ const ActivitySection: React.FC<{
 export const ActivityListPage: React.FC = () => {
   const navigate    = useNavigate();
   const { user }    = useAuth();
-  const isPresident = user?.role === 'CLUB_PRESIDENT';
+  
+  // ✅ เช็คสิทธิ์การมองเห็นกิจกรรมรอดำเนินงาน
+  const canSeeUpcoming = user?.role === 'ADMIN' || user?.role === 'CLUB_PRESIDENT';
+  const isPresident    = user?.role === 'CLUB_PRESIDENT';
 
   const [keyword,   setKeyword]   = useState('');
-  
-  // ✅ แยก State สำหรับช่วงวันที่ ค้นหาตั้งแต่ - ถึง
   const [startDate, setStartDate] = useState('');
   const [endDate,   setEndDate]   = useState(''); 
-  
-  const [tabStatus, setTabStatus] = useState<'all'|'ACTIVE'|'ENDED'>('all');
+  const [tabStatus, setTabStatus] = useState<'all'|'UPCOMING'|'ACTIVE'|'ENDED'>('all');
 
   const { activities = [], loading, error, refetch } = useActivities("");
   const extendedActivities = activities as unknown as ExtendedActivity[];
 
   const filtered = useMemo(() => {
     let list = extendedActivities;
-
-    // กรองชื่อ
     if (keyword) {
       list = list.filter(a => a.title.toLowerCase().includes(keyword.toLowerCase()));
     }
-
-    // ✅ กรองช่วงวันที่ (Overlap Logic)
     if (startDate) {
       const filterStart = new Date(startDate);
       filterStart.setHours(0, 0, 0, 0);
-
-      // ถ้าไม่กรอกวันสิ้นสุด ให้ถือว่าค้นหาแค่วันเดียว
       const filterEnd = new Date(endDate || startDate);
       filterEnd.setHours(23, 59, 59, 999);
-
       list = list.filter(a => {
         if (!a.start_at || !a.end_at) return false;
         const actStart = new Date(a.start_at);
         const actEnd   = new Date(a.end_at);
-
-        // เช็คว่ากิจกรรมนี้จัดอยู่ในช่วงเวลาที่เลือกหรือไม่ (คาบเกี่ยวกัน)
         return actStart.getTime() <= filterEnd.getTime() && actEnd.getTime() >= filterStart.getTime();
       });
     }
-
-    // กรองสถานะ
     if (tabStatus !== 'all') {
       list = list.filter(a => a.status === tabStatus);
     }
-
     return list;
   }, [extendedActivities, keyword, startDate, endDate, tabStatus]);
 
-  const activeItems = filtered.filter(a => a.status === 'ACTIVE');
-  const endedItems  = filtered.filter(a => a.status === 'ENDED');
+  // แยกกลุ่มข้อมูล
+  const upcomingItems = filtered.filter(a => a.status === 'UPCOMING');
+  const activeItems   = filtered.filter(a => a.status === 'ACTIVE');
+  const endedItems    = filtered.filter(a => a.status === 'ENDED');
+
   const hasFilter   = keyword !== '' || startDate !== '' || tabStatus !== 'all';
 
   const clearAll = () => {
@@ -222,37 +220,18 @@ export const ActivityListPage: React.FC = () => {
             </InputGroup>
           </Col>
 
-          {/* ✅ ส่วนเลือกช่วงวันที่ */}
           <Col md={5}>
             <Form.Label className="fw-medium small text-secondary mb-1">วันที่จัดกิจกรรม</Form.Label>
-            <div className="d-flex gap-2 w-100" style={{ transition: 'all 0.3s ease' }}>
+            <div className="d-flex gap-2 w-100">
               <div className="flex-fill">
-                <CustomDatePicker 
-                  value={startDate} 
-                  onChange={(val) => {
-                    setStartDate(val);
-                    if (!val) setEndDate(''); // ถ้าล้างวันเริ่มต้น ให้ล้างวันสิ้นสุดด้วย
-                  }} 
-                  placeholder="ตั้งแต่วันที่..."
-                  size="md"
-                />
+                <CustomDatePicker value={startDate} onChange={(val) => { setStartDate(val); if (!val) setEndDate(''); }} placeholder="ตั้งแต่วันที่..." size="md" />
               </div>
-              
-              {/* ซ่อนไว้จนกว่าจะมีค่า startDate */}
               {startDate && (
-                <div className="flex-fill" style={{ animation: 'fadeIn 0.2s ease' }}>
-                  <CustomDatePicker 
-                    value={endDate} 
-                    min={startDate} // ห้ามเลือกก่อนวันเริ่มต้น
-                    onChange={(val) => setEndDate(val)} 
-                    placeholder="ถึงวันที่..."
-                    size="md"
-                  />
+                <div className="flex-fill">
+                  <CustomDatePicker value={endDate} min={startDate} onChange={(val) => setEndDate(val)} placeholder="ถึงวันที่..." size="md" />
                 </div>
               )}
             </div>
-            {/* อนิเมชั่นสำหรับการโผล่ขึ้นมาของปฏิทินที่ 2 */}
-            <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }`}</style>
           </Col>
           
           <Col md={2} className="d-flex flex-column justify-content-end">
@@ -264,32 +243,36 @@ export const ActivityListPage: React.FC = () => {
         </Row>
 
         <div className="d-flex gap-2 mt-3 flex-wrap">
-          {([
-            { key:'all',    label:'ทั้งหมด',          dot:'' },
-            { key:'ACTIVE', label:'กำลังดำเนินการ',    dot:'#198754' },
-            { key:'ENDED',  label:'สิ้นสุดแล้ว',       dot:'#6c757d' },
-          ] as const).map(tab => (
-            <button key={tab.key} onClick={() => setTabStatus(tab.key)}
+          <button onClick={() => setTabStatus('all')}
               className="d-flex align-items-center gap-1 border-0 rounded-pill px-3 py-1 fw-medium"
-              style={{
-                fontSize:13, cursor:'pointer',
-                background: tabStatus === tab.key ? '#212529' : '#fff',
-                color:      tabStatus === tab.key ? '#fff'    : '#495057',
-                boxShadow:  tabStatus === tab.key ? 'none'    : '0 0 0 1px #dee2e6',
-              }}>
-              {tab.dot && <span style={{ width:8, height:8, borderRadius:'50%', background:tab.dot, display:'inline-block' }} />}
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              style={{ fontSize:13, cursor:'pointer', background: tabStatus === 'all' ? '#212529' : '#fff', color: tabStatus === 'all' ? '#fff' : '#495057', boxShadow: tabStatus === 'all' ? 'none' : '0 0 0 1px #dee2e6' }}>
+              ทั้งหมด
+          </button>
+          
+          <button onClick={() => setTabStatus('ACTIVE')}
+              className="d-flex align-items-center gap-1 border-0 rounded-pill px-3 py-1 fw-medium"
+              style={{ fontSize:13, cursor:'pointer', background: tabStatus === 'ACTIVE' ? '#212529' : '#fff', color: tabStatus === 'ACTIVE' ? '#fff' : '#495057', boxShadow: tabStatus === 'ACTIVE' ? 'none' : '0 0 0 1px #dee2e6' }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', background:'#198754', display:'inline-block' }} />
+              กำลังดำเนินการ
+          </button>
 
-        {hasFilter && !loading && (
-          <div className="mt-2 pt-2 border-top">
-            <small className="text-muted">
-              พบ <strong className="text-primary">{filtered.length}</strong> จาก {activities.length} กิจกรรม
-            </small>
-          </div>
-        )}
+          {/* ✅ แสดงปุ่ม "รอดำเนินงาน" เฉพาะคนที่มีสิทธิ์ */}
+          {canSeeUpcoming && (
+            <button onClick={() => setTabStatus('UPCOMING')}
+                className="d-flex align-items-center gap-1 border-0 rounded-pill px-3 py-1 fw-medium"
+                style={{ fontSize:13, cursor:'pointer', background: tabStatus === 'UPCOMING' ? '#212529' : '#fff', color: tabStatus === 'UPCOMING' ? '#fff' : '#495057', boxShadow: tabStatus === 'UPCOMING' ? 'none' : '0 0 0 1px #dee2e6' }}>
+                <span style={{ width:8, height:8, borderRadius:'50%', background:'#ffc107', display:'inline-block' }} />
+                รอดำเนินงาน
+            </button>
+          )}
+
+          <button onClick={() => setTabStatus('ENDED')}
+              className="d-flex align-items-center gap-1 border-0 rounded-pill px-3 py-1 fw-medium"
+              style={{ fontSize:13, cursor:'pointer', background: tabStatus === 'ENDED' ? '#212529' : '#fff', color: tabStatus === 'ENDED' ? '#fff' : '#495057', boxShadow: tabStatus === 'ENDED' ? 'none' : '0 0 0 1px #dee2e6' }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', background:'#6c757d', display:'inline-block' }} />
+              สิ้นสุดแล้ว
+          </button>
+        </div>
       </div>
 
       {error && !loading && (
@@ -299,20 +282,22 @@ export const ActivityListPage: React.FC = () => {
         </Alert>
       )}
 
-      {!loading && !error && hasFilter && filtered.length === 0 && (
-        <div className="text-center py-5 text-muted">
-          <p style={{ fontSize:36 }}>🔍</p>
-          <p className="mb-2">ไม่พบกิจกรรมที่ตรงกับการค้นหา</p>
-          <Button variant="outline-primary" size="sm" onClick={clearAll}>ล้างการค้นหา</Button>
-        </div>
-      )}
-
-      {(!hasFilter || tabStatus === 'all' || tabStatus === 'ACTIVE') && (
+      {/* 🟢 ส่วนที่ 1: กำลังดำเนินการ */}
+      {(tabStatus === 'all' || tabStatus === 'ACTIVE') && (
         <ActivitySection title="กำลังดำเนินการ" dot="#198754"
           items={activeItems} loading={loading}
           emptyText="ไม่มีกิจกรรมที่กำลังดำเนินการในขณะนี้" emptyIcon="📭" />
       )}
-      {(!hasFilter || tabStatus === 'all' || tabStatus === 'ENDED') && (
+
+      {/* 🟡 ส่วนที่ 2: รอดำเนินงาน (แสดงเฉพาะ ADMIN / CLUB_PRESIDENT) */}
+      {canSeeUpcoming && (tabStatus === 'all' || tabStatus === 'UPCOMING') && (
+        <ActivitySection title="รอดำเนินงาน" dot="#ffc107"
+          items={upcomingItems} loading={loading}
+          emptyText="ไม่มีกิจกรรมที่รอดำเนินงาน" emptyIcon="⏳" />
+      )}
+
+      {/* ⚫ ส่วนที่ 3: สิ้นสุดแล้ว */}
+      {(tabStatus === 'all' || tabStatus === 'ENDED') && (
         <ActivitySection title="สิ้นสุดแล้ว" dot="#6c757d"
           items={endedItems} loading={loading}
           emptyText="ยังไม่มีกิจกรรมที่สิ้นสุด" emptyIcon="🏁" />

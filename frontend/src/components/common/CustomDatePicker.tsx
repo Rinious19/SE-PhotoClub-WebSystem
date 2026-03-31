@@ -143,23 +143,7 @@ export const CustomDatePicker: React.FC<Props> = ({
       {/* Dropdown Calendar */}
       {open && (
         <div
-          onWheel={(e) => {
-            e.preventDefault();
-            const dir = e.deltaY > 0 ? 1 : -1; // scroll down = next, up = prev
-            if (mode === 'day') {
-              if (dir === 1) {
-                if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
-                else setViewMonth(m => m + 1);
-              } else {
-                if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
-                else setViewMonth(m => m - 1);
-              }
-            } else if (mode === 'month') {
-              setViewYear(y => y + dir);
-            } else {
-              setViewYear(y => y + dir * 12);
-            }
-          }} style={{
+          style={{
           position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 2000,
           background: '#fff', border: '1px solid #e9ecef', borderRadius: 12,
           boxShadow: '0 8px 24px rgba(0,0,0,.12)', padding: 12, minWidth: 240,
@@ -189,19 +173,19 @@ export const CustomDatePicker: React.FC<Props> = ({
                   </button>
                   <button onClick={() => setMode('year')}
                     style={{ border:'none', background:'none', fontWeight:600, fontSize:13, cursor:'pointer', borderRadius:6, padding:'2px 6px' }}>
-                    {viewYear + 543} {/* ✅ 3. บวก พ.ศ. ตรงหัวปฏิทิน */}
+                    {viewYear + 543}
                   </button>
                 </>
               )}
               {mode === 'month' && (
                 <button onClick={() => setMode('year')}
                   style={{ border:'none', background:'none', fontWeight:600, fontSize:13, cursor:'pointer', borderRadius:6, padding:'2px 6px' }}>
-                  {viewYear + 543} {/* ✅ 3. บวก พ.ศ. ตรงหัวปฏิทิน */}
+                  {viewYear + 543}
                 </button>
               )}
               {mode === 'year' && (
                 <span style={{ fontWeight:600, fontSize:13 }}>
-                  {yearStart + 543} – {yearStart + 11 + 543} {/* ✅ 3. บวก พ.ศ. ตรงหัวปฏิทิน */}
+                  {yearStart + 543} – {yearStart + 11 + 543}
                 </span>
               )}
             </div>
@@ -275,7 +259,7 @@ export const CustomDatePicker: React.FC<Props> = ({
                     fontWeight: viewYear === y ? 600 : 400,
                     transition: 'background .1s',
                   }}>
-                  {y + 543} {/* ✅ 4. แสดงปุ่มปีเป็น พ.ศ. */}
+                  {y + 543}
                 </button>
               ))}
             </div>
