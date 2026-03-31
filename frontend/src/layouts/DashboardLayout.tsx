@@ -45,7 +45,7 @@ export const DashboardLayout: React.FC = () => {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f8f9fa" }}>
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#f8f9fa" }}>
       {/* Sidebar */}
       <aside
         style={{

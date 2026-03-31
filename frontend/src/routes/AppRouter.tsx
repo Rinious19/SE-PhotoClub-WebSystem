@@ -26,6 +26,7 @@ import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
 import { ManageAdminPage } from "@/pages/admin/ManageAdminPage";
 import { HistoryPage } from "@/pages/admin/HistoryPage";
 
+// 🌐 Layout สำหรับหน้าทั่วไป (มี Navbar ด้านบน)
 const AppLayout = () => (
   <>
     <AppNavbar />
@@ -36,6 +37,9 @@ const AppLayout = () => (
 );
 
 const router = createBrowserRouter([
+  // ==========================================
+  // 🟢 กลุ่มที่ 1: หน้าทั่วไป (ใช้ AppLayout ที่มี Navbar)
+  // ==========================================
   {
     path: "/",
     element: <AppLayout />,
@@ -57,7 +61,7 @@ const router = createBrowserRouter([
         children: [{ path: "photos/upload", element: <UploadPhotoPage /> }],
       },
 
-      // ADMIN / CLUB_PRESIDENT — uses DashboardLayout for /admin/*
+      // ADMIN / CLUB_PRESIDENT (หน้าจัดการที่ยังต้องการให้มี Navbar ด้านบน)
       {
         element: <AdminRoute />,
         children: [
@@ -65,17 +69,26 @@ const router = createBrowserRouter([
           { path: "event-management", element: <EventManagementPage /> },
           { path: "activities/create", element: <CreateActivityPage /> },
           { path: "activities/edit/:id", element: <EditActivityPage /> },
-          {
-            path: "admin",
-            element: <DashboardLayout />,
-            children: [
-              { index: true, element: <AdminDashboardPage /> },
-              { path: "members", element: <ManageAdminPage /> },
-              { path: "users", element: <ManageAdminPage /> },
-              { path: "history", element: <HistoryPage /> },
-              { path: "event-management", element: <EventManagementPage /> },
-            ],
-          },
+        ],
+      },
+    ],
+  },
+
+  // ==========================================
+  // ⚙️ กลุ่มที่ 2: หน้า Dashboard หลังบ้าน (แยกออกมา ไม่มี Navbar)
+  // ==========================================
+  {
+    path: "/admin",
+    element: <AdminRoute />, // เช็คสิทธิ์ก่อนเข้า Dashboard
+    children: [
+      {
+        element: <DashboardLayout />, // ใช้ Layout ของ Dashboard (มีแค่ Sidebar)
+        children: [
+          { index: true, element: <AdminDashboardPage /> },
+          { path: "members", element: <ManageAdminPage /> },
+          { path: "users", element: <ManageAdminPage /> },
+          { path: "history", element: <HistoryPage /> },
+          { path: "event-management", element: <EventManagementPage /> },
         ],
       },
     ],

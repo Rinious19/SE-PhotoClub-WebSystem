@@ -44,7 +44,7 @@ export class ActivityRepository {
 
     const [photoRows] = await pool.query<RowDataPacket[]>(
       `SELECT ap.id AS activity_photo_id, p.id AS photo_id, p.image_url, p.thumbnail_url, p.title AS photo_title,
-        p.description AS photo_description, /* ✅ เพิ่มการดึง Description ตรงนี้ */
+        p.description AS photo_description,
         p.faculty, p.academic_year,
         (SELECT COUNT(*) FROM votes v WHERE v.activity_id = ap.activity_id AND v.activity_photo_id = ap.id) AS vote_count,
         ap.sort_order
@@ -63,16 +63,6 @@ export class ActivityRepository {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
-
-      const title = data.title || 'Untitled';
-      const description = data.description || null;
-      const start_at = data.start_at || null;
-      const end_at = data.end_at || null;
-      const status = data.status || 'ACTIVE';
-      const created_by = data.created_by || null;
-      
-      const event_name = data.event_name || ''; 
-      const category = data.category || data.faculty || null;
 
       const [res] = await conn.query<ResultSetHeader>(
         `INSERT INTO activities
@@ -117,7 +107,7 @@ export class ActivityRepository {
     }
   }
 
-  //@ อัปเดตกิจกรรม (✅ เพิ่มการอัปเดตตาราง activity_photos แบบ Transaction)
+  //@ อัปเดตกิจกรรม (✅ เพิ่มการอัปเดตตาราง activity_photos แบบ Transaction และเพิ่ม event_name)
   async update(id: number, data: any, newPhotoIds?: number[]): Promise<boolean> {
     const conn = await pool.getConnection();
     try {
@@ -128,9 +118,21 @@ export class ActivityRepository {
       const start_at = data.start_at || null;
       const end_at = data.end_at || null;
       const category = data.category || data.faculty || null;
-      const status = data.status || null; // รับสถานะที่อาจคำนวณใหม่จาก Service มาด้วย
+      const status = data.status || null; 
+      
+      // ✅ 1. เพิ่มการดึงชื่อ Event ถ้ามีการส่ง event_id มา (เพื่ออัปเดตช่อง event_name ลงฐานข้อมูล)
+      let event_name = undefined;
+      if (data.event_id) {
+        const [eventRows] = await conn.query<RowDataPacket[]>(
+          `SELECT event_name FROM events WHERE id = ?`,
+          [data.event_id]
+        );
+        if (eventRows.length > 0) {
+          event_name = eventRows[0].event_name;
+        }
+      }
 
-      // 1. อัปเดตข้อมูลกิจกรรมหลัก
+      // ✅ 2. อัปเดตข้อมูลกิจกรรมหลัก (เพิ่ม event_name)
       let updateSql = "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, category=?";
       let updateParams: any[] = [title, description, start_at, end_at, category];
       
@@ -138,13 +140,19 @@ export class ActivityRepository {
         updateSql += ", status=?";
         updateParams.push(status);
       }
+
+      // ✅ ถ้าเจอชื่ออีเว้นท์ใหม่ ให้จับยัดเข้าไปในคำสั่ง Update ด้วย
+      if (event_name) {
+        updateSql += ", event_name=?";
+        updateParams.push(event_name);
+      }
       
       updateSql += " WHERE id=?";
       updateParams.push(id);
 
       await conn.query(updateSql, updateParams);
 
-      // 2. อัปเดตรูปภาพ ถ้ามีการเปลี่ยนแปลง (มี Array ส่งเข้ามา)
+      // 3. อัปเดตรูปภาพ ถ้ามีการเปลี่ยนแปลง (มี Array ส่งเข้ามา)
       if (newPhotoIds && Array.isArray(newPhotoIds)) {
         // ลบของเก่าทิ้งทั้งหมดก่อน
         await conn.query('DELETE FROM activity_photos WHERE activity_id = ?', [id]);
