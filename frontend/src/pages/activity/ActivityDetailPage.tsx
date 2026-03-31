@@ -28,7 +28,7 @@ interface ActivityPhoto {
   image_url: string;
   thumbnail_url: string | null;
   photo_title: string;
-  photo_description?: string; // ✅ เพิ่มรองรับคำอธิบาย
+  photo_description?: string;
   faculty?: string;
   academic_year?: string;
   vote_count: number;
@@ -177,6 +177,18 @@ export const ActivityDetailPage: React.FC = () => {
             <p className="text-muted small mt-2 mb-0">📅 {formatThaiDate(activity.start_at)} – {formatThaiDate(activity.end_at)}</p>
             {activity.description && <p className="text-secondary mt-2 mb-0">{activity.description}</p>}
           </div>
+
+          {/* ✅ นำปุ่มแก้ไขกลับมา: โชว์เฉพาะตอนที่มีสิทธิ์และกิจกรรมยังไม่เริ่ม */}
+          {canManage && activity.status === "UPCOMING" && (
+            <Button 
+              variant="outline-warning" 
+              size="sm" 
+              className="rounded-pill px-3" 
+              onClick={() => navigate(`/activities/edit/${activity.id}`)}
+            >
+              ✏️ แก้ไขกิจกรรม
+            </Button>
+          )}
         </div>
 
         {activity.status === "ACTIVE" && (
@@ -217,7 +229,6 @@ export const ActivityDetailPage: React.FC = () => {
         })}
       </Row>
 
-      {/* ✅ Modal ขยายรูปและแสดงรายละเอียด (ดีไซน์เดียวกับหน้าแกลเลอรี่) */}
       <Modal show={viewPhoto !== null} onHide={() => setViewPhoto(null)} size="lg" centered>
         <Modal.Header closeButton className="border-0 pb-0">
           <Modal.Title className="fw-bold fs-5 text-muted">รายละเอียดรูปภาพ</Modal.Title>
@@ -226,13 +237,9 @@ export const ActivityDetailPage: React.FC = () => {
           {viewPhoto && (
             <>
               <img src={getImageUrl(viewPhoto.image_url || viewPhoto.thumbnail_url)} alt={viewPhoto.photo_title} style={{ width: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: "8px", backgroundColor: "#f8f9fa" }} />
-              
-              {/* ✅ โชว์ Title ถ้ามี */}
               {viewPhoto.photo_title && viewPhoto.photo_title.trim() !== "" && (
                 <h4 className="mt-3 mb-1 fw-bold text-dark">{viewPhoto.photo_title}</h4>
               )}
-              
-              {/* ✅ โชว์ Description ถ้ามี (เช่น Dog or Tiger) */}
               {viewPhoto.photo_description && viewPhoto.photo_description.trim() !== "" && (
                 <p className="text-secondary mt-2 mb-0 px-md-5">{viewPhoto.photo_description}</p>
               )}
@@ -257,7 +264,6 @@ export const ActivityDetailPage: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Modals ยืนยันต่างๆ */}
       <Modal show={pendingVotePhotoId !== null} onHide={() => !voteLoading && setPendingVotePhotoId(null)} centered><Modal.Header closeButton={!voteLoading}><Modal.Title className="fw-bold">🗳️ ยืนยันการโหวต</Modal.Title></Modal.Header><Modal.Body className="text-center py-3"><p className="fs-5 mb-1">ต้องการโหวตให้รูปภาพนี้ใช่หรือไม่?</p><small className="text-muted">คุณสามารถโหวตได้ 1 ครั้งต่อกิจกรรมเท่านั้น</small></Modal.Body><Modal.Footer className="justify-content-center gap-2"><Button variant="secondary" disabled={voteLoading} onClick={() => setPendingVotePhotoId(null)}>ยกเลิก</Button><Button variant="primary" className="fw-bold" onClick={confirmVote} disabled={voteLoading}>{voteLoading ? <><Spinner size="sm" className="me-1" />กำลังโหวต...</> : "ยืนยันโหวต"}</Button></Modal.Footer></Modal>
       <Modal show={voteResultMsg.show} onHide={() => setVoteResultMsg(p => ({ ...p, show: false }))} centered><Modal.Header closeButton className={voteResultMsg.success ? "bg-success text-white" : "bg-danger text-white"}><Modal.Title className="fw-bold">{voteResultMsg.success ? "✅ สำเร็จ" : "❌ เกิดข้อผิดพลาด"}</Modal.Title></Modal.Header><Modal.Body className="text-center py-3 fs-5">{voteResultMsg.msg}</Modal.Body><Modal.Footer className="justify-content-center"><Button variant={voteResultMsg.success ? "success" : "danger"} onClick={() => setVoteResultMsg(p => ({ ...p, show: false }))}>ตกลง</Button></Modal.Footer></Modal>
       <Modal show={showGuestModal} onHide={() => setShowGuestModal(false)} centered><Modal.Header closeButton><Modal.Title className="fw-bold">🔒 ต้องเข้าสู่ระบบก่อนโหวต</Modal.Title></Modal.Header><Modal.Body className="text-center py-4"><p className="fs-5 mb-1">กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อน</p><p className="text-muted small">เพื่อร่วมโหวตในกิจกรรมนี้</p></Modal.Body><Modal.Footer className="justify-content-center gap-2"><Link to="/login" className="btn btn-primary fw-bold px-4" onClick={() => setShowGuestModal(false)}>เข้าสู่ระบบ</Link><Link to="/register" className="btn btn-outline-primary px-4" onClick={() => setShowGuestModal(false)}>สมัครสมาชิก</Link></Modal.Footer></Modal>

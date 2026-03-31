@@ -82,6 +82,15 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
           >
             {activity.status === 'ACTIVE' ? '🗳️ โหวตเลย' : '🔍 ดูรายละเอียด'}
           </Link>
+          
+          {/* ✅ นำปุ่มแก้ไขกลับมา: โชว์เฉพาะ ADMIN/PRESIDENT และสถานะ UPCOMING */}
+          {(user?.role === 'ADMIN' || user?.role === 'CLUB_PRESIDENT') && activity.status === 'UPCOMING' && (
+            <Link
+              to={`/activities/edit/${activity.id}`}
+              className="btn btn-sm btn-outline-warning rounded-pill px-3"
+              style={{ fontSize:12 }}
+            >✏️</Link>
+          )}
         </div>
       </Card.Body>
     </Card>
@@ -137,7 +146,6 @@ export const ActivityListPage: React.FC = () => {
   const navigate    = useNavigate();
   const { user }    = useAuth();
   
-  // ✅ เช็คสิทธิ์การมองเห็นกิจกรรมรอดำเนินการ
   const canSeeUpcoming = user?.role === 'ADMIN' || user?.role === 'CLUB_PRESIDENT';
   const isPresident    = user?.role === 'CLUB_PRESIDENT';
 
@@ -172,7 +180,6 @@ export const ActivityListPage: React.FC = () => {
     return list;
   }, [extendedActivities, keyword, startDate, endDate, tabStatus]);
 
-  // แยกกลุ่มข้อมูล
   const upcomingItems = filtered.filter(a => a.status === 'UPCOMING');
   const activeItems   = filtered.filter(a => a.status === 'ACTIVE');
   const endedItems    = filtered.filter(a => a.status === 'ENDED');
@@ -249,7 +256,6 @@ export const ActivityListPage: React.FC = () => {
               กำลังดำเนินการ
           </button>
 
-          {/* ✅ แสดงปุ่ม "รอดำเนินการ" เฉพาะคนที่มีสิทธิ์ */}
           {canSeeUpcoming && (
             <button onClick={() => setTabStatus('UPCOMING')}
                 className="d-flex align-items-center gap-1 border-0 rounded-pill px-3 py-1 fw-medium"
@@ -275,21 +281,18 @@ export const ActivityListPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* 🟢 ส่วนที่ 1: กำลังดำเนินการ */}
       {(tabStatus === 'all' || tabStatus === 'ACTIVE') && (
         <ActivitySection title="กำลังดำเนินการ" dot="#198754"
           items={activeItems} loading={loading}
           emptyText="ไม่มีกิจกรรมที่กำลังดำเนินการในขณะนี้" emptyIcon="📭" />
       )}
 
-      {/* 🟡 ส่วนที่ 2: รอดำเนินการ (แสดงเฉพาะ ADMIN / CLUB_PRESIDENT) */}
       {canSeeUpcoming && (tabStatus === 'all' || tabStatus === 'UPCOMING') && (
         <ActivitySection title="รอดำเนินการ" dot="#ffc107"
           items={upcomingItems} loading={loading}
           emptyText="ไม่มีกิจกรรมที่รอดำเนินการ" emptyIcon="⏳" />
       )}
 
-      {/* ⚫ ส่วนที่ 3: สิ้นสุดแล้ว */}
       {(tabStatus === 'all' || tabStatus === 'ENDED') && (
         <ActivitySection title="สิ้นสุดแล้ว" dot="#6c757d"
           items={endedItems} loading={loading}
