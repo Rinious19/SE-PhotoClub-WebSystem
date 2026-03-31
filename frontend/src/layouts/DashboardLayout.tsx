@@ -1,11 +1,7 @@
-//? Layout: DashboardLayout
-//@ Layout สำหรับหน้า Admin — sidebar ซ้าย + content ขวา
-//  มีปุ่มกลับหน้าหลัก และ logout ด้านล่าง sidebar
-//  วางไฟล์นี้ที่: frontend/src/layouts/DashboardLayout.tsx
-
-import React, { useState } from 'react';
-import { NavLink, useNavigate, Outlet } from 'react-router-dom';
-import { useAuth }                       from '@/hooks/useAuth';
+import React, { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { GiHamburgerMenu } from "react-icons/gi";
 
 //@ nav items ใน sidebar
 const NAV_ITEMS = [
@@ -20,80 +16,89 @@ export const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate         = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  const role = user?.role ?? '';
+  const navigate = useNavigate();
 
-  const visibleNav = NAV_ITEMS.filter(n => n.roles.includes(role));
+  const SIDEBAR_ITEMS: SidebarItem[] = [
+  { to: "/admin", icon: "🏠", label: "Dashboard" },
+
+  // ❌ ซ่อนสำหรับ admin
+  ...(user?.role && user.role !== "ADMIN"
+  ? [{ to: "/admin/users", icon: "👥", label: "จัดการสมาชิก" }]
+  : []),
+
+  { to: "/admin/history", icon: "📋", label: "ประวัติการใช้งาน" },
+  { to: "/admin/event-management", icon: "📅", label: "จัดการอีเว้นท์" },
+  { to: "/photos/upload", icon: "📸", label: "อัปโหลดรูปภาพ" },
+];
+
+  const handleLogout = (e: React.MouseEvent) => {
+    e.stopPropagation(); // 🔥 กัน event ทะลุ
+    localStorage.removeItem("token");
+
+    // 👉 ถ้ามี context logout ให้เรียกตรงนี้แทน
+    // logout();
+
+    navigate("/login", { replace: true });
+  };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f9fa' }}>
-
-      {/* ── Sidebar ── */}
+    <div style={{ display: "flex", minHeight: "100vh", background: "#f8f9fa" }}>
+      {/* Sidebar */}
       <aside
         style={{
-          width:      collapsed ? 60 : 200,
-          background: '#1a1a2e',
-          color:      '#fff',
-          display:    'flex',
-          flexDirection: 'column',
-          transition: 'width .2s',
-          flexShrink: 0,
-          position:   'sticky',
-          top:        0,
-          height:     '100vh',
-          overflowY:  'auto',
+          width: collapsed ? 64 : 220,
+          background: "#1a1a2e",
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        {/* Logo + toggle */}
+        {/* Header */}
         <div
           style={{
-            padding:    '16px 12px',
-            borderBottom: '1px solid rgba(255,255,255,.1)',
-            display:    'flex',
-            alignItems: 'center',
-            gap:        8,
+            padding: "16px",
+            display: "flex",
+            justifyContent: "space-between",
+            
           }}
         >
-          <button
-            onClick={() => setCollapsed(c => !c)}
-            style={{
-              background: 'none', border: 'none', color: '#fff',
-              cursor: 'pointer', fontSize: 18, padding: 0,
-            }}
-          >☰</button>
           {!collapsed && (
-            <span style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap' }}>
+            <NavLink
+              to="/"
+              style={{
+                color: "#fff",
+                textDecoration: "none",
+                fontWeight: "bold",
+              }}
+            >
               SE PhotoClub
-            </span>
+            </NavLink>
           )}
+          <GiHamburgerMenu
+            className="mt-1 d-flex align-items-center justify-content-center"
+            onClick={() => setCollapsed((c) => !c)}
+          />
         </div>
 
         {/* Username */}
         {!collapsed && (
-          <div style={{ padding: '12px 16px', fontSize: 13, color: 'rgba(255,255,255,.7)' }}>
-            {user?.username}
+          <div style={{ padding: "10px 16px" }}>
+            <div>{user?.username}</div>
           </div>
         )}
 
-        {/* Nav links */}
-        <nav style={{ flex: 1, padding: '8px 0' }}>
-          {visibleNav.map(item => (
+        {/* Menu */}
+        <nav style={{ flex: 1 }}>
+          {SIDEBAR_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/admin'}
               style={({ isActive }) => ({
-                display:        'flex',
-                alignItems:     'center',
-                gap:            10,
-                padding:        '10px 16px',
-                color:          isActive ? '#fff' : 'rgba(255,255,255,.65)',
-                background:     isActive ? 'rgba(255,255,255,.1)' : 'none',
-                textDecoration: 'none',
-                fontSize:       13,
-                borderLeft:     isActive ? '3px solid #7c3aed' : '3px solid transparent',
-                transition:     'background .15s',
-                whiteSpace:     'nowrap',
-                overflow:       'hidden',
+                display: "flex",
+                padding: "10px 16px",
+                color: isActive ? "#fff" : "#aaa",
+                textDecoration: "none",
               })}
             >
               <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
@@ -102,33 +107,22 @@ export const DashboardLayout: React.FC = () => {
           ))}
         </nav>
 
-        {/* ปุ่มกลับหน้าหลัก + ออกจากระบบ */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,.1)', padding: '12px 0' }}>
-          <button
-            onClick={() => navigate('/')}
-            style={{
-              display:    'flex', alignItems: 'center', gap: 10,
-              padding:    '10px 16px', background: 'none', border: 'none',
-              color:      'rgba(255,255,255,.65)', cursor: 'pointer',
-              fontSize:   13, width: '100%', whiteSpace: 'nowrap',
-            }}
-          >
-            <span style={{ fontSize: 16, flexShrink: 0 }}>🏠</span>
-            {!collapsed && 'หน้าหลัก'}
-          </button>
-          <button
-            onClick={logout}
-            style={{
-              display:    'flex', alignItems: 'center', gap: 10,
-              padding:    '10px 16px', background: 'none', border: 'none',
-              color:      '#ef4444', cursor: 'pointer',
-              fontSize:   13, width: '100%', whiteSpace: 'nowrap',
-            }}
-          >
-            <span style={{ fontSize: 16, flexShrink: 0 }}>🚪</span>
-            {!collapsed && 'ออกจากระบบ'}
-          </button>
-        </div>
+        {/* 🔥 Logout Only */}
+        <button
+          onClick={handleLogout}
+          style={{
+            padding: "12px",
+            background: "none",
+            border: "none",
+            color: "#ff6b6b",
+            cursor: "pointer",
+            textAlign: "left",
+            marginBottom: "7%",
+            marginLeft: "1%",
+          }}
+        >
+          ⎋ {!collapsed && "ออกจากระบบ"}
+        </button>
       </aside>
 
       {/* ── Main content ── */}

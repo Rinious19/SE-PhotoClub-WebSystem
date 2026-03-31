@@ -292,7 +292,7 @@ export const UploadPhotoPage: React.FC = () => {
     <Container className="py-5">
       <Card className="shadow-sm border-0 p-4 mx-auto" style={{ maxWidth: "960px" }}>
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <h3 className="fw-bold mb-0">📸 อัปโหลดรูปภาพใหม่</h3>
+          <h3 className="fw-bold mb-0">📸 อัปโหลดรูปภาพ</h3>
           {isAdminOrPresident(user) && (
             <Button variant="outline-primary" size="sm" className="rounded-pill px-3"
               onClick={() => { setAddError(null); setNewEventData({ name: "", date: "" }); setShowAddEventModal(true); }}>
