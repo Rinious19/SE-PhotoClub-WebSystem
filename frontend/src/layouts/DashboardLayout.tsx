@@ -1,99 +1,115 @@
-//? Layout: DashboardLayout
-//@ Layout สำหรับหน้า Admin — sidebar ซ้าย + content ขวา
-//  มีปุ่มกลับหน้าหลัก และ logout ด้านล่าง sidebar
-//  วางไฟล์นี้ที่: frontend/src/layouts/DashboardLayout.tsx
+import React, { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { GiHamburgerMenu } from "react-icons/gi";
 
-import React, { useState } from 'react';
-import { NavLink, useNavigate, Outlet } from 'react-router-dom';
-import { useAuth }                       from '@/hooks/useAuth';
-
-//@ nav items ใน sidebar
-const NAV_ITEMS = [
-  { icon: '🏠',  label: 'Dashboard',          to: '/admin',            roles: ['ADMIN','CLUB_PRESIDENT'] },
-  { icon: '👥',  label: 'จัดการสมาชิก',        to: '/admin/members',    roles: ['ADMIN'] },
-  { icon: '📋',  label: 'ประวัติการใช้งาน',     to: '/admin/history',    roles: ['ADMIN','CLUB_PRESIDENT'] },
-  { icon: '📅',  label: 'จัดการอีเว้นท์',       to: '/event-management', roles: ['ADMIN','CLUB_PRESIDENT'] },
-  { icon: '📷',  label: 'อัปโหลดรูปภาพ',        to: '/photos/upload',    roles: ['ADMIN','CLUB_PRESIDENT'] },
-];
+interface SidebarItem {
+  to: string;
+  icon: string;
+  label: string;
+  adminOnly?: boolean;
+}
 
 export const DashboardLayout: React.FC = () => {
-  const { user, logout } = useAuth();
-  const navigate         = useNavigate();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  const role = user?.role ?? '';
 
-  const visibleNav = NAV_ITEMS.filter(n => n.roles.includes(role));
+  const SIDEBAR_ITEMS: SidebarItem[] = [
+    { to: "/admin", icon: "🏠", label: "Dashboard" },
+    { to: "/admin/members", icon: "👥", label: "จัดการสมาชิก", adminOnly: true },
+    { to: "/admin/history", icon: "📋", label: "ประวัติการใช้งาน" },
+    { to: "/event-management", icon: "📅", label: "จัดการอีเว้นท์" },
+    { to: "/photos/upload", icon: "📸", label: "อัปโหลดรูปภาพ" },
+  ];
+
+  const visibleItems = SIDEBAR_ITEMS.filter(
+    (item) => !item.adminOnly || user?.role === "ADMIN"
+  );
+
+  const handleLogout = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login", { replace: true });
+  };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f9fa' }}>
-
-      {/* ── Sidebar ── */}
+    <div style={{ display: "flex", minHeight: "100vh", background: "#f8f9fa" }}>
+      {/* Sidebar */}
       <aside
         style={{
-          width:      collapsed ? 60 : 200,
-          background: '#1a1a2e',
-          color:      '#fff',
-          display:    'flex',
-          flexDirection: 'column',
-          transition: 'width .2s',
+          width: collapsed ? 64 : 220,
+          background: "#1a1a2e",
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+          transition: "width 0.2s ease",
           flexShrink: 0,
-          position:   'sticky',
-          top:        0,
-          height:     '100vh',
-          overflowY:  'auto',
         }}
       >
-        {/* Logo + toggle */}
+        {/* Header */}
         <div
           style={{
-            padding:    '16px 12px',
-            borderBottom: '1px solid rgba(255,255,255,.1)',
-            display:    'flex',
-            alignItems: 'center',
-            gap:        8,
+            padding: "16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <button
-            onClick={() => setCollapsed(c => !c)}
-            style={{
-              background: 'none', border: 'none', color: '#fff',
-              cursor: 'pointer', fontSize: 18, padding: 0,
-            }}
-          >☰</button>
           {!collapsed && (
-            <span style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap' }}>
+            <NavLink
+              to="/"
+              style={{
+                color: "#fff",
+                textDecoration: "none",
+                fontWeight: "bold",
+                fontSize: 15,
+              }}
+            >
               SE PhotoClub
-            </span>
+            </NavLink>
           )}
+          <GiHamburgerMenu
+            style={{ cursor: "pointer", flexShrink: 0 }}
+            onClick={() => setCollapsed((c) => !c)}
+          />
         </div>
 
         {/* Username */}
-        {!collapsed && (
-          <div style={{ padding: '12px 16px', fontSize: 13, color: 'rgba(255,255,255,.7)' }}>
-            {user?.username}
+        {!collapsed && user?.username && (
+          <div style={{ padding: "4px 16px 12px", color: "#aaa", fontSize: 13 }}>
+            {user.username}
+            <span
+              style={{
+                marginLeft: 6,
+                fontSize: 11,
+                background: "#333",
+                padding: "2px 6px",
+                borderRadius: 4,
+              }}
+            >
+              {user.role}
+            </span>
           </div>
         )}
 
-        {/* Nav links */}
-        <nav style={{ flex: 1, padding: '8px 0' }}>
-          {visibleNav.map(item => (
+        {/* Menu */}
+        <nav style={{ flex: 1 }}>
+          {visibleItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/admin'}
+              end={item.to === "/admin"}
               style={({ isActive }) => ({
-                display:        'flex',
-                alignItems:     'center',
-                gap:            10,
-                padding:        '10px 16px',
-                color:          isActive ? '#fff' : 'rgba(255,255,255,.65)',
-                background:     isActive ? 'rgba(255,255,255,.1)' : 'none',
-                textDecoration: 'none',
-                fontSize:       13,
-                borderLeft:     isActive ? '3px solid #7c3aed' : '3px solid transparent',
-                transition:     'background .15s',
-                whiteSpace:     'nowrap',
-                overflow:       'hidden',
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 16px",
+                color: isActive ? "#fff" : "#aaa",
+                textDecoration: "none",
+                background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                fontSize: 14,
               })}
             >
               <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
@@ -102,37 +118,30 @@ export const DashboardLayout: React.FC = () => {
           ))}
         </nav>
 
-        {/* ปุ่มกลับหน้าหลัก + ออกจากระบบ */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,.1)', padding: '12px 0' }}>
-          <button
-            onClick={() => navigate('/')}
-            style={{
-              display:    'flex', alignItems: 'center', gap: 10,
-              padding:    '10px 16px', background: 'none', border: 'none',
-              color:      'rgba(255,255,255,.65)', cursor: 'pointer',
-              fontSize:   13, width: '100%', whiteSpace: 'nowrap',
-            }}
-          >
-            <span style={{ fontSize: 16, flexShrink: 0 }}>🏠</span>
-            {!collapsed && 'หน้าหลัก'}
-          </button>
-          <button
-            onClick={logout}
-            style={{
-              display:    'flex', alignItems: 'center', gap: 10,
-              padding:    '10px 16px', background: 'none', border: 'none',
-              color:      '#ef4444', cursor: 'pointer',
-              fontSize:   13, width: '100%', whiteSpace: 'nowrap',
-            }}
-          >
-            <span style={{ fontSize: 16, flexShrink: 0 }}>🚪</span>
-            {!collapsed && 'ออกจากระบบ'}
-          </button>
-        </div>
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          style={{
+            padding: "12px 16px",
+            background: "none",
+            border: "none",
+            color: "#ff6b6b",
+            cursor: "pointer",
+            textAlign: "left",
+            marginBottom: "5%",
+            fontSize: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span>⎋</span>
+          {!collapsed && "ออกจากระบบ"}
+        </button>
       </aside>
 
-      {/* ── Main content ── */}
-      <main style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+      {/* Main content */}
+      <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
         <Outlet />
       </main>
     </div>
