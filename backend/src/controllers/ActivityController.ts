@@ -76,4 +76,21 @@ export class ActivityController {
       res.status(400).json({ success: false, message: e.message });
     }
   }
+
+  // ✅ ลบผู้ใช้งานถาวร
+  static async deletePermanent(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id as string);
+      // ต้องให้ Service ไปเรียกใช้ hardDeleteUser ใน Repository
+      // (อย่าลืมไปประกาศฟังก์ชัน hardDeleteUser ใน ActivityService ด้วยนะครับ)
+      const success = await (activityService as any).hardDeleteUser(id); 
+      if (success) {
+        res.status(200).json({ success: true, message: 'ลบข้อมูลออกจากระบบถาวรแล้ว' });
+      } else {
+        res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้งาน' });
+      }
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  }
 }

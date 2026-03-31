@@ -30,4 +30,13 @@ export class UserRepository {
     // คืนค่า User กลับไปพร้อมกับ ID ที่ Database สร้างให้ (Auto Increment)
     return { ...user, id: result.insertId };
   }
+
+  // ✅ [เพิ่มใหม่] ฟังก์ชันลบ User ถาวรออกจากระบบ
+  async hardDelete(id: number): Promise<boolean> {
+    const [result] = await pool.execute<ResultSetHeader>(
+      'DELETE FROM users WHERE id = ?',
+      [id]
+    );
+    return result.affectedRows > 0;
+  }
 }
