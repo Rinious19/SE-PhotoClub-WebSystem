@@ -1,27 +1,19 @@
-//? Repository: Vote
-//@ SQL สำหรับตาราง votes (schema จริงหลัง ALTER)
-//  votes.activity_photo_id → FK activity_photos.id
-//  UNIQUE(activity_photo_id, activity_id, user_id) → 1 user = 1 โหวตต่อกิจกรรม
-
-import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import { pool } from '../config/Database';
-import { Vote } from '../models/Vote';
+import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import { pool } from "../config/Database";
+import { Vote } from "../models/Vote";
 
 export class VoteRepository {
-
-  //@ ตรวจว่า user โหวตในกิจกรรมนี้ไปแล้วหรือยัง
+  // Check if user already voted in this activity
   async findUserVote(activityId: number, userId: number): Promise<Vote | null> {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT * FROM votes
-       WHERE activity_id = ? AND user_id = ?
-       LIMIT 1`,
+      `SELECT * FROM votes WHERE activity_id = ? AND user_id = ? LIMIT 1`,
       [activityId, userId]
     );
     return rows.length > 0 ? (rows[0] as Vote) : null;
   }
 
-  //@ บันทึกโหวต
-  //! DB จะ throw error ถ้า user โหวตซ้ำ (UNIQUE constraint) → Service จัดการ
+  // Record a vote
+  // photo_id here is the activity_photos.id (activity_photo_id in the votes table)
   async create(vote: Vote): Promise<number> {
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO votes (activity_photo_id, activity_id, user_id) VALUES (?, ?, ?)`,
@@ -30,12 +22,14 @@ export class VoteRepository {
     return result.insertId;
   }
 
-  //@ ผลโหวตของกิจกรรม — จำนวนโหวตของแต่ละรูป
-  async getVoteResults(activityId: number): Promise<Array<{
-    activity_photo_id: number;
-    photo_id:          number;
-    vote_count:        number;
-  }>> {
+  // Get vote results for an activity — returns per-photo vote counts
+  async getVoteResults(activityId: number): Promise<
+    Array<{
+      activity_photo_id: number;
+      photo_id: number;
+      vote_count: number;
+    }>
+  > {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT
          ap.id        AS activity_photo_id,
@@ -46,14 +40,14 @@ export class VoteRepository {
          ON v.activity_id = ap.activity_id
          AND v.activity_photo_id = ap.id
        WHERE ap.activity_id = ?
-       GROUP BY ap.id
+       GROUP BY ap.id, ap.photo_id
        ORDER BY vote_count DESC`,
       [activityId]
     );
     return rows as any[];
   }
 
-  //@ batch-check โหวตของ user ในหลายกิจกรรม (ใช้ใน ActivityListPage)
+  // Batch-check which activities a user has voted in
   async findUserVotesForActivities(
     userId: number,
     activityIds: number[]

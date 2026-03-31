@@ -3,41 +3,34 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { GiHamburgerMenu } from "react-icons/gi";
 
-//@ nav items ใน sidebar
-const NAV_ITEMS = [
-  { icon: '🏠',  label: 'Dashboard',          to: '/admin',            roles: ['ADMIN','CLUB_PRESIDENT'] },
-  { icon: '👥',  label: 'จัดการสมาชิก',        to: '/admin/members',    roles: ['ADMIN'] },
-  { icon: '📋',  label: 'ประวัติการใช้งาน',     to: '/admin/history',    roles: ['ADMIN','CLUB_PRESIDENT'] },
-  { icon: '📅',  label: 'จัดการอีเว้นท์',       to: '/event-management', roles: ['ADMIN','CLUB_PRESIDENT'] },
-  { icon: '📷',  label: 'อัปโหลดรูปภาพ',        to: '/photos/upload',    roles: ['ADMIN','CLUB_PRESIDENT'] },
-];
+interface SidebarItem {
+  to: string;
+  icon: string;
+  label: string;
+  adminOnly?: boolean;
+}
 
 export const DashboardLayout: React.FC = () => {
-  const { user, logout } = useAuth();
-  const navigate         = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(false);
 
   const SIDEBAR_ITEMS: SidebarItem[] = [
-  { to: "/admin", icon: "🏠", label: "Dashboard" },
+    { to: "/admin", icon: "🏠", label: "Dashboard" },
+    { to: "/admin/members", icon: "👥", label: "จัดการสมาชิก", adminOnly: true },
+    { to: "/admin/history", icon: "📋", label: "ประวัติการใช้งาน" },
+    { to: "/event-management", icon: "📅", label: "จัดการอีเว้นท์" },
+    { to: "/photos/upload", icon: "📸", label: "อัปโหลดรูปภาพ" },
+  ];
 
-  // ❌ ซ่อนสำหรับ admin
-  ...(user?.role && user.role !== "ADMIN"
-  ? [{ to: "/admin/users", icon: "👥", label: "จัดการสมาชิก" }]
-  : []),
-
-  { to: "/admin/history", icon: "📋", label: "ประวัติการใช้งาน" },
-  { to: "/admin/event-management", icon: "📅", label: "จัดการอีเว้นท์" },
-  { to: "/photos/upload", icon: "📸", label: "อัปโหลดรูปภาพ" },
-];
+  const visibleItems = SIDEBAR_ITEMS.filter(
+    (item) => !item.adminOnly || user?.role === "ADMIN"
+  );
 
   const handleLogout = (e: React.MouseEvent) => {
-    e.stopPropagation(); // 🔥 กัน event ทะลุ
+    e.stopPropagation();
     localStorage.removeItem("token");
-
-    // 👉 ถ้ามี context logout ให้เรียกตรงนี้แทน
-    // logout();
-
+    localStorage.removeItem("user");
     navigate("/login", { replace: true });
   };
 
@@ -51,6 +44,8 @@ export const DashboardLayout: React.FC = () => {
           color: "#fff",
           display: "flex",
           flexDirection: "column",
+          transition: "width 0.2s ease",
+          flexShrink: 0,
         }}
       >
         {/* Header */}
@@ -59,7 +54,7 @@ export const DashboardLayout: React.FC = () => {
             padding: "16px",
             display: "flex",
             justifyContent: "space-between",
-            
+            alignItems: "center",
           }}
         >
           {!collapsed && (
@@ -69,36 +64,52 @@ export const DashboardLayout: React.FC = () => {
                 color: "#fff",
                 textDecoration: "none",
                 fontWeight: "bold",
+                fontSize: 15,
               }}
             >
               SE PhotoClub
             </NavLink>
           )}
           <GiHamburgerMenu
-            className="mt-1 d-flex align-items-center justify-content-center"
+            style={{ cursor: "pointer", flexShrink: 0 }}
             onClick={() => setCollapsed((c) => !c)}
           />
         </div>
 
         {/* Username */}
-        {!collapsed && (
-          <div style={{ padding: "10px 16px" }}>
-            <div>{user?.username}</div>
+        {!collapsed && user?.username && (
+          <div style={{ padding: "4px 16px 12px", color: "#aaa", fontSize: 13 }}>
+            {user.username}
+            <span
+              style={{
+                marginLeft: 6,
+                fontSize: 11,
+                background: "#333",
+                padding: "2px 6px",
+                borderRadius: 4,
+              }}
+            >
+              {user.role}
+            </span>
           </div>
         )}
 
         {/* Menu */}
         <nav style={{ flex: 1 }}>
-          {SIDEBAR_ITEMS.map((item) => (
+          {visibleItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/admin'}
+              end={item.to === "/admin"}
               style={({ isActive }) => ({
                 display: "flex",
+                alignItems: "center",
+                gap: 10,
                 padding: "10px 16px",
                 color: isActive ? "#fff" : "#aaa",
                 textDecoration: "none",
+                background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                fontSize: 14,
               })}
             >
               <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
@@ -107,26 +118,30 @@ export const DashboardLayout: React.FC = () => {
           ))}
         </nav>
 
-        {/* 🔥 Logout Only */}
+        {/* Logout */}
         <button
           onClick={handleLogout}
           style={{
-            padding: "12px",
+            padding: "12px 16px",
             background: "none",
             border: "none",
             color: "#ff6b6b",
             cursor: "pointer",
             textAlign: "left",
-            marginBottom: "7%",
-            marginLeft: "1%",
+            marginBottom: "5%",
+            fontSize: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          ⎋ {!collapsed && "ออกจากระบบ"}
+          <span>⎋</span>
+          {!collapsed && "ออกจากระบบ"}
         </button>
       </aside>
 
-      {/* ── Main content ── */}
-      <main style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+      {/* Main content */}
+      <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
         <Outlet />
       </main>
     </div>

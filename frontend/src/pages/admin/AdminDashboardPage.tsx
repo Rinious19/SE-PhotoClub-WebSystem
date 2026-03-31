@@ -1,39 +1,25 @@
-//? Page: AdminDashboardPage
-//@ หน้า Dashboard สำหรับ ADMIN / CLUB_PRESIDENT
-//  มีปุ่มกลับหน้าหลัก และ link ไปยังหน้า public ได้
-//  วางไฟล์นี้ที่: frontend/src/pages/admin/AdminDashboardPage.tsx
-
 import React from "react";
 import { Container, Row, Col, Card } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
-//@ interface card แต่ละช่อง
 interface DashboardCard {
-  icon:     string;
-  title:    string;
-  desc:     string;
-  to:       string;
-  roles:    string[];
-  color:    string;
+  to: string;
+  icon: string;
+  label: string;
+  desc: string;
+  color: string;
+  adminOnly?: boolean;
 }
 
 const CARDS: DashboardCard[] = [
   {
-    icon:  '👥',
-    title: 'จัดการสมาชิก',
-    desc:  'ดู เปลี่ยน Role ระงับบัญชี',
-    to:    '/admin/members',
-    roles: ['ADMIN'],
-    color: '#e8eaf6',
-  },
-  {
-    to: "/admin/users",
+    to: "/admin/members",
     icon: "👥",
     label: "จัดการสมาชิก",
     desc: "ดู เปลี่ยน Role ระงับบัญชี",
     color: "#4dabf7",
-    presidentOnly: true,
+    adminOnly: true,
   },
   {
     to: "/admin/history",
@@ -43,7 +29,7 @@ const CARDS: DashboardCard[] = [
     color: "#51cf66",
   },
   {
-    to: "/admin/event-management",
+    to: "/event-management",
     icon: "📅",
     label: "จัดการอีเว้นท์",
     desc: "เพิ่ม แก้ไข ลบอีเว้นท์",
@@ -59,12 +45,11 @@ const CARDS: DashboardCard[] = [
 ];
 
 export const AdminDashboardPage: React.FC = () => {
-  const { user }   = useAuth();
-  const navigate   = useNavigate();
-  const role       = user?.role ?? '';
+  const { user } = useAuth();
 
-  //@ กรอง card ตาม role ของ user ที่ login อยู่
-  const visibleCards = CARDS.filter(c => c.roles.includes(role));
+  const visibleCards = CARDS.filter(
+    (card) => !card.adminOnly || user?.role === "ADMIN"
+  );
 
   return (
     <Container className="py-5">
@@ -76,9 +61,7 @@ export const AdminDashboardPage: React.FC = () => {
       </div>
 
       <Row xs={1} sm={2} md={2} lg={4} className="g-4">
-        {CARDS.filter(
-          (card) => !card.presidentOnly || user?.role === "CLUB_PRESIDENT",
-        ).map((card) => (
+        {visibleCards.map((card) => (
           <Col key={card.to}>
             <Link to={card.to} style={{ textDecoration: "none" }}>
               <Card
@@ -128,13 +111,22 @@ export const AdminDashboardPage: React.FC = () => {
         ))}
       </Row>
 
-      {/* ── Quick links กลับหน้า public ── */}
+      {/* Quick links back to public pages */}
       <div className="mt-5 pt-4 border-top">
         <p className="text-muted small fw-medium mb-2">ไปยังหน้าสาธารณะ</p>
         <div className="d-flex gap-2 flex-wrap">
-          <Link to="/"          className="btn btn-sm btn-light rounded-pill px-3">🏠 หน้าแรก</Link>
-          <Link to="/photos"    className="btn btn-sm btn-light rounded-pill px-3">🖼️ แกลเลอรี่</Link>
-          <Link to="/activities" className="btn btn-sm btn-light rounded-pill px-3">🏆 กิจกรรม</Link>
+          <Link to="/" className="btn btn-sm btn-light rounded-pill px-3">
+            🏠 หน้าแรก
+          </Link>
+          <Link to="/photos" className="btn btn-sm btn-light rounded-pill px-3">
+            🖼️ แกลเลอรี่
+          </Link>
+          <Link
+            to="/activities"
+            className="btn btn-sm btn-light rounded-pill px-3"
+          >
+            🏆 กิจกรรม
+          </Link>
         </div>
       </div>
     </Container>
