@@ -54,24 +54,52 @@ export class AdminController {
 
   //@ DELETE /api/admin/users/:id — Soft delete User
   static async deleteUser(req: AuthenticatedRequest, res: Response): Promise<void> {
-  try {
-    const targetUserId = parseInt(req.params.id as string, 10);
-    const actorId      = req.user?.userId ?? req.user?.id;
+    try {
+      const targetUserId = parseInt(req.params.id as string, 10);
+      const actorId      = req.user?.userId ?? req.user?.id;
 
-    if (isNaN(targetUserId)) {
-      res.status(400).json({ success: false, message: 'ID ผู้ใช้ไม่ถูกต้อง' });
-      return;
+      if (isNaN(targetUserId)) {
+        res.status(400).json({ success: false, message: 'ID ผู้ใช้ไม่ถูกต้อง' });
+        return;
+      }
+
+      // 🔥 ลบ user ก่อน
+      await adminService.deleteUser({ targetUserId, actorId });
+
+      res.status(200).json({ success: true, message: 'ระงับผู้ใช้งานสำเร็จ' });
+
+    } catch (error: any) {
+      sendError(res, error, 'ระงับผู้ใช้งานไม่สำเร็จ');
     }
-
-    // 🔥 ลบ user ก่อน
-    const deletedUser = await adminService.deleteUser({ targetUserId, actorId });
-
-    res.status(200).json({ success: true, message: 'ลบผู้ใช้งานสำเร็จ' });
-
-  } catch (error: any) {
-    sendError(res, error, 'ลบผู้ใช้งานไม่สำเร็จ');
   }
-}
+
+  // ✅ [เพิ่มใหม่] DELETE /api/admin/users/:id/permanent — Hard delete User
+  // ✅ [แก้ไข] ป้องกันเซิร์ฟเวอร์ดับเวลาลบผู้ใช้ที่ติด Foreign Key
+  static async deletePermanent(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const targetUserId = parseInt(req.params.id as string, 10);
+      const actorId      = req.user?.userId ?? req.user?.id;
+
+      if (isNaN(targetUserId)) {
+        res.status(400).json({ success: false, message: 'ID ผู้ใช้ไม่ถูกต้อง' });
+        return;
+      }
+
+      await adminService.deleteUserPermanent({ targetUserId, actorId });
+
+      res.status(200).json({ success: true, message: 'ลบผู้ใช้งานออกจากระบบถาวรสำเร็จ' });
+
+    } catch (error: any) {
+      // 🚨 พิมพ์ Error ออกมาดูใน Terminal แบบชัดๆ
+      console.error("🔥 [HARD DELETE ERROR]:", error.message || error);
+      
+      // ส่ง Error กลับไปหา Frontend แบบปลอดภัย
+      res.status(400).json({ 
+        success: false, 
+        message: 'ไม่สามารถลบได้ เนื่องจากบัญชีนี้มีข้อมูล (ประวัติ, การโหวต, รูปภาพ) ผูกอยู่ในระบบ' 
+      });
+    }
+  }
 
   //@ GET /api/admin/history — ดึง History Log
   static async getHistory(req: AuthenticatedRequest, res: Response): Promise<void> {

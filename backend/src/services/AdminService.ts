@@ -94,4 +94,39 @@ export class AdminService {
       detail: `ระงับบัญชี username: ${targetName}`,
     });
   }
+
+  // ✅ [เพิ่มใหม่] ลบ User ถาวรออกจาก Database (Hard Delete)
+  async deleteUserPermanent(params: {
+    targetUserId: number;
+    actorId:      number;
+  }): Promise<void> {
+    const { targetUserId, actorId } = params;
+
+    if (actorId === targetUserId) {
+      throw new Error('ไม่สามารถลบบัญชีถาวรของตัวเองได้');
+    }
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      'SELECT username FROM users WHERE id = ?',
+      [targetUserId]
+    );
+
+    if (rows.length === 0) throw new Error('ไม่พบผู้ใช้งาน');
+    const targetName = rows[0].username as string;
+
+    //@ Hard delete: ลบข้อมูลออกจากฐานข้อมูลจริง
+    await pool.execute<ResultSetHeader>(
+      `DELETE FROM users WHERE id = ?`,
+      [targetUserId]
+    );
+
+    // บันทึก Log ว่าลบใครไป
+    await historyService.log({
+      actorId,
+      action:     'DELETE_USER', // หรือตั้ง Action ใหม่เช่น HARD_DELETE_USER
+      targetType: 'USER',
+      targetId:   targetUserId,
+      detail: `ลบบัญชีผู้ใช้ถาวร: ${targetName}`,
+    });
+  }
 }
