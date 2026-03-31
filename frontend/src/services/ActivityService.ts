@@ -50,12 +50,16 @@ export const ActivityService = {
 
   //@ อัปเดตกิจกรรม (ADMIN / CLUB_PRESIDENT)
   update: async (id: number, data: {
-    title?:       string;
-    description?: string;
-    category?:    string;
-    start_at?:    string;
-    end_at?:      string;
-    status?:      string;
+    title?:              string;
+    description?:        string;
+    category?:           string;
+    start_at?:           string;
+    end_at?:             string;
+    status?:             string;
+    faculty?:            string;   // ✅ เพิ่มการรับค่าตัวกรอง
+    academic_year?:      string;   // ✅ เพิ่มการรับค่าตัวกรอง
+    event_id?:           number;   // ✅ เพิ่มการรับค่า ID อีเว้นท์
+    excluded_photo_ids?: number[]; // ✅ เพิ่มการรับค่ารูปที่จะเอาออก!
   }, token: string) => {
     const response = await axios.put(`${API_URL}/${id}`, data, {
       headers: { Authorization: `Bearer ${token}` },

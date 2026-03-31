@@ -40,6 +40,21 @@ const getLocalDateStr = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+// ✅ ฟังก์ชันแปลง YYYY-MM-DD เป็น DD/MM/YYYY (พ.ศ.)
+const formatThaiDate = (dateStr: string) => {
+  if (!dateStr || dateStr === "ตั้งแต่วันที่...") return dateStr;
+  try {
+    const d = new Date(dateStr.split('T')[0] + "T12:00:00"); // ป้องกัน timezone เลื่อน
+    if (isNaN(d.getTime())) return dateStr;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear() + 543;
+    return `${dd}/${mm}/${yyyy}`;
+  } catch {
+    return dateStr;
+  }
+};
+
 interface FailedFile {
   name: string;
   reason: string;
@@ -55,32 +70,15 @@ export const UploadPhotoPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const yearSelectRef = useRef<HTMLSelectElement>(null);
 
   // ✅ ตัวเลือกตั้งต้น
   const YEARS = useMemo(() => ["2568", "2567"], []);
 
   const [invalidFiles, setInvalidFiles] = useState<string[]>([]);
   const [showInvalidModal, setShowInvalidModal] = useState(false);
-
-  useEffect(() => {
-    const el = yearSelectRef.current;
-    if (!el) return;
-    const handler = (e: WheelEvent) => {
-      e.preventDefault();
-      // เลื่อน Scroll Mouse (ถ้าถึงขอบก็จัดการด้วย)
-      const opts = ["ไม่ระบุ", ...YEARS];
-      const idx = opts.indexOf((el as HTMLSelectElement).value);
-      if (e.deltaY > 0 && idx < opts.length - 1)
-        setFormData((f) => ({ ...f, academic_year: opts[idx + 1] }));
-      else if (e.deltaY < 0 && idx > 0)
-        setFormData((f) => ({ ...f, academic_year: opts[idx - 1] }));
-    };
-    el.addEventListener("wheel", handler, { passive: false });
-    return () => el.removeEventListener("wheel", handler);
-  }, [YEARS]);
 
   interface EventItem {
     id: number;
@@ -124,7 +122,7 @@ export const UploadPhotoPage: React.FC = () => {
   useEffect(() => {
     if (!formData.title || events.length === 0) return;
     const matched = events.find((ev) => ev.event_name === formData.title);
-    if (matched && !formData.event_date) {
+    if (matched && formData.event_date === "ตั้งแต่วันที่...") {
       setFormData((f) => ({
         ...f,
         event_date: matched.event_date.split("T")[0],
@@ -351,7 +349,9 @@ export const UploadPhotoPage: React.FC = () => {
                         onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#f0f4ff")} onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#fff")}
                         onClick={() => { setFormData({ ...formData, title: ev.event_name, event_date: ev.event_date.split("T")[0] }); setIsDropdownOpen(false); }}
                       >
-                        <span className="fw-bold text-primary">{ev.event_name}</span><span className="text-muted small">{ev.event_date.split("T")[0]}</span>
+                        <span className="fw-bold text-primary">{ev.event_name}</span>
+                        {/* ✅ แสดงเวลาใน Dropdown เป็น พ.ศ. */}
+                        <span className="text-muted small">{formatThaiDate(ev.event_date)}</span>
                       </div>
                     ))}
                   </div>
@@ -384,7 +384,6 @@ export const UploadPhotoPage: React.FC = () => {
                       value={formData.faculty}
                       onChange={(e) => setFormData({ ...formData, faculty: e.target.value })}
                     >
-                      {/* ✅ FIX: value ต้องเป็น "ไม่ระบุ" เท่านั้น */}
                       <option value="ไม่ระบุ">-- ไม่ระบุ --</option>
                       <option value="มหาวิทยาลัย">มหาวิทยาลัย</option>
                       <option value="คณะวิศวกรรมศาสตร์">คณะวิศวกรรมศาสตร์</option>
@@ -403,11 +402,9 @@ export const UploadPhotoPage: React.FC = () => {
                   <Form.Group>
                     <Form.Label className="fw-bold">ปีการศึกษา</Form.Label>
                     <Form.Select
-                      ref={yearSelectRef}
                       value={formData.academic_year}
                       onChange={(e) => setFormData({ ...formData, academic_year: e.target.value }) }
                     >
-                      {/* ✅ FIX: value ต้องเป็น "ไม่ระบุ" */}
                       <option value="ไม่ระบุ">-- ไม่ระบุ --</option>
                       {YEARS.map((y) => (
                         <option key={y} value={y}>{y}</option>
@@ -419,7 +416,8 @@ export const UploadPhotoPage: React.FC = () => {
 
               <Form.Group className="mb-3">
                 <Form.Label className="fw-bold text-secondary">วันที่จัดอีเว้นท์ (ระบบกำหนดให้)</Form.Label>
-                <Form.Control type="text" value={formData.event_date} readOnly className="bg-light" tabIndex={-1} />
+                {/* ✅ แสดงวันที่ช่องกรอกเป็น พ.ศ. */}
+                <Form.Control type="text" value={formatThaiDate(formData.event_date)} readOnly className="bg-light text-muted" tabIndex={-1} />
                 {isValidEvent && (
                   <Form.Text className="text-muted">อีเว้นท์: <strong>{formData.title}</strong></Form.Text>
                 )}

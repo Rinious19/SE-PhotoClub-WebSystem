@@ -34,10 +34,30 @@ type EventItem = {
   event_date: string;
 };
 
-
 const getLocalDateStr = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// ✅ ฟังก์ชันบังคับแปลงวันที่ให้เป็น พ.ศ. (100% ไม่มีทางกลับไปเป็น ค.ศ.)
+const formatThaiDate = (dateStr: string) => {
+  if (!dateStr) return "-";
+  try {
+    const d = new Date(dateStr + "T12:00:00"); // ป้องกัน timezone เลื่อน
+    if (isNaN(d.getTime())) return dateStr;
+    
+    const day = d.getDate();
+    const thaiMonths = [
+      "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+      "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+    ];
+    const month = thaiMonths[d.getMonth()];
+    const year = d.getFullYear() + 543; // บังคับบวก 543
+    
+    return `${day} ${month} ${year}`;
+  } catch {
+    return dateStr;
+  }
 };
 
 export const EventManagementPage: React.FC = () => {
@@ -365,16 +385,8 @@ export const EventManagementPage: React.FC = () => {
                     {ev.event_name}
                   </Card.Title>
                   <Card.Text className="text-muted small">
-                    📅{" "}
-                    {ev.event_date
-                      ? new Date(
-                          ev.event_date + "T12:00:00",
-                        ).toLocaleDateString("th-TH", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })
-                      : "-"}
+                    {/* ✅ แก้ไขตรงนี้: เรียกใช้ formatThaiDate เพื่อบังคับเป็น พ.ศ. */}
+                    📅 {formatThaiDate(ev.event_date)}
                   </Card.Text>
                   <div className="d-flex gap-2 mt-3">
                     <Button

@@ -1,37 +1,77 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Container, Card, Form, Button, Row, Col,
-  Spinner, Alert, Modal,
+  Spinner, Alert, Modal, Badge,
 } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ActivityService }        from '@/services/ActivityService';
+import { EventService }           from '@/services/EventService';
+import { PhotoService }           from '@/services/PhotoService';
 import { parseApiError }          from '@/utils/apiError';
 import { CustomDatePicker }       from '@/components/common/CustomDatePicker';
 
 interface ActivityForEdit {
-  id:           number;
-  title:        string;
-  description?: string;
-  event_name:   string;
-  start_at:     string;
-  end_at:       string;
-  status:       'UPCOMING' | 'ACTIVE' | 'ENDED';
+  id:                 number;
+  title:              string;
+  description?:       string;
+  event_name:         string;
+  event_id?:          number; // ✅ ใส่ event_id ตรงนี้ให้แล้ว จะได้ไม่ฟ้อง Error แดง
+  faculty?:           string;
+  academic_year?:     string;
+  start_at:           string;
+  end_at:             string;
+  status:             'UPCOMING' | 'ACTIVE' | 'ENDED';
+  photos?:            any[];
+  excluded_photo_ids?: number[];
 }
 
-const toDatetimeLocal = (isoStr: string): string => {
-  if (!isoStr) return '';
-  try { return isoStr.substring(0, 16); } catch { return ''; }
+interface PhotoItem {
+  id:            number;
+  title:         string;
+  image_url:     string;
+  thumbnail_url: string | null;
+  faculty?:      string;
+  academic_year?: string;
+}
+
+const BASE_URL = 'http://localhost:5000';
+const getImageUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  return url.startsWith('http') ? url : `${BASE_URL}${url}`;
 };
 
-// ✅ คอมโพเนนต์กรอกเวลา (อัปเดต: ป้องกันหน้าเว็บเลื่อนตาม และ ป้องกันคลุมดำ)
+const parseApiDateStr = (dateStr: string) => {
+  if (!dateStr) return { d: '', t: '00:00' };
+  const cleanStr = dateStr.replace('T', ' '); 
+  const [datePart, timePart] = cleanStr.split(' ');
+  return {
+    d: datePart || '',
+    t: timePart ? timePart.substring(0, 5) : '00:00'
+  };
+};
+
+const formatThaiDateTime = (isoStr: string) => {
+  if (!isoStr) return '-';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear() + 543;
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy} เวลา ${hh}:${min} น.`;
+  } catch {
+    return isoStr;
+  }
+};
+
 const TimePicker24: React.FC<{ value: string, onChange: (v: string) => void }> = ({ value, onChange }) => {
   const [h, m] = (value || '00:00').split(':');
-  
   const startY = useRef<number | null>(null);
   const startVal = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 🛡️ ป้องกันหน้าเว็บเลื่อนตอนหมุนล้อเมาส์
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -85,13 +125,8 @@ const TimePicker24: React.FC<{ value: string, onChange: (v: string) => void }> =
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, type: 'h' | 'm') => {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      updateTime(type, type === 'h' ? h : m, 1);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      updateTime(type, type === 'h' ? h : m, -1);
-    }
+    if (e.key === 'ArrowUp') { e.preventDefault(); updateTime(type, type === 'h' ? h : m, 1); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); updateTime(type, type === 'h' ? h : m, -1); }
   };
 
   const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,44 +156,10 @@ const TimePicker24: React.FC<{ value: string, onChange: (v: string) => void }> =
   };
 
   return (
-    <div 
-      ref={containerRef}
-      className="d-flex align-items-center justify-content-center border border-secondary-subtle rounded bg-white px-2" 
-      style={{ height: '38px', width: '100px', transition: 'border-color 0.15s' }}
-    >
-      <input
-        type="text"
-        className="border-0 bg-transparent text-center p-0"
-        style={{ outline: 'none', fontWeight: '500', width: '28px', fontSize: '15px', touchAction: 'none', cursor: 'ns-resize', userSelect: 'none' }}
-        value={h}
-        maxLength={2}
-        onChange={handleHourChange}
-        onBlur={handleHourBlur}
-        onWheel={(e) => handleWheel(e, 'h')}
-        onPointerDown={(e) => handlePointerDown(e, 'h')}
-        onPointerMove={(e) => handlePointerMove(e, 'h')}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onKeyDown={(e) => handleKeyDown(e, 'h')}
-        placeholder="00"
-      />
+    <div ref={containerRef} className="d-flex align-items-center justify-content-center border border-secondary-subtle rounded bg-white px-2" style={{ height: '38px', width: '100px', transition: 'border-color 0.15s' }}>
+      <input type="text" className="border-0 bg-transparent text-center p-0" style={{ outline: 'none', fontWeight: '500', width: '28px', fontSize: '15px', touchAction: 'none', cursor: 'ns-resize', userSelect: 'none' }} value={h} maxLength={2} onChange={handleHourChange} onBlur={handleHourBlur} onWheel={(e) => handleWheel(e, 'h')} onPointerDown={(e) => handlePointerDown(e, 'h')} onPointerMove={(e) => handlePointerMove(e, 'h')} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onKeyDown={(e) => handleKeyDown(e, 'h')} placeholder="00" />
       <span className="fw-bold text-secondary mx-1 mb-1" style={{ userSelect: 'none' }}>:</span>
-      <input
-        type="text"
-        className="border-0 bg-transparent text-center p-0"
-        style={{ outline: 'none', fontWeight: '500', width: '28px', fontSize: '15px', touchAction: 'none', cursor: 'ns-resize', userSelect: 'none' }}
-        value={m}
-        maxLength={2}
-        onChange={handleMinuteChange}
-        onBlur={handleMinuteBlur}
-        onWheel={(e) => handleWheel(e, 'm')}
-        onPointerDown={(e) => handlePointerDown(e, 'm')}
-        onPointerMove={(e) => handlePointerMove(e, 'm')}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onKeyDown={(e) => handleKeyDown(e, 'm')}
-        placeholder="00"
-      />
+      <input type="text" className="border-0 bg-transparent text-center p-0" style={{ outline: 'none', fontWeight: '500', width: '28px', fontSize: '15px', touchAction: 'none', cursor: 'ns-resize', userSelect: 'none' }} value={m} maxLength={2} onChange={handleMinuteChange} onBlur={handleMinuteBlur} onWheel={(e) => handleWheel(e, 'm')} onPointerDown={(e) => handlePointerDown(e, 'm')} onPointerMove={(e) => handlePointerMove(e, 'm')} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onKeyDown={(e) => handleKeyDown(e, 'm')} placeholder="00" />
     </div>
   );
 };
@@ -176,6 +177,17 @@ export const EditActivityPage: React.FC = () => {
   const [endTime,   setEndTime]   = useState('');
 
   const [originalData, setOriginalData] = useState<ActivityForEdit | null>(null);
+  
+  const [eventId, setEventId] = useState<number | null>(null);
+  const [eventPhotos, setEventPhotos] = useState<PhotoItem[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  
+  const [initialExcludedPhotoIds, setInitialExcludedPhotoIds] = useState<Set<number>>(new Set());
+  const [excludedPhotoIds, setExcludedPhotoIds] = useState<Set<number>>(new Set());
+
+  const [filterFaculty, setFilterFaculty] = useState('');
+  const [filterYear,    setFilterYear]    = useState('');
+
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -186,30 +198,41 @@ export const EditActivityPage: React.FC = () => {
   const currentStartAt = startDate && startTime ? `${startDate}T${startTime}` : '';
   const currentEndAt   = endDate && endTime ? `${endDate}T${endTime}` : '';
 
+  const getLocalISO = (dateStr: string) => {
+    const obj = parseApiDateStr(dateStr);
+    return obj.d && obj.t ? `${obj.d}T${obj.t}` : '';
+  };
+
   useEffect(() => {
     if (!id) return;
     (async () => {
       try {
         setLoading(true);
-        const res = await ActivityService.getById(Number(id));
-        const a: ActivityForEdit = res.data;
+        const resAct = await ActivityService.getById(Number(id));
+        const a: ActivityForEdit = resAct.data;
         setOriginalData(a);
-        setTitle(a.title             || '');
+        setTitle(a.title || '');
         setDescription(a.description || '');
         
-        const dtStart = toDatetimeLocal(a.start_at);
-        if (dtStart) {
-          const [d, t] = dtStart.split('T');
-          setStartDate(d);
-          setStartTime(t);
-        }
+        if (a.faculty && a.faculty !== 'ไม่ระบุ' && a.faculty !== 'undefined') setFilterFaculty(a.faculty);
+        if (a.academic_year && a.academic_year !== 'ไม่ระบุ' && a.academic_year !== 'undefined') setFilterYear(a.academic_year);
         
-        const dtEnd = toDatetimeLocal(a.end_at);
-        if (dtEnd) {
-          const [d, t] = dtEnd.split('T');
-          setEndDate(d);
-          setEndTime(t);
+        const startObj = parseApiDateStr(a.start_at);
+        setStartDate(startObj.d);
+        setStartTime(startObj.t);
+        
+        const endObj = parseApiDateStr(a.end_at);
+        setEndDate(endObj.d);
+        setEndTime(endObj.t);
+
+        let evId = a.event_id;
+        if (!evId) {
+          const resEv = await EventService.getAll();
+          const matched = resEv.data?.find((e: any) => e.event_name === a.event_name);
+          if (matched) evId = matched.id;
         }
+        setEventId(evId || null);
+
       } catch (err: unknown) {
         setError(parseApiError(err, 'โหลดกิจกรรมไม่สำเร็จ'));
       } finally {
@@ -218,11 +241,83 @@ export const EditActivityPage: React.FC = () => {
     })();
   }, [id]);
 
+  useEffect(() => {
+    if (!eventId || !originalData) return;
+    setPhotosLoading(true);
+    PhotoService.getByEvent(eventId, 1)
+      .then(res => {
+        const allPhotos: PhotoItem[] = res.data || [];
+        setEventPhotos(allPhotos);
+
+        let excluded = new Set<number>();
+        
+        if (originalData.excluded_photo_ids !== undefined) {
+          originalData.excluded_photo_ids.forEach(pid => excluded.add(Number(pid)));
+        } else if (originalData.photos && originalData.photos.length > 0) {
+          const included = new Set(originalData.photos.map((p: any) => Number(p.photo_id || p.id)));
+          allPhotos.forEach(p => { 
+            if (!included.has(Number(p.id))) excluded.add(Number(p.id)); 
+          });
+        }
+        
+        setInitialExcludedPhotoIds(excluded);
+        setExcludedPhotoIds(new Set(excluded));
+      })
+      .catch(() => setEventPhotos([]))
+      .finally(() => setPhotosLoading(false));
+  }, [eventId, originalData]);
+
+  const displayedPhotos = useMemo(() => eventPhotos.filter(p => {
+    const facultyMatch = !filterFaculty || (p.faculty || '') === filterFaculty;
+    const yearMatch    = !filterYear    || (p.academic_year || '') === filterYear;
+    return facultyMatch && yearMatch;
+  }), [eventPhotos, filterFaculty, filterYear]);
+
+  const allDisplayedSelected = useMemo(() => {
+    if (displayedPhotos.length === 0) return false;
+    return !displayedPhotos.some(p => excludedPhotoIds.has(Number(p.id)));
+  }, [displayedPhotos, excludedPhotoIds]);
+
+  const availableFaculties = useMemo(() => [...new Set(eventPhotos.map(p => p.faculty).filter(Boolean))] as string[], [eventPhotos]);
+  const availableYears     = useMemo(() => [...new Set(eventPhotos.map(p => p.academic_year).filter(Boolean))] as string[], [eventPhotos]);
+
+  const includedCount = displayedPhotos.filter(p => !excludedPhotoIds.has(Number(p.id))).length;
+
+  const toggleExclude = (photoId: number) => {
+    setExcludedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(Number(photoId))) next.delete(Number(photoId));
+      else next.add(Number(photoId));
+      return next;
+    });
+  };
+
+  const selectAllDisplayed = () => {
+    setExcludedPhotoIds(prev => {
+      const next = new Set(prev);
+      displayedPhotos.forEach(p => next.delete(Number(p.id)));
+      return next;
+    });
+  };
+
+  const deselectAllDisplayed = () => {
+    setExcludedPhotoIds(prev => {
+      const next = new Set(prev);
+      displayedPhotos.forEach(p => next.add(Number(p.id)));
+      return next;
+    });
+  };
+
+  const addedCount   = Array.from(initialExcludedPhotoIds).filter(id => !excludedPhotoIds.has(id)).length;
+  const removedCount = Array.from(excludedPhotoIds).filter(id => !initialExcludedPhotoIds.has(id)).length;
+  const photoChanged = addedCount > 0 || removedCount > 0;
+
   const hasChanges = originalData !== null && (
     title.trim()       !== (originalData.title        || '') ||
     description.trim() !== (originalData.description  || '') ||
-    currentStartAt     !== toDatetimeLocal(originalData.start_at) ||
-    currentEndAt       !== toDatetimeLocal(originalData.end_at)
+    currentStartAt     !== getLocalISO(originalData.start_at) ||
+    currentEndAt       !== getLocalISO(originalData.end_at) ||
+    photoChanged
   );
 
   const handleSubmitClick = (e: React.FormEvent) => {
@@ -234,6 +329,10 @@ export const EditActivityPage: React.FC = () => {
     if (!endDate || !endTime)      { setFormError('กรุณากำหนดวันเวลาสิ้นสุดให้ครบถ้วน'); return; }
     if (new Date(currentEndAt) <= new Date(currentStartAt)) {
       setFormError('วันสิ้นสุดต้องมาหลังวันเริ่มต้น');
+      return;
+    }
+    if (eventPhotos.length - excludedPhotoIds.size < 1) {
+      setFormError('กิจกรรมต้องมีรูปภาพอย่างน้อย 1 รูป');
       return;
     }
     if (!hasChanges) {
@@ -250,14 +349,21 @@ export const EditActivityPage: React.FC = () => {
       const token = localStorage.getItem('token');
       const formatTimeToSubmit = (timeStr: string) => timeStr ? `${timeStr}:00Z` : '';
 
+      // ดึงรายการ ID จาก State มาเป็น Array
+      const excludedIdsArray = Array.from(excludedPhotoIds);
+
       await ActivityService.update(
         Number(id),
         {
-          title:       title.trim(),
-          description: description.trim() || undefined,
-          start_at:    formatTimeToSubmit(currentStartAt),
-          end_at:      formatTimeToSubmit(currentEndAt),
-        },
+          title:              title.trim(),
+          description:        description.trim() || undefined,
+          start_at:           formatTimeToSubmit(currentStartAt),
+          end_at:             formatTimeToSubmit(currentEndAt),
+          faculty:            filterFaculty      || undefined, 
+          academic_year:      filterYear         || undefined,
+          event_id:           eventId,            // ✅ สำคัญมาก
+          excluded_photo_ids: excludedIdsArray,   // ✅ สำคัญมาก
+        } as any, 
         token!
       );
       setShowSuccess(true);
@@ -288,49 +394,47 @@ export const EditActivityPage: React.FC = () => {
 
   return (
     <Container className="py-5">
-      <Card className="border-0 shadow-sm rounded-4 p-4 mx-auto" style={{ maxWidth: 600 }}>
+      <Card className="border-0 shadow-sm rounded-4 p-4 mx-auto" style={{ maxWidth: 880 }}>
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <h3 className="fw-bold mb-0">✏️ แก้ไขกิจกรรม</h3>
+          <div>
+            <h3 className="fw-bold mb-1">✏️ แก้ไขกิจกรรม</h3>
+            <p className="text-muted small mb-0">ปรับเปลี่ยนข้อมูลเวลา หรือ รูปภาพในกิจกรรม</p>
+          </div>
           <Button variant="outline-secondary" size="sm" className="rounded-pill" onClick={() => navigate(`/activities/${id}`)}>
             ← กลับ
           </Button>
         </div>
 
-        {originalData && (
-          <Alert variant="info" className="py-2 small">
-            📂 อีเว้นท์ต้นทาง: <strong>{originalData.event_name}</strong>
-            <br />
-            <span className="text-muted">ไม่สามารถเปลี่ยนอีเว้นท์ได้ หากต้องการเปลี่ยนกรุณาสร้างกิจกรรมใหม่</span>
-          </Alert>
-        )}
-
         {formError && <Alert variant="danger">{formError}</Alert>}
 
         <Form onSubmit={handleSubmitClick}>
-          <Row className="g-3">
-            <Col xs={12}>
-              <Form.Group>
+          <Row className="g-4">
+            <Col md={5}>
+              <Form.Group className="mb-3">
                 <Form.Label className="fw-bold">
                   ชื่อกิจกรรม <span className="text-danger">*</span>
                 </Form.Label>
                 <Form.Control type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
               </Form.Group>
-            </Col>
 
-            <Col xs={12}>
-              <div className="p-3 my-2 border rounded-4 bg-light shadow-sm">
+              <Form.Group className="mb-3">
+                <Form.Label className="fw-bold">อีเว้นท์</Form.Label>
+                <div className="px-3 py-2 border rounded bg-light text-muted d-flex align-items-center">
+                  <span className="me-2">📂</span> <strong className="text-dark">{originalData?.event_name}</strong>
+                </div>
+                <Form.Text className="text-muted small">
+                  ไม่สามารถเปลี่ยนอีเว้นท์ได้ หากต้องการเปลี่ยนกรุณาสร้างกิจกรรมใหม่
+                </Form.Text>
+              </Form.Group>
+
+              <div className="p-3 mb-4 border rounded-4 bg-light shadow-sm">
                 <Form.Group className="mb-3">
                   <Form.Label className="fw-bold text-dark mb-2" style={{ fontSize: '0.95rem' }}>
                     🟢 วันเวลาเริ่มต้น <span className="text-danger">*</span>
                   </Form.Label>
                   <div className="d-flex gap-2">
                     <div className="flex-grow-1">
-                      <CustomDatePicker 
-                        value={startDate} 
-                        onChange={setStartDate} 
-                        placeholder="เลือกวันที่เริ่มต้น"
-                        size="md"
-                      />
+                      <CustomDatePicker value={startDate} onChange={setStartDate} placeholder="เลือกวันที่เริ่มต้น" size="md" />
                     </div>
                     <TimePicker24 value={startTime} onChange={setStartTime} />
                   </div>
@@ -342,44 +446,138 @@ export const EditActivityPage: React.FC = () => {
                   </Form.Label>
                   <div className="d-flex gap-2">
                     <div className="flex-grow-1">
-                      <CustomDatePicker 
-                        value={endDate} 
-                        min={startDate}
-                        onChange={setEndDate} 
-                        placeholder="เลือกวันที่สิ้นสุด"
-                        size="md"
-                      />
+                      <CustomDatePicker value={endDate} min={startDate} onChange={setEndDate} placeholder="เลือกวันที่สิ้นสุด" size="md" />
                     </div>
                     <TimePicker24 value={endTime} onChange={setEndTime} />
                   </div>
                 </Form.Group>
               </div>
-            </Col>
 
-            <Col xs={12}>
-              <Form.Group>
+              <Form.Group className="mb-4">
                 <Form.Label className="fw-bold">คำอธิบาย</Form.Label>
                 <Form.Control as="textarea" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
               </Form.Group>
+
+              <Button type="submit" variant="warning" className="w-100 fw-bold rounded-pill py-2" disabled={submitting || !hasChanges} style={{ opacity: hasChanges ? 1 : 0.5 }}>
+                {submitting ? <><Spinner size="sm" className="me-1" />กำลังบันทึก...</> : '💾 บันทึกการแก้ไข'}
+              </Button>
+              <Button variant="light" className="w-100 mt-2 rounded-pill" onClick={() => navigate(`/activities/${id}`)}>ยกเลิก</Button>
+            </Col>
+
+            <Col md={7}>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <Form.Label className="fw-bold mb-0">
+                  รูปภาพในกิจกรรม
+                  {includedCount > 0 && <Badge bg="primary" className="ms-2 rounded-pill">{includedCount} รูป</Badge>}
+                </Form.Label>
+
+                {eventPhotos.length > 0 && displayedPhotos.length > 0 && (
+                  allDisplayedSelected ? (
+                    <button 
+                      type="button"
+                      onClick={deselectAllDisplayed}
+                      className="d-flex align-items-center justify-content-center px-3 py-1 border-0"
+                      style={{ borderRadius: '20px', fontSize: '13px', fontWeight: '500', background: '#6c757d', color: '#fff', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                    >
+                      <span style={{ fontSize: '15px', marginRight: '6px', lineHeight: 1 }}>✕</span> 
+                      ยกเลิกทั้งหมด
+                    </button>
+                  ) : (
+                    <button 
+                      type="button"
+                      onClick={selectAllDisplayed}
+                      className="d-flex align-items-center justify-content-center px-3 py-1 bg-white"
+                      style={{ borderRadius: '20px', fontSize: '13px', fontWeight: '500', color: '#6842ff', border: '1px solid #ced4da', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}
+                    >
+                      <span style={{ background: '#6842ff', color: '#fff', borderRadius: '4px', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '6px', fontSize: '11px' }}>✓</span> 
+                      เลือกทั้งหมด
+                    </button>
+                  )
+                )}
+              </div>
+
+              {photosLoading && (
+                <div className="text-center py-5 border rounded-3 bg-light">
+                  <Spinner animation="border" size="sm" variant="secondary" />
+                  <span className="ms-2 text-muted small">กำลังโหลดรูปภาพ...</span>
+                </div>
+              )}
+
+              {!photosLoading && eventPhotos.length === 0 && (
+                <Alert variant="warning">ไม่พบรูปภาพในอีเว้นท์นี้</Alert>
+              )}
+
+              {!photosLoading && eventPhotos.length > 0 && (
+                <>
+                  {(availableFaculties.length > 0 || availableYears.length > 0) && (
+                    <div className="d-flex gap-2 mb-2 flex-wrap align-items-center">
+                      <small className="text-muted fw-bold">กรองรูป:</small>
+                      {availableFaculties.length > 0 && (
+                        <Form.Select size="sm" style={{ width: 'auto' }} value={filterFaculty} onChange={e => setFilterFaculty(e.target.value)}>
+                          <option value="">-- ทุกคณะ --</option>
+                          {availableFaculties.map(f => <option key={f} value={f}>{f}</option>)}
+                        </Form.Select>
+                      )}
+                      {availableYears.length > 0 && (
+                        <Form.Select size="sm" style={{ width: 'auto' }} value={filterYear} onChange={e => setFilterYear(e.target.value)}>
+                          <option value="">-- ทุกปี --</option>
+                          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                        </Form.Select>
+                      )}
+                      {(filterFaculty || filterYear) && (
+                        <Button size="sm" variant="outline-secondary" onClick={() => { setFilterFaculty(''); setFilterYear(''); }}>ล้าง</Button>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-muted small mb-2">กดที่รูปเพื่อเพิ่ม/นำออกจากกิจกรรม <strong className="text-success">(กรอบเขียว = อยู่ในกิจกรรม)</strong></p>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, maxHeight: 400, overflowY: 'auto', padding: 4 }}>
+                    {displayedPhotos.map((photo) => {
+                      const isExcluded = excludedPhotoIds.has(Number(photo.id));
+                      const isSelected = !isExcluded; // ✅ รูปที่ไม่อยู่ในกลุ่มยกเว้น = ถูกเลือก
+                      
+                      return (
+                        <div key={photo.id} onClick={() => toggleExclude(photo.id)}
+                          style={{
+                            position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', cursor: 'pointer',
+                            // ✅ คืนชีพกรอบเขียว และ รูปทึบตอนเอาออก
+                            opacity: isSelected ? 1 : 0.4, transition: 'all .2s',
+                            boxShadow: isSelected ? '0 0 0 3px #198754' : '0 1px 4px rgba(0,0,0,.1)',
+                          }}>
+                          <img src={getImageUrl(photo.thumbnail_url || photo.image_url)} alt={photo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </Col>
           </Row>
-
-          <div className="d-grid gap-2 mt-4">
-            <Button type="submit" variant="warning" className="fw-bold rounded-pill py-2" disabled={submitting || !hasChanges} style={{ opacity: hasChanges ? 1 : 0.5 }}>
-              {submitting ? <><Spinner size="sm" className="me-1" />กำลังบันทึก...</> : '💾 บันทึกการแก้ไข'}
-            </Button>
-            <Button variant="light" className="rounded-pill" onClick={() => navigate(`/activities/${id}`)}>ยกเลิก</Button>
-          </div>
         </Form>
       </Card>
 
       <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="fw-bold">⚠️ ยืนยันการแก้ไข</Modal.Title>
+          <Modal.Title className="fw-bold">⚠️ ยืนยันการแก้ไขกิจกรรม</Modal.Title>
         </Modal.Header>
-        <Modal.Body className="text-center py-3">
-          <p className="fs-5 mb-1">ต้องการบันทึกการเปลี่ยนแปลงใช่หรือไม่?</p>
-          <small className="text-muted">ข้อมูลกิจกรรมจะถูกอัปเดตทันที</small>
+        <Modal.Body>
+          <p className="mb-2">ข้อมูลกิจกรรมที่จะเปลี่ยนแปลง:</p>
+          <ul className="list-unstyled ps-2 text-secondary small">
+            <li>📌 ชื่อ: <strong className="text-dark">{title}</strong></li>
+            <li>🕐 เริ่ม: <strong className="text-dark">{formatThaiDateTime(currentStartAt)}</strong></li>
+            <li>🔚 สิ้นสุด: <strong className="text-dark">{formatThaiDateTime(currentEndAt)}</strong></li>
+            
+            {photoChanged && (
+              <li className="mt-3 pt-3 border-top">
+                🖼️ <strong>การเปลี่ยนแปลงรูปภาพ:</strong>
+                <div className="mt-2 d-flex flex-column gap-1">
+                  {addedCount > 0 && <span><Badge bg="success" className="me-2">เพิ่มเข้า</Badge> <strong className="text-success">{addedCount} รูป</strong></span>}
+                  {removedCount > 0 && <span><Badge bg="danger" className="me-2">นำออก</Badge> <strong className="text-danger">{removedCount} รูป</strong></span>}
+                  <span className="mt-1">✅ คงเหลือในกิจกรรมทั้งหมด: <strong>{eventPhotos.length - excludedPhotoIds.size} รูป</strong></span>
+                </div>
+              </li>
+            )}
+          </ul>
         </Modal.Body>
         <Modal.Footer className="justify-content-center gap-2">
           <Button variant="secondary" onClick={() => setShowConfirm(false)}>ยกเลิก</Button>

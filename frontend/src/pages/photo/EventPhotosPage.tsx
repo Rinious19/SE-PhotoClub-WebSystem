@@ -161,15 +161,11 @@ export const EventPhotosPage: React.FC = () => {
   const exitMode = () => { setActiveMode('none'); setSelectedIds(new Set()); setBulkDeleteError(null); setBulkEditError(null); };
   const enterMode = (mode: ActiveMode) => { setActiveMode(mode); setSelectedIds(new Set()); };
   
-  // ✅ แก้ไข: ใช้ if-else แบบเต็มแทน Ternary เพื่อไม่ให้ผิดกฏ unused-expressions
   const toggleSelect = (id: number) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -345,10 +341,43 @@ export const EventPhotosPage: React.FC = () => {
         <Modal.Footer className="justify-content-center gap-2"><Button variant="secondary" onClick={() => setDeleteTarget(null)}>ยกเลิก</Button><Button variant="danger" className="fw-bold" onClick={confirmDelete}>ลบรูปภาพ</Button></Modal.Footer>
       </Modal>
 
-      <Modal show={!!lightboxPhoto} onHide={() => setLightboxPhoto(null)} size="xl" centered>
-        <Modal.Header closeButton className="border-0 pb-0"><Modal.Title className="fs-6 text-muted">{lightboxPhoto?.title}{lightboxPhoto?.event_date && <Badge bg="light" text="dark" className="ms-2 fw-normal">📅 {new Date(lightboxPhoto.event_date + 'T12:00:00').toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</Badge>}<Badge bg="light" text="dark" className="ms-1 fw-normal">🏛 {lightboxPhoto?.faculty}</Badge><Badge bg="light" text="dark" className="ms-1 fw-normal">📚 ปี {lightboxPhoto?.academic_year}</Badge></Modal.Title></Modal.Header>
-        <Modal.Body className="p-2 text-center">{lightboxPhoto && <img src={getImageUrl(lightboxPhoto.image_url)} alt={lightboxPhoto.title} style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: 8 }} />}{lightboxPhoto?.description && <p className="text-muted small mt-2 mb-0">{lightboxPhoto.description}</p>}</Modal.Body>
+      {/* ✅ ปรับปรุง Lightbox Modal ดีไซน์ทรงเดียวกับหน้าโหวต */}
+      <Modal show={!!lightboxPhoto} onHide={() => setLightboxPhoto(null)} size="lg" centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold fs-5 text-muted">รายละเอียดรูปภาพ</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center p-3">
+          {lightboxPhoto && (
+            <>
+              <img src={getImageUrl(lightboxPhoto.image_url)} alt={lightboxPhoto.title} style={{ width: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: "8px", backgroundColor: "#f8f9fa" }} />
+              <h4 className="mt-3 mb-1 fw-bold text-dark">{lightboxPhoto.title}</h4>
+              {lightboxPhoto.description && (
+                <p className="text-secondary mt-2 mb-0 px-md-5">{lightboxPhoto.description}</p>
+              )}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="d-flex justify-content-between align-items-center bg-light border-0 rounded-bottom">
+          {lightboxPhoto && (
+            <div className="w-100 text-start">
+              <Row>
+                <Col md={12}>
+                  <p className="mb-1 small">
+                    <strong className="text-secondary">📂 อีเว้นท์:</strong> <span className="text-dark fw-medium">{eventName || "ไม่ระบุ"}</span>
+                  </p>
+                  <p className="mb-1 small">
+                    <strong className="text-secondary">🏫 คณะ:</strong> <span className="text-dark fw-medium">{lightboxPhoto.faculty && lightboxPhoto.faculty !== "undefined" ? lightboxPhoto.faculty : "ไม่ระบุ"}</span>
+                  </p>
+                  <p className="mb-0 small">
+                    <strong className="text-secondary">🎓 ปีการศึกษา:</strong> <span className="text-dark fw-medium">{lightboxPhoto.academic_year && lightboxPhoto.academic_year !== "undefined" ? lightboxPhoto.academic_year : "ไม่ระบุ"}</span>
+                  </p>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Footer>
       </Modal>
+
     </Container>
   );
 };

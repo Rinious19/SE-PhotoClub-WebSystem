@@ -1,13 +1,22 @@
 import React, { useState, useMemo } from "react";
-import { Card, Button, Modal } from "react-bootstrap";
+import { Card, Button, Modal, Row, Col } from "react-bootstrap";
 import { PhotoService } from "../../services/PhotoService";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AlertModal } from "../common/AlertModal";
 
 interface PhotoCardProps {
-  // 🌟 ปรับ image_url เป็น any เพื่อรองรับทั้ง string (URL) และ Object (Buffer/BLOB)
-  photo: { id: number; title: string; description?: string; image_url: any };
+  // 🌟 ปรับเพิ่ม event_name, faculty, academic_year เข้ามาเผื่อรองรับข้อมูลจากหลังบ้าน
+  photo: { 
+    id: number; 
+    title: string; 
+    description?: string; 
+    image_url: any;
+    event_name?: string;
+    faculty?: string;
+    academic_year?: string;
+    [key: string]: any;
+  };
   onPhotoDeleted?: () => void;
 }
 
@@ -119,12 +128,11 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
         </div>
 
         <Card.Body className="d-flex flex-column">
-          // แก้บรรทัด Card.Title
           <Card.Title className="fw-bold text-dark">
-            {(photo as any).display_title || photo.title}
+            {photo.display_title || photo.title}
           </Card.Title>
           <Card.Text className="small text-muted text-truncate">
-            {photo.description}
+            {photo.description || "-"}
           </Card.Text>
           {canManage && (
             <div className="d-flex gap-2 mt-auto pt-3">
@@ -147,33 +155,68 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
         </Card.Body>
       </Card>
 
-      {/* 🔴 Lightbox Modal */}
+      {/* 🔴 Lightbox Modal (ดีไซน์ใหม่ให้เหมือนหน้าโหวต) */}
       <Modal
         show={showLightbox}
         onHide={handleCloseLightbox}
         size="lg"
         centered
       >
-        <Modal.Header closeButton className="border-0">
-          <Modal.Title className="fw-bold">{photo.title}</Modal.Title>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold fs-5 text-muted">
+            รายละเอียดรูปภาพ
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body className="text-center p-0">
+        <Modal.Body className="text-center p-3">
           <img
             src={displayImage}
             alt={photo.title}
-            style={{ width: "100%", maxHeight: "70vh", objectFit: "contain" }}
+            style={{
+              width: "100%",
+              maxHeight: "65vh",
+              objectFit: "contain",
+              borderRadius: "8px",
+              backgroundColor: "#f8f9fa",
+            }}
           />
-          <div className="p-4 bg-light text-start">
-            <h5 className="fw-bold">รายละเอียดภาพ</h5>
-            <p className="text-secondary mb-0">
-              {photo.description || "ไม่มีคำอธิบายสำหรับภาพนี้"}
+          <h4 className="mt-3 mb-1 fw-bold text-dark">
+            {photo.display_title || photo.title}
+          </h4>
+          {photo.description && (
+            <p className="text-secondary mt-2 mb-0 px-md-5">
+              {photo.description}
             </p>
-          </div>
+          )}
         </Modal.Body>
-        <Modal.Footer className="border-0">
-          <Button variant="secondary" onClick={handleCloseLightbox}>
-            ปิดหน้าต่าง
-          </Button>
+        <Modal.Footer className="d-flex justify-content-between align-items-center bg-light border-0 rounded-bottom">
+          <div className="w-100 text-start">
+            <Row>
+              <Col md={12}>
+                <p className="mb-1 small">
+                  <strong className="text-secondary">📂 อีเว้นท์:</strong>{" "}
+                  <span className="text-dark fw-medium">
+                    {photo.event_name || "ไม่ระบุ"}
+                  </span>
+                </p>
+                <p className="mb-1 small">
+                  <strong className="text-secondary">🏫 คณะ:</strong>{" "}
+                  <span className="text-dark fw-medium">
+                    {photo.faculty && photo.faculty !== "undefined"
+                      ? photo.faculty
+                      : "ไม่ระบุ"}
+                  </span>
+                </p>
+                <p className="mb-0 small">
+                  <strong className="text-secondary">🎓 ปีการศึกษา:</strong>{" "}
+                  <span className="text-dark fw-medium">
+                    {photo.academic_year && photo.academic_year !== "undefined"
+                      ? photo.academic_year
+                      : "ไม่ระบุ"}
+                  </span>
+                </p>
+              </Col>
+            </Row>
+          </div>
         </Modal.Footer>
       </Modal>
 
