@@ -177,7 +177,6 @@ export const ActivityDetailPage: React.FC = () => {
             <p className="text-muted small mt-2 mb-0">📅 {formatThaiDate(activity.start_at)} – {formatThaiDate(activity.end_at)}</p>
             {activity.description && <p className="text-secondary mt-2 mb-0">{activity.description}</p>}
           </div>
-          {canManage && <Button variant="outline-warning" size="sm" className="rounded-pill px-3" onClick={() => navigate(`/activities/edit/${activity.id}`)}>✏️ แก้ไขกิจกรรม</Button>}
         </div>
 
         {activity.status === "ACTIVE" && (

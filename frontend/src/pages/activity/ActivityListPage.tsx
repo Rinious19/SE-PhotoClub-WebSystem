@@ -22,7 +22,7 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
   const { user }  = useAuth();
   
   const statusConfig = {
-    UPCOMING: { color: '#ffc107', label: '🟡 รอดำเนินงาน', btn: 'btn-outline-warning' },
+    UPCOMING: { color: '#ffc107', label: '🟡 รอดำเนินการ', btn: 'btn-outline-warning' },
     ACTIVE:   { color: '#198754', label: '🟢 กำลังดำเนินการ', btn: 'btn-success' },
     ENDED:    { color: '#6c757d', label: '⚫ สิ้นสุดแล้ว', btn: 'btn-outline-secondary' },
   };
@@ -82,13 +82,6 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
           >
             {activity.status === 'ACTIVE' ? '🗳️ โหวตเลย' : '🔍 ดูรายละเอียด'}
           </Link>
-          {(user?.role === 'ADMIN' || user?.role === 'CLUB_PRESIDENT') && (
-            <Link
-              to={`/activities/edit/${activity.id}`}
-              className="btn btn-sm btn-outline-warning rounded-pill px-3"
-              style={{ fontSize:12 }}
-            >✏️</Link>
-          )}
         </div>
       </Card.Body>
     </Card>
@@ -144,7 +137,7 @@ export const ActivityListPage: React.FC = () => {
   const navigate    = useNavigate();
   const { user }    = useAuth();
   
-  // ✅ เช็คสิทธิ์การมองเห็นกิจกรรมรอดำเนินงาน
+  // ✅ เช็คสิทธิ์การมองเห็นกิจกรรมรอดำเนินการ
   const canSeeUpcoming = user?.role === 'ADMIN' || user?.role === 'CLUB_PRESIDENT';
   const isPresident    = user?.role === 'CLUB_PRESIDENT';
 
@@ -256,13 +249,13 @@ export const ActivityListPage: React.FC = () => {
               กำลังดำเนินการ
           </button>
 
-          {/* ✅ แสดงปุ่ม "รอดำเนินงาน" เฉพาะคนที่มีสิทธิ์ */}
+          {/* ✅ แสดงปุ่ม "รอดำเนินการ" เฉพาะคนที่มีสิทธิ์ */}
           {canSeeUpcoming && (
             <button onClick={() => setTabStatus('UPCOMING')}
                 className="d-flex align-items-center gap-1 border-0 rounded-pill px-3 py-1 fw-medium"
                 style={{ fontSize:13, cursor:'pointer', background: tabStatus === 'UPCOMING' ? '#212529' : '#fff', color: tabStatus === 'UPCOMING' ? '#fff' : '#495057', boxShadow: tabStatus === 'UPCOMING' ? 'none' : '0 0 0 1px #dee2e6' }}>
                 <span style={{ width:8, height:8, borderRadius:'50%', background:'#ffc107', display:'inline-block' }} />
-                รอดำเนินงาน
+                รอดำเนินการ
             </button>
           )}
 
@@ -289,11 +282,11 @@ export const ActivityListPage: React.FC = () => {
           emptyText="ไม่มีกิจกรรมที่กำลังดำเนินการในขณะนี้" emptyIcon="📭" />
       )}
 
-      {/* 🟡 ส่วนที่ 2: รอดำเนินงาน (แสดงเฉพาะ ADMIN / CLUB_PRESIDENT) */}
+      {/* 🟡 ส่วนที่ 2: รอดำเนินการ (แสดงเฉพาะ ADMIN / CLUB_PRESIDENT) */}
       {canSeeUpcoming && (tabStatus === 'all' || tabStatus === 'UPCOMING') && (
-        <ActivitySection title="รอดำเนินงาน" dot="#ffc107"
+        <ActivitySection title="รอดำเนินการ" dot="#ffc107"
           items={upcomingItems} loading={loading}
-          emptyText="ไม่มีกิจกรรมที่รอดำเนินงาน" emptyIcon="⏳" />
+          emptyText="ไม่มีกิจกรรมที่รอดำเนินการ" emptyIcon="⏳" />
       )}
 
       {/* ⚫ ส่วนที่ 3: สิ้นสุดแล้ว */}

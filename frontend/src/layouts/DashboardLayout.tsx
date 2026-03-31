@@ -7,7 +7,7 @@ interface SidebarItem {
   to: string;
   icon: string;
   label: string;
-  adminOnly?: boolean;
+  presidentOnly?: boolean; // เปลี่ยนจาก adminOnly เป็น presidentOnly
 }
 
 export const DashboardLayout: React.FC = () => {
@@ -17,15 +17,25 @@ export const DashboardLayout: React.FC = () => {
 
   const SIDEBAR_ITEMS: SidebarItem[] = [
     { to: "/admin", icon: "🏠", label: "Dashboard" },
-    { to: "/admin/members", icon: "👥", label: "จัดการสมาชิก", adminOnly: true },
+    { 
+      to: "/admin/members", 
+      icon: "👥", 
+      label: "จัดการสมาชิก", 
+      presidentOnly: true // กำหนดให้เฉพาะประธานชมรมเห็น
+    },
     { to: "/admin/history", icon: "📋", label: "ประวัติการใช้งาน" },
     { to: "/event-management", icon: "📅", label: "จัดการอีเว้นท์" },
     { to: "/photos/upload", icon: "📸", label: "อัปโหลดรูปภาพ" },
   ];
 
-  const visibleItems = SIDEBAR_ITEMS.filter(
-    (item) => !item.adminOnly || user?.role === "ADMIN"
-  );
+  // กรองเมนู Sidebar: 
+  // ถ้าเป็น presidentOnly จะแสดงก็ต่อเมื่อ role คือ CLUB_PRESIDENT เท่านั้น
+  const visibleItems = SIDEBAR_ITEMS.filter((item) => {
+    if (item.presidentOnly) {
+      return user?.role === "CLUB_PRESIDENT";
+    }
+    return true; // เมนูอื่นๆ แอดมินและประธานชมรมเห็นได้ตามปกติ
+  });
 
   const handleLogout = (e: React.MouseEvent) => {
     e.stopPropagation();
