@@ -76,8 +76,9 @@ export const ActivityDetailPage: React.FC = () => {
   const [voteResultMsg, setVoteResultMsg] = useState({ show: false, success: false, msg: "" });
 
   const [showGuestModal, setShowGuestModal] = useState(false);
-  const [deletePhotoTarget, setDeletePhotoTarget] = useState<ActivityPhoto | null>(null);
-  const [deletePhotoLoading, setDeletePhotoLoading] = useState(false);
+  // ลบ State ที่เกี่ยวกับปุ่มลบรูปภาพออก
+  // const [deletePhotoTarget, setDeletePhotoTarget] = useState<ActivityPhoto | null>(null);
+  // const [deletePhotoLoading, setDeletePhotoLoading] = useState(false);
 
   const [viewPhoto, setViewPhoto] = useState<ActivityPhoto | null>(null);
 
@@ -126,6 +127,8 @@ export const ActivityDetailPage: React.FC = () => {
     }
   };
 
+  // ลบฟังก์ชัน confirmDeletePhoto ออก
+  /*
   const confirmDeletePhoto = async () => {
     if (!deletePhotoTarget || !activity) return;
     setDeletePhotoLoading(true);
@@ -140,6 +143,7 @@ export const ActivityDetailPage: React.FC = () => {
       setDeletePhotoLoading(false);
     }
   };
+  */
 
   const getProgressPercent = (): number => {
     if (!activity) return 0;
@@ -178,7 +182,6 @@ export const ActivityDetailPage: React.FC = () => {
             {activity.description && <p className="text-secondary mt-2 mb-0">{activity.description}</p>}
           </div>
 
-          {/* ✅ นำปุ่มแก้ไขกลับมา: โชว์เฉพาะตอนที่มีสิทธิ์และกิจกรรมยังไม่เริ่ม */}
           {canManage && activity.status === "UPCOMING" && (
             <Button 
               variant="outline-warning" 
@@ -217,7 +220,8 @@ export const ActivityDetailPage: React.FC = () => {
                 <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden", cursor: "pointer" }} onClick={() => setViewPhoto(photo)}>
                   <img src={imgSrc} alt={photo.photo_title} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.2s ease" }} onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")} onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")} loading="lazy" />
                   {isWinner && <div style={{ position: "absolute", top: 8, left: 8, background: "#ffc107", color: "#000", borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>🏆 อันดับ 1</div>}
-                  {canManage && activity.status !== "ENDED" && <Button size="sm" variant="danger" style={{ position: "absolute", top: 6, right: 6, padding: "2px 8px", fontSize: 11, borderRadius: 6 }} onClick={(e) => { e.stopPropagation(); setDeletePhotoTarget(photo); }}>✕</Button>}
+                  
+                  {/* ✅ ลบโค้ดบล็อกของปุ่ม X (กากบาทลบรูปภาพ) ออกเรียบร้อยแล้ว */}
                 </div>
                 <Card.Body className="p-2">
                   {activity.status !== "UPCOMING" && <div className="text-center small fw-bold text-muted mb-2 mt-1">{photo.vote_count} โหวต</div>}
@@ -267,7 +271,11 @@ export const ActivityDetailPage: React.FC = () => {
       <Modal show={pendingVotePhotoId !== null} onHide={() => !voteLoading && setPendingVotePhotoId(null)} centered><Modal.Header closeButton={!voteLoading}><Modal.Title className="fw-bold">🗳️ ยืนยันการโหวต</Modal.Title></Modal.Header><Modal.Body className="text-center py-3"><p className="fs-5 mb-1">ต้องการโหวตให้รูปภาพนี้ใช่หรือไม่?</p><small className="text-muted">คุณสามารถโหวตได้ 1 ครั้งต่อกิจกรรมเท่านั้น</small></Modal.Body><Modal.Footer className="justify-content-center gap-2"><Button variant="secondary" disabled={voteLoading} onClick={() => setPendingVotePhotoId(null)}>ยกเลิก</Button><Button variant="primary" className="fw-bold" onClick={confirmVote} disabled={voteLoading}>{voteLoading ? <><Spinner size="sm" className="me-1" />กำลังโหวต...</> : "ยืนยันโหวต"}</Button></Modal.Footer></Modal>
       <Modal show={voteResultMsg.show} onHide={() => setVoteResultMsg(p => ({ ...p, show: false }))} centered><Modal.Header closeButton className={voteResultMsg.success ? "bg-success text-white" : "bg-danger text-white"}><Modal.Title className="fw-bold">{voteResultMsg.success ? "✅ สำเร็จ" : "❌ เกิดข้อผิดพลาด"}</Modal.Title></Modal.Header><Modal.Body className="text-center py-3 fs-5">{voteResultMsg.msg}</Modal.Body><Modal.Footer className="justify-content-center"><Button variant={voteResultMsg.success ? "success" : "danger"} onClick={() => setVoteResultMsg(p => ({ ...p, show: false }))}>ตกลง</Button></Modal.Footer></Modal>
       <Modal show={showGuestModal} onHide={() => setShowGuestModal(false)} centered><Modal.Header closeButton><Modal.Title className="fw-bold">🔒 ต้องเข้าสู่ระบบก่อนโหวต</Modal.Title></Modal.Header><Modal.Body className="text-center py-4"><p className="fs-5 mb-1">กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อน</p><p className="text-muted small">เพื่อร่วมโหวตในกิจกรรมนี้</p></Modal.Body><Modal.Footer className="justify-content-center gap-2"><Link to="/login" className="btn btn-primary fw-bold px-4" onClick={() => setShowGuestModal(false)}>เข้าสู่ระบบ</Link><Link to="/register" className="btn btn-outline-primary px-4" onClick={() => setShowGuestModal(false)}>สมัครสมาชิก</Link></Modal.Footer></Modal>
+      
+      {/* ลบ Modal ยืนยันการลบรูปภาพออก */}
+      {/*
       <Modal show={deletePhotoTarget !== null} onHide={() => !deletePhotoLoading && setDeletePhotoTarget(null)} centered><Modal.Header closeButton={!deletePhotoLoading} className="bg-danger text-white"><Modal.Title className="fw-bold">🗑️ ลบรูปออกจากกิจกรรม</Modal.Title></Modal.Header><Modal.Body className="text-center py-3"><p className="fs-5 mb-1">ต้องการลบรูปภาพนี้ออกจากกิจกรรมใช่หรือไม่?</p><small className="text-muted">รูปต้นฉบับในแกลเลอรี่จะยังคงอยู่</small></Modal.Body><Modal.Footer className="justify-content-center gap-2"><Button variant="secondary" disabled={deletePhotoLoading} onClick={() => setDeletePhotoTarget(null)}>ยกเลิก</Button><Button variant="danger" className="fw-bold" onClick={confirmDeletePhoto} disabled={deletePhotoLoading}>{deletePhotoLoading ? <><Spinner size="sm" className="me-1" />กำลังลบ...</> : "ยืนยันลบ"}</Button></Modal.Footer></Modal>
+      */}
     </Container>
   );
 };

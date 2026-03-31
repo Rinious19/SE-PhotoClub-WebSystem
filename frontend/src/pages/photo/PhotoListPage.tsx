@@ -179,7 +179,7 @@ export const PhotoListPage: React.FC = () => {
               <Row className="g-2">
                 <Col xs={7}>
                   <Form.Select className="py-2" value={filterFaculty} onChange={(e) => setFilterFaculty(e.target.value)}>
-                    <option value="">-- โชว์ทั้งหมด --</option>
+                    <option value="">-- แสดงทั้งหมด --</option>
                     <option value="ไม่ระบุ">ไม่ระบุ</option>
                     <option value="มหาวิทยาลัย">มหาวิทยาลัย</option>
                     <option value="คณะวิศวกรรมศาสตร์">คณะวิศวกรรมศาสตร์</option>

@@ -15,7 +15,7 @@ interface ActivityForEdit {
   title:              string;
   description?:       string;
   event_name:         string;
-  event_id?:          number; // ✅ ใส่ event_id ตรงนี้ให้แล้ว จะได้ไม่ฟ้อง Error แดง
+  event_id?:          number;
   faculty?:           string;
   academic_year?:     string;
   start_at:           string;
@@ -178,7 +178,10 @@ export const EditActivityPage: React.FC = () => {
 
   const [originalData, setOriginalData] = useState<ActivityForEdit | null>(null);
   
+  // ✅ เพิ่ม State สำหรับเก็บ Event ทั้งหมดในระบบ
+  const [allEvents, setAllEvents] = useState<any[]>([]);
   const [eventId, setEventId] = useState<number | null>(null);
+  
   const [eventPhotos, setEventPhotos] = useState<PhotoItem[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
   
@@ -208,9 +211,13 @@ export const EditActivityPage: React.FC = () => {
     (async () => {
       try {
         setLoading(true);
+        // ✅ โหลด Events ทั้งหมดมารอไว้สำหรับ Dropdown
+        const resEv = await EventService.getAll();
+        setAllEvents(resEv.data || []);
+
         const resAct = await ActivityService.getById(Number(id));
         const a: ActivityForEdit = resAct.data;
-        setOriginalData(a);
+        
         setTitle(a.title || '');
         setDescription(a.description || '');
         
@@ -227,10 +234,12 @@ export const EditActivityPage: React.FC = () => {
 
         let evId = a.event_id;
         if (!evId) {
-          const resEv = await EventService.getAll();
           const matched = resEv.data?.find((e: any) => e.event_name === a.event_name);
           if (matched) evId = matched.id;
         }
+        
+        // ✅ ผูก event_id ให้ originalData สมบูรณ์ เพื่อเช็คว่ามีการเปลี่ยนอีเว้นท์หรือไม่
+        setOriginalData({ ...a, event_id: evId });
         setEventId(evId || null);
 
       } catch (err: unknown) {
@@ -251,14 +260,18 @@ export const EditActivityPage: React.FC = () => {
 
         let excluded = new Set<number>();
         
-        if (originalData.excluded_photo_ids !== undefined) {
-          originalData.excluded_photo_ids.forEach(pid => excluded.add(Number(pid)));
-        } else if (originalData.photos && originalData.photos.length > 0) {
-          const included = new Set(originalData.photos.map((p: any) => Number(p.photo_id || p.id)));
-          allPhotos.forEach(p => { 
-            if (!included.has(Number(p.id))) excluded.add(Number(p.id)); 
-          });
-        }
+        // ✅ ถ้าดึงรูปของอีเว้นท์ "เดิม" ให้คืนค่าการจำรูปเดิม
+        if (eventId === originalData.event_id) {
+          if (originalData.excluded_photo_ids !== undefined) {
+            originalData.excluded_photo_ids.forEach(pid => excluded.add(Number(pid)));
+          } else if (originalData.photos && originalData.photos.length > 0) {
+            const included = new Set(originalData.photos.map((p: any) => Number(p.photo_id || p.id)));
+            allPhotos.forEach(p => { 
+              if (!included.has(Number(p.id))) excluded.add(Number(p.id)); 
+            });
+          }
+        } 
+        // ✅ ถ้าเปลี่ยนเป็นอีเว้นท์ "ใหม่" ค่า default คือเลือกทุกรูป (ไม่ exclude เลย)
         
         setInitialExcludedPhotoIds(excluded);
         setExcludedPhotoIds(new Set(excluded));
@@ -311,13 +324,17 @@ export const EditActivityPage: React.FC = () => {
   const addedCount   = Array.from(initialExcludedPhotoIds).filter(id => !excludedPhotoIds.has(id)).length;
   const removedCount = Array.from(excludedPhotoIds).filter(id => !initialExcludedPhotoIds.has(id)).length;
   const photoChanged = addedCount > 0 || removedCount > 0;
+  
+  // ✅ ตรวจสอบว่ามีการเปลี่ยนอีเว้นท์หรือไม่
+  const eventChanged = originalData !== null && eventId !== originalData.event_id;
 
   const hasChanges = originalData !== null && (
     title.trim()       !== (originalData.title        || '') ||
     description.trim() !== (originalData.description  || '') ||
     currentStartAt     !== getLocalISO(originalData.start_at) ||
     currentEndAt       !== getLocalISO(originalData.end_at) ||
-    photoChanged
+    photoChanged || 
+    eventChanged // ✅ รวมกรณีเปลี่ยนอีเว้นท์เข้าไปด้วย
   );
 
   const handleSubmitClick = (e: React.FormEvent) => {
@@ -325,6 +342,7 @@ export const EditActivityPage: React.FC = () => {
     setFormError(null);
 
     if (!title.trim())             { setFormError('กรุณากรอกชื่อกิจกรรม'); return; }
+    if (!eventId)                  { setFormError('กรุณาเลือกอีเว้นท์'); return; }
     if (!startDate || !startTime)  { setFormError('กรุณากำหนดวันเวลาเริ่มต้นให้ครบถ้วน'); return; }
     if (!endDate || !endTime)      { setFormError('กรุณากำหนดวันเวลาสิ้นสุดให้ครบถ้วน'); return; }
     if (new Date(currentEndAt) <= new Date(currentStartAt)) {
@@ -349,7 +367,6 @@ export const EditActivityPage: React.FC = () => {
       const token = localStorage.getItem('token');
       const formatTimeToSubmit = (timeStr: string) => timeStr ? `${timeStr}:00Z` : '';
 
-      // ดึงรายการ ID จาก State มาเป็น Array
       const excludedIdsArray = Array.from(excludedPhotoIds);
 
       await ActivityService.update(
@@ -361,8 +378,8 @@ export const EditActivityPage: React.FC = () => {
           end_at:             formatTimeToSubmit(currentEndAt),
           faculty:            filterFaculty      || undefined, 
           academic_year:      filterYear         || undefined,
-          event_id:           eventId,            // ✅ สำคัญมาก
-          excluded_photo_ids: excludedIdsArray,   // ✅ สำคัญมาก
+          event_id:           eventId,           
+          excluded_photo_ids: excludedIdsArray,   
         } as any, 
         token!
       );
@@ -417,14 +434,38 @@ export const EditActivityPage: React.FC = () => {
                 <Form.Control type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
               </Form.Group>
 
+              {/* ✅ ปรับปรุงส่วนอีเว้นท์ ให้เลือกได้เฉพาะกิจกรรมที่ UPCOMING */}
               <Form.Group className="mb-3">
-                <Form.Label className="fw-bold">อีเว้นท์</Form.Label>
-                <div className="px-3 py-2 border rounded bg-light text-muted d-flex align-items-center">
-                  <span className="me-2">📂</span> <strong className="text-dark">{originalData?.event_name}</strong>
-                </div>
-                <Form.Text className="text-muted small">
-                  ไม่สามารถเปลี่ยนอีเว้นท์ได้ หากต้องการเปลี่ยนกรุณาสร้างกิจกรรมใหม่
-                </Form.Text>
+                <Form.Label className="fw-bold">อีเว้นท์ <span className="text-danger">*</span></Form.Label>
+                {originalData?.status === 'UPCOMING' ? (
+                  <>
+                    <Form.Select 
+                      value={eventId || ''} 
+                      onChange={(e) => {
+                        setEventId(Number(e.target.value));
+                        setFilterFaculty(''); // เคลียร์ฟิลเตอร์เมื่อเปลี่ยนอีเว้นท์
+                        setFilterYear('');
+                      }}
+                    >
+                      <option value="" disabled>-- เลือกอีเว้นท์ --</option>
+                      {allEvents.map(ev => (
+                        <option key={ev.id} value={ev.id}>{ev.event_name}</option>
+                      ))}
+                    </Form.Select>
+                    <Form.Text className="text-muted small">
+                      เปลี่ยนอีเว้นท์ได้เฉพาะตอนที่กิจกรรมยังเป็น "รอดำเนินการ"
+                    </Form.Text>
+                  </>
+                ) : (
+                  <>
+                    <div className="px-3 py-2 border rounded bg-light text-muted d-flex align-items-center">
+                      <span className="me-2">📂</span> <strong className="text-dark">{originalData?.event_name}</strong>
+                    </div>
+                    <Form.Text className="text-muted small">
+                      ไม่สามารถเปลี่ยนอีเว้นท์ได้ เนื่องจากกิจกรรมเริ่มโหวตหรือสิ้นสุดไปแล้ว
+                    </Form.Text>
+                  </>
+                )}
               </Form.Group>
 
               <div className="p-3 mb-4 border rounded-4 bg-light shadow-sm">
@@ -534,13 +575,12 @@ export const EditActivityPage: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, maxHeight: 400, overflowY: 'auto', padding: 4 }}>
                     {displayedPhotos.map((photo) => {
                       const isExcluded = excludedPhotoIds.has(Number(photo.id));
-                      const isSelected = !isExcluded; // ✅ รูปที่ไม่อยู่ในกลุ่มยกเว้น = ถูกเลือก
+                      const isSelected = !isExcluded; 
                       
                       return (
                         <div key={photo.id} onClick={() => toggleExclude(photo.id)}
                           style={{
                             position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', cursor: 'pointer',
-                            // ✅ คืนชีพกรอบเขียว และ รูปทึบตอนเอาออก
                             opacity: isSelected ? 1 : 0.4, transition: 'all .2s',
                             boxShadow: isSelected ? '0 0 0 3px #198754' : '0 1px 4px rgba(0,0,0,.1)',
                           }}>
@@ -564,16 +604,22 @@ export const EditActivityPage: React.FC = () => {
           <p className="mb-2">ข้อมูลกิจกรรมที่จะเปลี่ยนแปลง:</p>
           <ul className="list-unstyled ps-2 text-secondary small">
             <li>📌 ชื่อ: <strong className="text-dark">{title}</strong></li>
+            
+            {/* ✅ แสดงการแจ้งเตือนว่าเปลี่ยนอีเว้นท์ใน Modal ยืนยัน */}
+            {eventChanged && (
+              <li>📌 อีเว้นท์: <strong className="text-primary">{allEvents.find(e => e.id === eventId)?.event_name}</strong> <Badge bg="primary">เปลี่ยนอีเว้นท์ใหม่</Badge></li>
+            )}
+
             <li>🕐 เริ่ม: <strong className="text-dark">{formatThaiDateTime(currentStartAt)}</strong></li>
             <li>🔚 สิ้นสุด: <strong className="text-dark">{formatThaiDateTime(currentEndAt)}</strong></li>
             
-            {photoChanged && (
+            {(photoChanged || eventChanged) && (
               <li className="mt-3 pt-3 border-top">
-                🖼️ <strong>การเปลี่ยนแปลงรูปภาพ:</strong>
+                🖼️ <strong>สถานะรูปภาพ:</strong>
                 <div className="mt-2 d-flex flex-column gap-1">
-                  {addedCount > 0 && <span><Badge bg="success" className="me-2">เพิ่มเข้า</Badge> <strong className="text-success">{addedCount} รูป</strong></span>}
-                  {removedCount > 0 && <span><Badge bg="danger" className="me-2">นำออก</Badge> <strong className="text-danger">{removedCount} รูป</strong></span>}
-                  <span className="mt-1">✅ คงเหลือในกิจกรรมทั้งหมด: <strong>{eventPhotos.length - excludedPhotoIds.size} รูป</strong></span>
+                  {!eventChanged && addedCount > 0 && <span><Badge bg="success" className="me-2">เพิ่มเข้า</Badge> <strong className="text-success">{addedCount} รูป</strong></span>}
+                  {!eventChanged && removedCount > 0 && <span><Badge bg="danger" className="me-2">นำออก</Badge> <strong className="text-danger">{removedCount} รูป</strong></span>}
+                  <span className="mt-1">✅ รวมรูปภาพในกิจกรรม: <strong>{eventPhotos.length - excludedPhotoIds.size} รูป</strong></span>
                 </div>
               </li>
             )}

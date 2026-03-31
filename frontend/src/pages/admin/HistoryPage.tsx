@@ -25,23 +25,23 @@ const ACTION_BADGE: Record<string, string> = {
 };
 
 const ACTION_LABEL: Record<string, string> = {
-  CHANGE_ROLE:   'เปลี่ยน Role',
-  CREATE_USER:   'สร้าง User',
-  DELETE_USER:   'ระงับ User',
+  CHANGE_ROLE:   'เปลี่ยนบทบาท',
+  CREATE_USER:   'สร้างบัญชี',
+  DELETE_USER:   'ระงับบัญชี',
   UPLOAD_PHOTO:  'อัปโหลดรูป',
   UPDATE_PHOTO:  'อัปเดตรูป',
   DELETE_PHOTO:  'ลบรูป',
   CREATE_EVENT:  'สร้างอีเว้นท์',
   UPDATE_EVENT:  'แก้ไขอีเว้นท์',
   DELETE_EVENT:  'ลบอีเว้นท์',
-  SYSTEM:        'System',
+  SYSTEM:        'ระบบ',
 };
 
 const TYPE_LABEL: Record<string, string> = {
-  USER:     '👤 User',
-  PHOTO:    '🖼️ Photo',
-  ACTIVITY: '🏆 Activity',
-  SYSTEM:   '⚙️ System',
+  USER:     '👤 การจัดการบัญชี',
+  PHOTO:    '🖼️ การจัดการรูปภาพ',
+  ACTIVITY: '🏆 การจัดการจกรรม',
+  SYSTEM:   '⚙️ เกี่ยวกับระบบ',
 };
 
 const PAGE_SIZE = 20;
@@ -141,7 +141,7 @@ const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
             value={filterAction}
             onChange={e => setFilterAction(e.target.value)}
           >
-            <option value="">— ทุก Action —</option>
+            <option value="">— แสดงการกระทำทั้งหมด —</option>
             {Object.entries(ACTION_LABEL).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
@@ -152,7 +152,7 @@ const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
             value={filterType}
             onChange={e => setFilterType(e.target.value)}
           >
-            <option value="">— ทุก Type —</option>
+            <option value="">— แสดงชนิดของเป้าหมายทั้งหมด —</option>
             {Object.entries(TYPE_LABEL).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
@@ -184,8 +184,8 @@ const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
                 <tr>
                   <th>#</th>
                   <th>ผู้กระทำ</th>
-                  <th>Action</th>
-                  <th>Target</th>
+                  <th>การกระทำ</th>
+                  <th>เป้าหมาย</th>
                   <th>รายละเอียด</th>
                   <th>เวลา</th>
                 </tr>
