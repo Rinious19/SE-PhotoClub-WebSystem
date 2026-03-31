@@ -34,10 +34,10 @@ export const EventService = {
     return response.data;
   },
 
-  // ✅ [5] ดึงจำนวนรูปภาพที่ผูกกับ event (ใช้แสดงใน confirm modal ก่อนลบ)
-  getPhotoCount: async (eventName: string) => {
+  // ✅ [5] ดึงจำนวนรูปภาพที่ผูกกับ event (แก้ไข: ให้รับ eventId เป็น number เพื่อให้ตรงกับ Backend)
+  getPhotoCount: async (eventId: number) => {
     const response = await axios.get(`${API_URL}/photo-count`, {
-      params: { event_name: eventName },
+      params: { event_id: eventId },
     });
     return response.data;
   },

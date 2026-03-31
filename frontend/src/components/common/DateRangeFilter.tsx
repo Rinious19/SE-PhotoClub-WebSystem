@@ -36,7 +36,7 @@ export const DateRangeFilter: React.FC<Props> = ({ value, onChange }) => {
         value={value.from}
         max={value.to || todayStr}
         onChange={(v) => onChange({ ...value, from: v })}
-        placeholder="DD/MM/YYYY"
+        placeholder="ตั้งแต่วันที่..."
       />
       {value.from && (
         <>
@@ -47,7 +47,7 @@ export const DateRangeFilter: React.FC<Props> = ({ value, onChange }) => {
             min={value.from || undefined}
             max={todayStr}
             onChange={(v) => onChange({ ...value, to: v })}
-            placeholder="DD/MM/YYYY"
+            placeholder="ถึงวันที่..."
           />
         </>
       )}

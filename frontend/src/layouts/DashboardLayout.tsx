@@ -3,14 +3,18 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { GiHamburgerMenu } from "react-icons/gi";
 
-interface SidebarItem {
-  to: string;
-  icon: string;
-  label: string;
-}
+//@ nav items ใน sidebar
+const NAV_ITEMS = [
+  { icon: '🏠',  label: 'Dashboard',          to: '/admin',            roles: ['ADMIN','CLUB_PRESIDENT'] },
+  { icon: '👥',  label: 'จัดการสมาชิก',        to: '/admin/members',    roles: ['ADMIN'] },
+  { icon: '📋',  label: 'ประวัติการใช้งาน',     to: '/admin/history',    roles: ['ADMIN','CLUB_PRESIDENT'] },
+  { icon: '📅',  label: 'จัดการอีเว้นท์',       to: '/event-management', roles: ['ADMIN','CLUB_PRESIDENT'] },
+  { icon: '📷',  label: 'อัปโหลดรูปภาพ',        to: '/photos/upload',    roles: ['ADMIN','CLUB_PRESIDENT'] },
+];
 
 export const DashboardLayout: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate         = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
 
@@ -76,7 +80,7 @@ export const DashboardLayout: React.FC = () => {
           />
         </div>
 
-        {/* User */}
+        {/* Username */}
         {!collapsed && (
           <div style={{ padding: "10px 16px" }}>
             <div>{user?.username}</div>
@@ -89,6 +93,7 @@ export const DashboardLayout: React.FC = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === '/admin'}
               style={({ isActive }) => ({
                 display: "flex",
                 padding: "10px 16px",
@@ -96,7 +101,8 @@ export const DashboardLayout: React.FC = () => {
                 textDecoration: "none",
               })}
             >
-              {item.icon} {!collapsed && item.label}
+              <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
+              {!collapsed && item.label}
             </NavLink>
           ))}
         </nav>
@@ -119,8 +125,8 @@ export const DashboardLayout: React.FC = () => {
         </button>
       </aside>
 
-      {/* Content */}
-      <main style={{ flex: 1 }}>
+      {/* ── Main content ── */}
+      <main style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         <Outlet />
       </main>
     </div>

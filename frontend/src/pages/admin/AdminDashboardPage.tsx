@@ -1,12 +1,32 @@
-//? Page: Admin Dashboard
-//@ หน้าแรกของ Admin — แสดง summary cards
+//? Page: AdminDashboardPage
+//@ หน้า Dashboard สำหรับ ADMIN / CLUB_PRESIDENT
+//  มีปุ่มกลับหน้าหลัก และ link ไปยังหน้า public ได้
+//  วางไฟล์นี้ที่: frontend/src/pages/admin/AdminDashboardPage.tsx
 
 import React from "react";
 import { Container, Row, Col, Card } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
-const CARDS = [
+//@ interface card แต่ละช่อง
+interface DashboardCard {
+  icon:     string;
+  title:    string;
+  desc:     string;
+  to:       string;
+  roles:    string[];
+  color:    string;
+}
+
+const CARDS: DashboardCard[] = [
+  {
+    icon:  '👥',
+    title: 'จัดการสมาชิก',
+    desc:  'ดู เปลี่ยน Role ระงับบัญชี',
+    to:    '/admin/members',
+    roles: ['ADMIN'],
+    color: '#e8eaf6',
+  },
   {
     to: "/admin/users",
     icon: "👥",
@@ -39,7 +59,12 @@ const CARDS = [
 ];
 
 export const AdminDashboardPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user }   = useAuth();
+  const navigate   = useNavigate();
+  const role       = user?.role ?? '';
+
+  //@ กรอง card ตาม role ของ user ที่ login อยู่
+  const visibleCards = CARDS.filter(c => c.roles.includes(role));
 
   return (
     <Container className="py-5">
@@ -102,6 +127,16 @@ export const AdminDashboardPage: React.FC = () => {
           </Col>
         ))}
       </Row>
+
+      {/* ── Quick links กลับหน้า public ── */}
+      <div className="mt-5 pt-4 border-top">
+        <p className="text-muted small fw-medium mb-2">ไปยังหน้าสาธารณะ</p>
+        <div className="d-flex gap-2 flex-wrap">
+          <Link to="/"          className="btn btn-sm btn-light rounded-pill px-3">🏠 หน้าแรก</Link>
+          <Link to="/photos"    className="btn btn-sm btn-light rounded-pill px-3">🖼️ แกลเลอรี่</Link>
+          <Link to="/activities" className="btn btn-sm btn-light rounded-pill px-3">🏆 กิจกรรม</Link>
+        </div>
+      </div>
     </Container>
   );
 };
