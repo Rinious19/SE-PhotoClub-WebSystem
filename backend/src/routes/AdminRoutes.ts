@@ -17,7 +17,10 @@ router.get   ('/users',          requireAuth, requireAdmin, AdminController.getU
 router.patch ('/users/:id/role', requireAuth, requireAdmin, AdminController.changeRole  as RequestHandler);
 router.delete('/users/:id',      requireAuth, requireAdmin, AdminController.deleteUser  as RequestHandler);
 
+// ✅ [เพิ่มใหม่] Route สำหรับลบถาวร
+router.delete('/users/:id/permanent', requireAuth, requireAdmin, AdminController.deletePermanent as RequestHandler);
 
+//@ History
 router.get('/history', requireAuth, requireAdmin, AdminController.getHistory as RequestHandler);
 
 // ✅ ใช้ "as RequestHandler" กำกับทุกตัวที่เป็น Middleware/Controller ของเรา
