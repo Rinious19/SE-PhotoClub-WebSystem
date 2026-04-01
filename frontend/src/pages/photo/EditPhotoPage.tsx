@@ -18,7 +18,7 @@ import { PhotoService } from "../../services/PhotoService";
 import { EventService } from "../../services/EventService";
 import { parseApiError } from "@/utils/apiError";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ✅ แก้จุดที่ 4: (url: any) → (url: string | null | undefined)
 const getImageUrl = (url: string | null | undefined): string => {

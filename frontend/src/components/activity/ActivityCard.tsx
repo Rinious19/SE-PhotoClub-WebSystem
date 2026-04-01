@@ -28,7 +28,7 @@ interface ActivityCardProps {
 }
 
 //@ แปลง image_url เป็น src URL
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const getImgSrc = (url?: string): string => {
   if (!url) return '';
   return url.startsWith('http') ? url : `${BASE_URL}${url}`;

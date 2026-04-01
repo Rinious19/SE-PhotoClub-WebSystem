@@ -1,7 +1,7 @@
 // frontend/src/services/PhotoService.ts
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/photos';
+const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/photos`;
 
 export const PhotoService = {
   // ดึงรูปทั้งหมด (legacy)

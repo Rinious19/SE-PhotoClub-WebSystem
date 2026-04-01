@@ -36,7 +36,7 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
     if (typeof imageUrl === "string") {
       return imageUrl.startsWith("http")
         ? imageUrl
-        : `http://localhost:5000${imageUrl}`;
+        : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${imageUrl}`;
     }
 
     // 2. ถ้าเป็น BLOB / Buffer จาก Database

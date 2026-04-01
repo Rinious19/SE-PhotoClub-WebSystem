@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { isAdminOrPresident } from "@/utils/roleChecker";
 import { parseApiError } from "@/utils/apiError";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const getImageUrl = (imageUrl: unknown): string => {
   if (!imageUrl) return "";

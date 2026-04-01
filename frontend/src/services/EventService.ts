@@ -1,7 +1,7 @@
 // frontend/src/services/EventService.ts
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/events';
+const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/events`;
 
 export const EventService = {
   // [1] ดึงข้อมูลอีเว้นท์ทั้งหมด

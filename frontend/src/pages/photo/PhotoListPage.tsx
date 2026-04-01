@@ -8,7 +8,7 @@ import { DateRangeFilter, emptyDateFilter, matchesDateFilter } from "@/component
 import type { DateFilter } from "@/components/common/DateRangeFilter";
 import { parseApiError } from "@/utils/apiError";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const getImageUrl = (imageUrl: string | null | undefined): string => {
   if (!imageUrl) return '';
   if (typeof imageUrl === 'string') return imageUrl.startsWith('http') ? imageUrl : `${BASE_URL}${imageUrl}`;
