@@ -4,11 +4,31 @@ import { AuthenticatedRequest } from '../middlewares/AuthMiddleware';
 
 const activityService = new ActivityService();
 
-// ฟังก์ชันสำหรับแปลงรูปแบบวันที่จาก ISO (2026-04-01T08:00:00Z) 
-// ให้เป็นรูปแบบที่ MySQL ยอมรับ (2026-04-01 08:00:00)
+// ✅ แก้ไขใหม่: ฟังก์ชันสำหรับแปลงวันที่จาก ISO ให้เป็นเวลาไทย (UTC+7) ที่ MySQL ยอมรับ
 const formatDateForDB = (dateStr: any) => {
   if (!dateStr || typeof dateStr !== 'string') return dateStr;
-  return dateStr.slice(0, 19).replace('T', ' ');
+  
+  const date = new Date(dateStr);
+  
+  // เช็คว่า parse เป็นวันที่ได้ไหม ถ้าไม่ได้ (เช่นส่ง format แปลกๆ มา) ให้ใช้วิธีเดิมตัด string เอา
+  if (isNaN(date.getTime())) {
+    return dateStr.slice(0, 19).replace('T', ' ');
+  }
+
+  // แปลงให้เป็นเวลาไทยแบบชัวร์ๆ (เอาเวลา UTC + 7 ชั่วโมง)
+  // 7 ชั่วโมง = 7 * 60 นาที * 60 วินาที * 1000 มิลลิวินาที
+  const bangkokTime = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+  
+  // จัด Format ให้อยู่ในรูป YYYY-MM-DD HH:MM:SS
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const yyyy = bangkokTime.getUTCFullYear();
+  const mm = pad(bangkokTime.getUTCMonth() + 1);
+  const dd = pad(bangkokTime.getUTCDate());
+  const hh = pad(bangkokTime.getUTCHours());
+  const min = pad(bangkokTime.getUTCMinutes());
+  const ss = pad(bangkokTime.getUTCSeconds());
+  
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 };
 
 export class ActivityController {
