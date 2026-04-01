@@ -4,6 +4,13 @@ import { AuthenticatedRequest } from '../middlewares/AuthMiddleware';
 
 const activityService = new ActivityService();
 
+// ฟังก์ชันสำหรับแปลงรูปแบบวันที่จาก ISO (2026-04-01T08:00:00Z) 
+// ให้เป็นรูปแบบที่ MySQL ยอมรับ (2026-04-01 08:00:00)
+const formatDateForDB = (dateStr: any) => {
+  if (!dateStr || typeof dateStr !== 'string') return dateStr;
+  return dateStr.slice(0, 19).replace('T', ' ');
+};
+
 export class ActivityController {
   //@ GET /api/activities — ทุกคนดูได้
   static async getAll(req: Request, res: Response): Promise<void> {
@@ -40,7 +47,13 @@ export class ActivityController {
         res.status(401).json({ success: false, message: 'ไม่พบข้อมูลผู้ใช้' });
         return;
       }
-      const activityId = await activityService.create(req.body, userId);
+
+      // ดึง req.body มาจัดการแปลง format วันที่ก่อนส่งเข้า Service
+      const body = { ...req.body };
+      if (body.start_at) body.start_at = formatDateForDB(body.start_at);
+      if (body.end_at) body.end_at = formatDateForDB(body.end_at);
+
+      const activityId = await activityService.create(body, userId);
       res.status(201).json({ success: true, data: { id: activityId } });
     } catch (e: any) {
       res.status(400).json({ success: false, message: e.message });
@@ -52,13 +65,18 @@ export class ActivityController {
     try {
       const id = parseInt(req.params.id as string);
       
+      // ดึง req.body มาจัดการแปลง format วันที่ก่อนส่งเข้า Service (เหมือนตอน create)
+      const body = { ...req.body };
+      if (body.start_at) body.start_at = formatDateForDB(body.start_at);
+      if (body.end_at) body.end_at = formatDateForDB(body.end_at);
+      
       // 🚨 ใส่บรรทัดนี้ลงไปเพื่อ TEST
       console.log("==========================================");
       console.log("🚀 [HOT TEST] มีการยิง API UPDATE เข้ามาแล้ว!");
-      console.log("📦 ข้อมูลรูปที่ส่งมา:", req.body.excluded_photo_ids);
+      console.log("📦 ข้อมูลรูปที่ส่งมา:", body.excluded_photo_ids);
       console.log("==========================================");
 
-      await activityService.update(id, req.body);
+      await activityService.update(id, body);
       res.status(200).json({ success: true, message: 'อัปเดตกิจกรรมสำเร็จ' });
     } catch (e: any) {
       res.status(400).json({ success: false, message: e.message });
