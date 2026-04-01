@@ -241,7 +241,7 @@ export const ManageAdminPage: React.FC = () => {
           <Spinner animation="border" variant="primary" />
           <p className="mt-2 text-muted small">กำลังโหลดข้อมูล...</p>
         </div>
-      )}frontend/src/services/AdminService.ts
+      )}
       {error && <Alert variant="danger" className="rounded-4">{error}</Alert>}
 
       {!loading && !error && (
