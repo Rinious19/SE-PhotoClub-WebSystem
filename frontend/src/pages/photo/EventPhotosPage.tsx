@@ -122,7 +122,7 @@ export const EventPhotosPage: React.FC = () => {
     if (loadingRef.current || isNaN(eventIdRef.current)) return;
     loadingRef.current = true;
     try {
-      const r = await axios.get(`/api/photos/event/${eventIdRef.current}`, { 
+      const r = await axios.get(`${BASE_URL}/api/photos/event/${eventIdRef.current}`, { 
         params: { page: pageNum, faculty: facultyParam, academic_year: yearParam } 
       });
       const res = r.data;
