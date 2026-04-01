@@ -6,11 +6,12 @@ import {
   Container, Row, Col, Form, Button,
   InputGroup, Badge, Alert, Card,
 } from 'react-bootstrap';
-import { Link, useNavigate }              from 'react-router-dom';
-import { useActivities }                   from '@/hooks/useActivities';
-import { useAuth }                         from '@/hooks/useAuth';
-import type { Activity }                   from '@/types/Activity';
-import { CustomDatePicker }                from '@/components/common/CustomDatePicker';
+import { Link, useNavigate } from 'react-router-dom';
+import { useActivities } from '@/hooks/useActivities';
+import { useAuth } from '@/hooks/useAuth';
+import type { Activity } from '@/types/Activity';
+import { CustomDatePicker } from '@/components/common/CustomDatePicker';
+import { formatThaiDateTime } from '@/utils/dateHelper'; // ✅ เพิ่ม Helper ตัวโปรด
 
 export type ExtendedActivity = Activity & {
   photo_count?: number;
@@ -19,7 +20,7 @@ export type ExtendedActivity = Activity & {
 
 // ─── ActivityCard ────────────────────────────────────────────
 const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) => {
-  const { user }  = useAuth();
+  const { user } = useAuth();
   
   const statusConfig = {
     UPCOMING: { color: '#ffc107', label: '🟡 รอดำเนินการ', btn: 'btn-outline-warning' },
@@ -28,18 +29,6 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
   };
 
   const config = statusConfig[activity.status as keyof typeof statusConfig] || statusConfig.ENDED;
-
-  const fmt = (iso: string) => {
-    if (!iso) return '-';
-    try {
-      const d = new Date(iso);
-      const dd = String(d.getDate()).padStart(2, '0');
-      const mm = d.toLocaleDateString('th-TH', { month: 'short' });
-      const yy = d.getFullYear() + 543;
-      const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-      return `${dd} ${mm} ${yy} ${time}`;
-    } catch { return '-'; }
-  };
 
   return (
     <Card
@@ -66,10 +55,13 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
         </div>
         <h6 className="fw-bold mb-1 text-dark" style={{ lineHeight:1.3 }}>{activity.title}</h6>
         <p className="text-muted small mb-2" style={{ fontSize:12 }}>📂 {activity.event_name}</p>
+        
+        {/* ✅ แสดงผลเวลาแบบไทย (UTC+7 และ ปี พ.ศ.) */}
         <div className="text-muted" style={{ fontSize:11 }}>
-          <div>🕐 เริ่ม: {fmt(activity.start_at)}</div>
-          <div>🔚 สิ้นสุด: {fmt(activity.end_at)}</div>
+          <div>🕐 เริ่ม: {formatThaiDateTime(activity.start_at)}</div>
+          <div>🔚 สิ้นสุด: {formatThaiDateTime(activity.end_at)}</div>
         </div>
+
         <div className="d-flex gap-3 mt-2 mb-3">
           <span className="text-muted small">🖼️ {activity.photo_count || 0} รูป</span>
           <span className="text-muted small">🗳️ {activity.total_votes || 0} โหวต</span>
@@ -83,7 +75,6 @@ const ActivityCard: React.FC<{ activity: ExtendedActivity }> = ({ activity }) =>
             {activity.status === 'ACTIVE' ? '🗳️ โหวตเลย' : '🔍 ดูรายละเอียด'}
           </Link>
           
-          {/* ✅ นำปุ่มแก้ไขกลับมา: โชว์เฉพาะ ADMIN/PRESIDENT และสถานะ UPCOMING */}
           {(user?.role === 'ADMIN' || user?.role === 'CLUB_PRESIDENT') && activity.status === 'UPCOMING' && (
             <Link
               to={`/activities/edit/${activity.id}`}
@@ -157,21 +148,24 @@ export const ActivityListPage: React.FC = () => {
   const { activities = [], loading, error, refetch } = useActivities("");
   const extendedActivities = activities as unknown as ExtendedActivity[];
 
+  //* ✅ ปรับปรุง Logic การกรองข้อมูลด้วยวันที่ ให้แม่นยำตาม Timezone
   const filtered = useMemo(() => {
     let list = extendedActivities;
     if (keyword) {
       list = list.filter(a => a.title.toLowerCase().includes(keyword.toLowerCase()));
     }
     if (startDate) {
-      const filterStart = new Date(startDate);
-      filterStart.setHours(0, 0, 0, 0);
-      const filterEnd = new Date(endDate || startDate);
-      filterEnd.setHours(23, 59, 59, 999);
+      // 💡 สร้างขอบเขตเวลา 00:00:00 - 23:59:59 ของวันที่เลือก (Local Time)
+      const filterStart = new Date(`${startDate}T00:00:00`).getTime();
+      const filterEnd = new Date(`${endDate || startDate}T23:59:59`).getTime();
+      
       list = list.filter(a => {
         if (!a.start_at || !a.end_at) return false;
-        const actStart = new Date(a.start_at);
-        const actEnd   = new Date(a.end_at);
-        return actStart.getTime() <= filterEnd.getTime() && actEnd.getTime() >= filterStart.getTime();
+        // 💡 แปลงเวลาจาก DB (UTC) ให้ Browser เข้าใจ
+        const actStart = new Date(a.start_at.includes('Z') ? a.start_at : `${a.start_at.replace(' ', 'T')}Z`).getTime();
+        const actEnd   = new Date(a.end_at.includes('Z') ? a.end_at : `${a.end_at.replace(' ', 'T')}Z`).getTime();
+        
+        return actStart <= filterEnd && actEnd >= filterStart;
       });
     }
     if (tabStatus !== 'all') {

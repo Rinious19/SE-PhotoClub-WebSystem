@@ -1,116 +1,129 @@
 //? Page: History Page
 //@ แสดง Audit Log ของระบบ — เฉพาะ Admin/President
-
-import React, { useState, useEffect, useCallback } from 'react';
+import { formatThaiDateTime } from "@/utils/dateHelper";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Container, Table, Badge, Button,
-  Spinner, Alert, Form, Row, Col,
+  Container,
+  Table,
+  Badge,
+  Button,
+  Spinner,
+  Alert,
+  Form,
+  Row,
+  Col,
   Pagination,
-} from 'react-bootstrap';
-import { AdminService }  from '@/services/AdminService';
-import { parseApiError } from '@/utils/apiError';
+} from "react-bootstrap";
+import { AdminService } from "@/services/AdminService";
+import { parseApiError } from "@/utils/apiError";
 
 //* context (สี Badge ตาม action)
 const ACTION_BADGE: Record<string, string> = {
-  CHANGE_ROLE:   'warning',
-  CREATE_USER:   'success',
-  DELETE_USER:   'danger',
-  UPLOAD_PHOTO:  'primary',
-  UPDATE_PHOTO:  'success',
-  DELETE_PHOTO:  'danger',
-  CREATE_EVENT:  'info',
-  UPDATE_EVENT:  'warning',
-  DELETE_EVENT:  'danger',
-  SYSTEM:        'secondary',
+  CHANGE_ROLE: "warning",
+  CREATE_USER: "success",
+  DELETE_USER: "danger",
+  UPLOAD_PHOTO: "primary",
+  UPDATE_PHOTO: "success",
+  DELETE_PHOTO: "danger",
+  CREATE_EVENT: "info",
+  UPDATE_EVENT: "warning",
+  DELETE_EVENT: "danger",
+  SYSTEM: "secondary",
 };
 
 const ACTION_LABEL: Record<string, string> = {
-  CHANGE_ROLE:   'เปลี่ยนบทบาท',
-  CREATE_USER:   'สร้างบัญชี',
-  DELETE_USER:   'ระงับบัญชี',
-  UPLOAD_PHOTO:  'อัปโหลดรูป',
-  UPDATE_PHOTO:  'อัปเดตรูป',
-  DELETE_PHOTO:  'ลบรูป',
-  CREATE_EVENT:  'สร้างอีเว้นท์',
-  UPDATE_EVENT:  'แก้ไขอีเว้นท์',
-  DELETE_EVENT:  'ลบอีเว้นท์',
-  SYSTEM:        'ระบบ',
+  CHANGE_ROLE: "เปลี่ยนบทบาท",
+  CREATE_USER: "สร้างบัญชี",
+  DELETE_USER: "ระงับบัญชี",
+  UPLOAD_PHOTO: "อัปโหลดรูป",
+  UPDATE_PHOTO: "อัปเดตรูป",
+  DELETE_PHOTO: "ลบรูป",
+  CREATE_EVENT: "สร้างอีเว้นท์",
+  UPDATE_EVENT: "แก้ไขอีเว้นท์",
+  DELETE_EVENT: "ลบอีเว้นท์",
+  SYSTEM: "ระบบ",
 };
 
 const TYPE_LABEL: Record<string, string> = {
-  USER:     '👤 การจัดการบัญชี',
-  PHOTO:    '🖼️ การจัดการรูปภาพ',
-  ACTIVITY: '🏆 การจัดการจกรรม',
-  SYSTEM:   '⚙️ เกี่ยวกับระบบ',
+  USER: "👤 การจัดการบัญชี",
+  PHOTO: "🖼️ การจัดการรูปภาพ",
+  ACTIVITY: "🏆 การจัดการจกรรม",
+  SYSTEM: "⚙️ เกี่ยวกับระบบ",
 };
 
 const PAGE_SIZE = 20;
 
 export const HistoryPage: React.FC = () => {
-  const token = localStorage.getItem('token') ?? '';
+  const token = localStorage.getItem("token") ?? "";
 
   interface HistoryLogEntry {
-  id:          number;
-  actor_id:    number | null;
-  actor_name:  string | null;
-  action:      string;
-  target_type: string;
-  target_id:   number | null;
-  detail:      string | null;
-  created_at:  string;
-}
+    id: number;
+    actor_id: number | null;
+    actor_name: string | null;
+    action: string;
+    target_type: string;
+    target_id: number | null;
+    detail: string | null;
+    created_at: string;
+  }
 
-const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
-  const [total,       setTotal]       = useState(0);
-  const [totalPages,  setTotalPages]  = useState(1);
-  const [page,        setPage]        = useState(1);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
+  const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   //* context (filter state)
-  const [filterAction, setFilterAction] = useState('');
-  const [filterType,   setFilterType]   = useState('');
+  const [filterAction, setFilterAction] = useState("");
+  const [filterType, setFilterType] = useState("");
 
-  const loadHistory = useCallback(async (targetPage: number) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await AdminService.getHistory({
-        page:   targetPage,
-        limit:  PAGE_SIZE,
-        action: filterAction || undefined,
-        type:   filterType   || undefined,
-        token,
-      });
-      setLogs(res.data        || []);
-      setTotal(res.pagination?.total      ?? 0);
-      setTotalPages(res.pagination?.totalPages ?? 1);
-    } catch (err: unknown) {
-      setError(parseApiError(err, 'โหลด History ไม่สำเร็จ'));
-    } finally {
-      setLoading(false);
-    }
-  }, [filterAction, filterType, token]);
+  const loadHistory = useCallback(
+    async (targetPage: number) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await AdminService.getHistory({
+          page: targetPage,
+          limit: PAGE_SIZE,
+          action: filterAction || undefined,
+          type: filterType || undefined,
+          token,
+        });
+        setLogs(res.data || []);
+        setTotal(res.pagination?.total ?? 0);
+        setTotalPages(res.pagination?.totalPages ?? 1);
+      } catch (err: unknown) {
+        setError(parseApiError(err, "โหลด History ไม่สำเร็จ"));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filterAction, filterType, token],
+  );
 
   useEffect(() => {
-  loadHistory(page);
-}, [page, loadHistory]);
+    loadHistory(page);
+  }, [page, loadHistory]);
 
   useEffect(() => {
-  setPage(1);
-}, [filterAction, filterType]);
+    setPage(1);
+  }, [filterAction, filterType]);
 
   //* context (แปลง detail JSON string → object สำหรับแสดงผล)
   const parseDetail = (detail: string | null) => {
     if (!detail) return null;
-    try { return JSON.parse(detail); }
-    catch { return detail; }
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
   };
 
   const renderDetail = (detail: string | null) => {
     const d = parseDetail(detail);
     if (!d) return <span className="text-muted">—</span>;
-    if (typeof d === 'string') return <small>{d}</small>;
+    if (typeof d === "string") return <small>{d}</small>;
     return (
       <small className="text-muted">
         {Object.entries(d).map(([k, v]) => (
@@ -139,30 +152,38 @@ const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
         <Col md={4}>
           <Form.Select
             value={filterAction}
-            onChange={e => setFilterAction(e.target.value)}
+            onChange={(e) => setFilterAction(e.target.value)}
           >
             <option value="">— แสดงการกระทำทั้งหมด —</option>
             {Object.entries(ACTION_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+              <option key={k} value={k}>
+                {v}
+              </option>
             ))}
           </Form.Select>
         </Col>
         <Col md={4}>
           <Form.Select
             value={filterType}
-            onChange={e => setFilterType(e.target.value)}
+            onChange={(e) => setFilterType(e.target.value)}
           >
             <option value="">— แสดงชนิดของเป้าหมายทั้งหมด —</option>
             {Object.entries(TYPE_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+              <option key={k} value={k}>
+                {v}
+              </option>
             ))}
           </Form.Select>
         </Col>
         <Col md={2}>
           <Button
-            variant="outline-secondary" className="w-100"
+            variant="outline-secondary"
+            className="w-100"
             disabled={!filterAction && !filterType}
-            onClick={() => { setFilterAction(''); setFilterType(''); }}
+            onClick={() => {
+              setFilterAction("");
+              setFilterType("");
+            }}
           >
             ล้าง
           </Button>
@@ -197,36 +218,50 @@ const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
                       ไม่มีข้อมูล
                     </td>
                   </tr>
-                ) : logs.map((log, idx) => (
-                  <tr key={log.id}>
-                    <td className="text-muted">
-                      {(page - 1) * PAGE_SIZE + idx + 1}
-                    </td>
-                    <td className="fw-medium">
-                      {log.actor_name ?? <span className="text-muted">System</span>}
-                    </td>
-                    <td>
-                      <Badge
-                        bg={ACTION_BADGE[log.action] ?? 'secondary'}
-                        className="rounded-pill px-2"
+                ) : (
+                  logs.map((log, idx) => (
+                    <tr key={log.id}>
+                      {/* 1. ลำดับ (คำนวณตามหน้า) */}
+                      <td className="text-muted">
+                        {(page - 1) * PAGE_SIZE + idx + 1}
+                      </td>
+
+                      {/* 2. ผู้กระทำ */}
+                      <td className="fw-bold">{log.actor_name || "System"}</td>
+
+                      {/* 3. การกระทำ (Badge สีตาม Action) */}
+                      <td>
+                        <Badge bg={ACTION_BADGE[log.action] || "secondary"}>
+                          {ACTION_LABEL[log.action] || log.action}
+                        </Badge>
+                      </td>
+
+                      {/* 4. เป้าหมาย */}
+                      <td>
+                        <span
+                          className="text-secondary"
+                          style={{ fontSize: 12 }}
+                        >
+                          {TYPE_LABEL[log.target_type] || log.target_type}
+                        </span>
+                        <div className="fw-medium">#{log.target_id || "—"}</div>
+                      </td>
+
+                      {/* 5. รายละเอียด (ใช้ฟังก์ชัน renderDetail ที่คุณเขียนไว้) */}
+                      <td style={{ maxWidth: "300px" }}>
+                        {renderDetail(log.detail)}
+                      </td>
+
+                      {/* 6. เวลา (ใช้ formatThaiDateTime ที่สร้างไว้) */}
+                      <td
+                        className="text-muted small"
+                        style={{ whiteSpace: "nowrap" }}
                       >
-                        {ACTION_LABEL[log.action] ?? log.action}
-                      </Badge>
-                    </td>
-                    <td>
-                      <span className="small">
-                        {TYPE_LABEL[log.target_type] ?? log.target_type}
-                        {log.target_id && (
-                          <span className="text-muted ms-1">#{log.target_id}</span>
-                        )}
-                      </span>
-                    </td>
-                    <td>{renderDetail(log.detail)}</td>
-                    <td className="text-muted small" style={{ whiteSpace: 'nowrap' }}>
-                      {new Date(log.created_at).toLocaleString('th-TH')}
-                    </td>
-                  </tr>
-                ))}
+                        {formatThaiDateTime(log.created_at)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </Table>
           </div>
@@ -237,13 +272,14 @@ const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
               <Pagination>
                 <Pagination.Prev
                   disabled={page === 1}
-                  onClick={() => setPage(p => p - 1)}
+                  onClick={() => setPage((p) => p - 1)}
                 />
                 {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                   const p = i + 1;
                   return (
                     <Pagination.Item
-                      key={p} active={p === page}
+                      key={p}
+                      active={p === page}
                       onClick={() => setPage(p)}
                     >
                       {p}
@@ -252,7 +288,7 @@ const [logs, setLogs] = useState<HistoryLogEntry[]>([]);
                 })}
                 <Pagination.Next
                   disabled={page === totalPages}
-                  onClick={() => setPage(p => p + 1)}
+                  onClick={() => setPage((p) => p + 1)}
                 />
               </Pagination>
             </div>
