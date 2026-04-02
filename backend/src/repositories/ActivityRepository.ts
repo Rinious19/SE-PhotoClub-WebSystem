@@ -1,8 +1,11 @@
+//? Repository: ActivityRepository
+//@ backend/src/repositories/ActivityRepository.ts
+
 import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import { pool } from "../config/Database";
 
 export class ActivityRepository {
-  // Get all activities with optional filters
+  // ✅ Get all activities with optional filters
   async findAll(filters: any = {}): Promise<any[]> {
     let where = "WHERE 1=1";
     const params: any[] = [];
@@ -30,8 +33,7 @@ export class ActivityRepository {
     return rows;
   }
 
-
-  //@ ดึงกิจกรรมตาม ID
+  // ✅ ดึงกิจกรรมตาม ID พร้อมรูปภาพ
   async findByIdWithPhotos(id: number): Promise<any | null> {
     const [actRows] = await pool.query<RowDataPacket[]>(
       `SELECT a.*, u.username AS creator_name
@@ -58,7 +60,7 @@ export class ActivityRepository {
     return { ...actRows[0], photos: photoRows };
   }
 
-  // Create activity and link photos
+  // ✅ สร้างกิจกรรมใหม่ (Transaction)
   async create(data: any, photoIds: number[]): Promise<number> {
     const conn = await pool.getConnection();
     try {
@@ -66,8 +68,8 @@ export class ActivityRepository {
 
       const [res] = await conn.query<ResultSetHeader>(
         `INSERT INTO activities
-          (title, description, start_at, end_at, status, created_by, event_name, category)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          (title, description, start_at, end_at, status, created_by, event_name, category, academic_year)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           data.title || "Untitled",
           data.description || null,
@@ -77,6 +79,7 @@ export class ActivityRepository {
           data.created_by || null,
           data.event_name || "",
           data.category || data.faculty || null,
+          data.academic_year || null
         ]
       );
 
@@ -107,7 +110,7 @@ export class ActivityRepository {
     }
   }
 
-  //@ อัปเดตกิจกรรม (✅ เพิ่มการอัปเดตตาราง activity_photos แบบ Transaction และเพิ่ม event_name)
+  // ✅ อัปเดตกองกิจกรรม
   async update(id: number, data: any, newPhotoIds?: number[]): Promise<boolean> {
     const conn = await pool.getConnection();
     try {
@@ -118,9 +121,9 @@ export class ActivityRepository {
       const start_at = data.start_at || null;
       const end_at = data.end_at || null;
       const category = data.category || data.faculty || null;
+      const academic_year = data.academic_year || null;
       const status = data.status || null; 
       
-      // ✅ 1. เพิ่มการดึงชื่อ Event ถ้ามีการส่ง event_id มา (เพื่ออัปเดตช่อง event_name ลงฐานข้อมูล)
       let event_name = undefined;
       if (data.event_id) {
         const [eventRows] = await conn.query<RowDataPacket[]>(
@@ -132,16 +135,14 @@ export class ActivityRepository {
         }
       }
 
-      // ✅ 2. อัปเดตข้อมูลกิจกรรมหลัก (เพิ่ม event_name)
-      let updateSql = "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, category=?";
-      let updateParams: any[] = [title, description, start_at, end_at, category];
+      let updateSql = "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, category=?, academic_year=?";
+      let updateParams: any[] = [title, description, start_at, end_at, category, academic_year];
       
       if (status) {
         updateSql += ", status=?";
         updateParams.push(status);
       }
 
-      // ✅ ถ้าเจอชื่ออีเว้นท์ใหม่ ให้จับยัดเข้าไปในคำสั่ง Update ด้วย
       if (event_name) {
         updateSql += ", event_name=?";
         updateParams.push(event_name);
@@ -152,12 +153,8 @@ export class ActivityRepository {
 
       await conn.query(updateSql, updateParams);
 
-      // 3. อัปเดตรูปภาพ ถ้ามีการเปลี่ยนแปลง (มี Array ส่งเข้ามา)
       if (newPhotoIds && Array.isArray(newPhotoIds)) {
-        // ลบของเก่าทิ้งทั้งหมดก่อน
         await conn.query('DELETE FROM activity_photos WHERE activity_id = ?', [id]);
-        
-        // ถ้ายังมีรูปเหลืออยู่ ให้เพิ่มเข้าไปใหม่
         if (newPhotoIds.length > 0) {
           const placeholders = newPhotoIds.map(() => '(?, ?, ?)').join(', ');
           const flatValues = newPhotoIds.reduce((acc: any[], pid: number, idx: number) => {
@@ -182,7 +179,7 @@ export class ActivityRepository {
     }
   }
 
-  //@ ลบรูปออกจากกิจกรรม
+  // ✅ ลบรูปออกจากกิจกรรม
   async removePhotoFromActivity(activityId: number, activityPhotoId: number): Promise<boolean> {
     const [result] = await pool.query<ResultSetHeader>(
       `DELETE FROM activity_photos WHERE activity_id = ? AND id = ?`,
@@ -191,13 +188,28 @@ export class ActivityRepository {
     return result.affectedRows > 0;
   }
 
-  // Sync statuses based on current time
+  /**
+   * ✅ ฟังก์ชันลบผู้ใช้งานถาวร (Hard Delete)
+   * ใช้สำหรับกรณีต้องการลบข้อมูลออกจากระบบจริง ไม่ใช่แค่ปิดการใช้งาน (Soft Delete)
+   */
+  async hardDeleteUser(userId: number): Promise<boolean> {
+    const [result] = await pool.query<ResultSetHeader>(
+      `DELETE FROM users WHERE id = ?`,
+      [userId]
+    );
+    return result.affectedRows > 0;
+  }
+
+  /**
+   * ✅ Sync statuses ตามเวลาปัจจุบัน
+   * ใช้ฟังก์ชัน UTC_TIMESTAMP() ของ MySQL เพื่อให้ตรงกับมาตรฐานเวลาสากล
+   */
   async syncStatuses(): Promise<void> {
     await pool.query(`
       UPDATE activities
       SET status = CASE
-        WHEN NOW() < start_at THEN 'UPCOMING'
-        WHEN NOW() > end_at   THEN 'ENDED'
+        WHEN UTC_TIMESTAMP() < start_at THEN 'UPCOMING'
+        WHEN UTC_TIMESTAMP() > end_at   THEN 'ENDED'
         ELSE 'ACTIVE'
       END
       WHERE start_at IS NOT NULL AND end_at IS NOT NULL
