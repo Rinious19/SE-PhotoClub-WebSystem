@@ -1,9 +1,3 @@
-// src/utils/dateHelper.ts
-
-/**
- * 🛠️ ฟังก์ชันแปลงเวลาจาก Database (UTC) ให้เป็นเวลาไทย (+7) และปี พ.ศ.
- * ใช้สำหรับแสดงผลในหน้า History, Dashboard และ Card ต่างๆ
- */
 export const formatThaiDateTime = (dateStr: string | null | undefined) => {
   if (!dateStr) return '—';
 
@@ -13,7 +7,9 @@ export const formatThaiDateTime = (dateStr: string | null | undefined) => {
       ? new Date(dateStr) 
       : new Date(`${dateStr.replace(' ', 'T')}Z`);
 
+    // ✅ เพิ่ม timeZone: 'Asia/Bangkok' เพื่อบังคับแปลงเป็นเวลาไทย
     return utcDate.toLocaleString('th-TH', {
+      timeZone: 'Asia/Bangkok',
       year: 'numeric',
       month: 'numeric',
       day: 'numeric',
@@ -22,18 +18,18 @@ export const formatThaiDateTime = (dateStr: string | null | undefined) => {
       second: '2-digit',
       hour12: false
     });
-  } catch (error) {
+  } catch{
     return dateStr;
   }
 };
 
-/**
- * 🛠️ ฟังก์ชันสำหรับเช็ค Status กิจกรรมแบบ Real-time (Logic)
- * ใช้เปรียบเทียบว่าตอนนี้กิจกรรมเริ่มหรือยัง โดยใช้มาตรฐาน UTC
- */
+
+ 
+// 🛠️ ฟังก์ชันสำหรับเช็ค Status กิจกรรมแบบ Real-time (Logic)
+// ใช้เปรียบเทียบว่าตอนนี้กิจกรรมเริ่มหรือยัง โดยใช้มาตรฐาน UTC*/
 export const getRealTimeStatus = (startAt: string, endAt: string) => {
   const now = new Date().getTime();
-  
+
   const start = new Date(`${startAt.replace(' ', 'T')}Z`).getTime();
   const end = new Date(`${endAt.replace(' ', 'T')}Z`).getTime();
 

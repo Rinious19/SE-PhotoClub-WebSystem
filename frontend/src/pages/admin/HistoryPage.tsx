@@ -252,12 +252,28 @@ export const HistoryPage: React.FC = () => {
                         {renderDetail(log.detail)}
                       </td>
 
-                      {/* 6. เวลา (ใช้ formatThaiDateTime ที่สร้างไว้) */}
+                      {/* 6. เวลา (แก้ไข Timezone สำหรับประเทศไทย GMT+7) */}
                       <td
                         className="text-muted small"
                         style={{ whiteSpace: "nowrap" }}
                       >
-                        {formatThaiDateTime(log.created_at)}
+                        {log.created_at
+                          ? (() => {
+                              // แปลง timestamp จาก Backend เป็น Date object
+                              const utcDate = new Date(
+                                log.created_at.includes("Z")
+                                  ? log.created_at
+                                  : `${log.created_at.replace(" ", "T")}Z`,
+                              );
+                              // เพิ่ม 7 ชั่วโมงเพื่อแปลงเป็นเวลาประเทศไทย (GMT+7)
+                              const thailandDate = new Date(
+                                utcDate.getTime() + 7 * 60 * 60 * 1000,
+                              );
+                              return formatThaiDateTime(
+                                thailandDate.toISOString(),
+                              );
+                            })()
+                          : "—"}
                       </td>
                     </tr>
                   ))
