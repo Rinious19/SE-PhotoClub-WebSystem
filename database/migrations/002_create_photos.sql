@@ -1,56 +1,22 @@
-<<<<<<< HEAD
-USE photoclub_db;
-
---? Table: photos
---@ เก็บข้อมูลรูปภาพทั้งหมด รวม faculty/academic_year/file_hash ที่ใช้จริง
-CREATE TABLE IF NOT EXISTS photos (
-    id            INT AUTO_INCREMENT PRIMARY KEY,
-    title         VARCHAR(255)   NOT NULL,                -- ชื่ออีเว้นท์ (FK เชิง logic กับ events.event_name)
-    event_date    DATE           NULL,
-    description   TEXT           NULL,
-    image_url     TEXT           NOT NULL,
-    thumbnail_url TEXT           NULL,
-    faculty       VARCHAR(100)   NULL,
-    academic_year VARCHAR(10)    NULL,
-    file_hash     VARCHAR(32)    NULL,                    -- MD5 hash ป้องกันรูปซ้ำใน event เดียวกัน
-    user_id       INT            NOT NULL,
-    created_by    INT            NULL,
-    updated_by    INT            NULL,
-    deleted_at    TIMESTAMP      NULL,
-    deleted_by    INT            NULL,
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (user_id)    REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_title      (title),
-    INDEX idx_deleted_at (deleted_at),
-    INDEX idx_file_hash  (title, file_hash)
-);
-
---? Table: photo_audit_logs
---@ บันทึก audit trail ของทุก action ที่เกิดกับรูปภาพ (ใช้ใน PhotoRepository.logAction)
-CREATE TABLE IF NOT EXISTS photo_audit_logs (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    photo_id   INT          NOT NULL,
-    action     VARCHAR(20)  NOT NULL,                    -- UPLOAD | EDIT | DELETE
-    user_id    INT          NOT NULL,
-    details    TEXT         NULL,
-    created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_photo_id (photo_id),
-    INDEX idx_user_id  (user_id),
-    INDEX idx_action   (action)
-=======
-CREATE TABLE IF NOT EXISTS photos (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    image_url TEXT NOT NULL,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
->>>>>>> fe687ab4973be30cfd7184d885fc117760ffb180
-);
+CREATE TABLE IF NOT EXISTS `photos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `event_id` int(11) DEFAULT NULL,
+  `event_name` varchar(255) DEFAULT NULL,
+  `event_date` date DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `image_url` varchar(255) NOT NULL,
+  `thumbnail_url` varchar(255) DEFAULT NULL,
+  `faculty` varchar(100) DEFAULT NULL,
+  `academic_year` varchar(10) DEFAULT NULL,
+  `file_hash` varchar(255) DEFAULT NULL,
+  `user_id` int(11) NOT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `deleted_at` timestamp NULL DEFAULT NULL,
+  `deleted_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  INDEX `idx_event_name` (`event_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
