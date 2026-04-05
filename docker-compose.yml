@@ -11,23 +11,24 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE:      ${DB_NAME}
-      MYSQL_USER:          ${DB_USER}
-      MYSQL_PASSWORD:      ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
       - ./database/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test:     ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout:  5s
-      retries:  5
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   backend:
     build:
-      context:    ./backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: photoclub_backend
     restart: unless-stopped
@@ -35,13 +36,15 @@ services:
       db:
         condition: service_healthy
     environment:
-      DB_HOST:       db
-      DB_USER:       ${DB_USER}
-      DB_PASSWORD:   ${DB_PASSWORD}
-      DB_NAME:       ${DB_NAME}
-      JWT_SECRET:    ${JWT_SECRET}
+      DB_HOST: db
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT:-3306}          # เพิ่ม
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
-      PORT:          5000
+      PORT: 5000
+      BASE_URL: ${BASE_URL:-http://localhost:5000}   # เพิ่ม
     ports:
       - "5000:5000"
     volumes:
@@ -49,8 +52,10 @@ services:
 
   frontend:
     build:
-      context:    ./frontend
+      context: ./frontend
       dockerfile: Dockerfile
+      args:                                        # เพิ่ม
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}  # เพิ่ม
     container_name: photoclub_frontend
     restart: unless-stopped
     depends_on:
