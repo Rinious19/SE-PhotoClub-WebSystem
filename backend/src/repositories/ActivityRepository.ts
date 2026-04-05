@@ -68,8 +68,8 @@ export class ActivityRepository {
 
       const [res] = await conn.query<ResultSetHeader>(
         `INSERT INTO activities
-          (title, description, start_at, end_at, status, created_by, event_name, category, academic_year)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (title, description, start_at, end_at, status, created_by, event_name, category)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           data.title || "Untitled",
           data.description || null,
@@ -79,7 +79,6 @@ export class ActivityRepository {
           data.created_by || null,
           data.event_name || "",
           data.category || data.faculty || null,
-          data.academic_year || null
         ]
       );
 
@@ -121,7 +120,6 @@ export class ActivityRepository {
       const start_at = data.start_at || null;
       const end_at = data.end_at || null;
       const category = data.category || data.faculty || null;
-      const academic_year = data.academic_year || null;
       const status = data.status || null; 
       
       let event_name = undefined;
@@ -135,8 +133,8 @@ export class ActivityRepository {
         }
       }
 
-      let updateSql = "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, category=?, academic_year=?";
-      let updateParams: any[] = [title, description, start_at, end_at, category, academic_year];
+      let updateSql = "UPDATE activities SET title=?, description=?, start_at=?, end_at=?, category=?";
+      let updateParams: any[] = [title, description, start_at, end_at, category];
       
       if (status) {
         updateSql += ", status=?";

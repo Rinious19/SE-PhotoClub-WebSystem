@@ -26,40 +26,7 @@ const safeUnlink = (filePath: string, retries = 3, delay = 100): void => {
 
 export class PhotoController {
   // Auto-link photo to any ACTIVE/UPCOMING activities for the same event
-  static async autoAddPhotoToEventActivities(
-    photoId: number,
-    eventId: number | null
-  ) {
-    if (!eventId) return;
-    try {
-      const [activities]: any = await pool.query(
-        `SELECT id FROM activities
-         WHERE event_name = (SELECT event_name FROM events WHERE id = ?)
-         AND status != 'ENDED'`,
-        [eventId]
-      );
-      for (const act of activities) {
-        const actId = act.id;
-        const [check]: any = await pool.query(
-          `SELECT id FROM activity_photos WHERE activity_id = ? AND photo_id = ?`,
-          [actId, photoId]
-        );
-        if (check.length === 0) {
-          const [maxSortRows]: any = await pool.query(
-            `SELECT MAX(sort_order) as maxSort FROM activity_photos WHERE activity_id = ?`,
-            [actId]
-          );
-          const nextSort = (maxSortRows[0]?.maxSort || 0) + 1;
-          await pool.query(
-            `INSERT INTO activity_photos (activity_id, photo_id, sort_order) VALUES (?, ?, ?)`,
-            [actId, photoId, nextSort]
-          );
-        }
-      }
-    } catch (err) {
-      console.error("Auto Sync Photo Error:", err);
-    }
-  }
+  
 
   static async uploadPhoto(
     req: AuthenticatedRequest,
@@ -146,10 +113,6 @@ export class PhotoController {
         created_by: userId,
       });
 
-      await PhotoController.autoAddPhotoToEventActivities(
-        photo.id,
-        event_id ? parseInt(event_id) : null
-      );
 
       await historyService.log({
         actorId: userId,
