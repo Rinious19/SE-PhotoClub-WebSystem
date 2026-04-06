@@ -1,3 +1,5 @@
+USE photoclub_db;
+
 CREATE TABLE `photo_audit_logs` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `photo_id` int(11) DEFAULT NULL,

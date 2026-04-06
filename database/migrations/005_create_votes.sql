@@ -1,3 +1,5 @@
+USE photoclub_db;
+
 CREATE TABLE `votes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `activity_photo_id` int(11) NOT NULL,

@@ -16,8 +16,8 @@ COPY . .
 # 6. ทำการ Build TypeScript ให้กลายเป็น JavaScript (เพราะ Node รัน TS โดยตรงไม่ได้)
 RUN npm run build
 
-# 7. เปิดพอร์ต 10000 (Render แนะนำให้ใช้พอร์ตนี้)
-EXPOSE 10000
+# 7. เปิดพอร์ต 5000 โดย PORT 10000 จะถูกฉีดใส่ตอน build บน Render โดยอัตโนมัติ ตาม env PORT ที่เรากำหนดไว้ใน Render Dashboard
+EXPOSE 5000
 
 # 8. คำสั่งสำหรับรันตอนเริ่มเปิด Container
 CMD ["node", "dist/app.js"]

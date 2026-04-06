@@ -1,3 +1,5 @@
+USE photoclub_db;
+
 CREATE TABLE `activity_photos` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `activity_id` int(11) NOT NULL,
