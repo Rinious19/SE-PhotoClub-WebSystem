@@ -1,3 +1,5 @@
+USE photoclub_db;
+
 CREATE TABLE `events` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `event_name` varchar(255) NOT NULL,

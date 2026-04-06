@@ -1,8 +1,6 @@
 # docker-compose.yml — PhotoClub WebSystem
 # ใช้สำหรับ Dev environment: MySQL + Backend + Frontend
 
-version: '3.9'
-
 services:
 
   db:
@@ -20,11 +18,11 @@ services:
       - db_data:/var/lib/mysql
       - ./database/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
-      interval: 15s
-      timeout: 10s
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "--password=${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 60s
 
   backend:
     build:
@@ -40,11 +38,11 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_PORT: ${DB_PORT:-3306}          # เพิ่ม
+      DB_PORT: ${DB_PORT:-3306}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
       PORT: 5000
-      BASE_URL: ${BASE_URL:-http://localhost:5000}   # เพิ่ม
+      BASE_URL: ${BASE_URL:-http://localhost:5000}
     ports:
       - "5000:5000"
     volumes:
@@ -54,14 +52,29 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:                                        # เพิ่ม
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}  # เพิ่ม
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
     container_name: photoclub_frontend
     restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "3000:80"
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: photoclub_phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8080:80"
 
 volumes:
   db_data:
