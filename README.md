@@ -141,11 +141,12 @@
 ├── 📁 backend
 ├── 📁 database
 ├── 📁 frontend
-├── 📁 shared
+├── ⚙️ .env
 ├── ⚙️ .env.example
 ├── ⚙️ .gitignore
 ├── 📝 README.md
-└── ⚙️ docker-compose.yml
+├── 🐳 .dockerignore
+└── 🐳 docker-compose.yml
 ```
 
 ### 🟦 Frontend
@@ -319,7 +320,11 @@
 │   │   ├── 📄 TokenGenerator.ts
 │   │   └── 📄 errorHandler.ts
 │   └── 📄 app.ts
-├── ⚙️ .env.example
+├── 📁 uploads
+│   ├── 📁 photos
+│   │   └── 🖼️ ...
+│   └── 📁 thumbnails
+│       └── 🖼️ ...
 ├── 🐳 Dockerfile
 ├── ⚙️ package-lock.json
 ├── ⚙️ package.json
@@ -336,12 +341,14 @@
 ├── 📁 migrations
 │   ├── 📄 001_create_users.sql
 │   ├── 📄 002_create_photos.sql
-│   ├── 📄 003_create_activities.sql 
+│   ├── 📄 003_create_activities.sql
 │   ├── 📄 004_create_activity_photos.sql
 │   ├── 📄 005_create_votes.sql
-│   └── 📄 006_create_events.sql 
-│   └── 📄 007_create_history_logs.sql
-│   └── 📄 008_create_photo_audit_logs.sql
+│   ├── 📄 006_create_events.sql
+│   ├── 📄 007_create_history_logs.sql
+│   ├── 📄 008_create_photo_audit_logs.sql
+│   ├── 📄 009_add_foreign_keys.sql
+│   └── 📄 010_seed_data.sql
 └── 📄 schema.sql
 ```
 
@@ -425,10 +432,18 @@
 ## 🚀 วิธีติดตั้งและรัน
 
 ### Prerequisites
-- Node.js >= 18
-- XAMPP (Apache + MySQL + phpMyAdmin)
-- Github
-- IDE เช่น VSCode
+
+| เครื่องมือ | ใช้ทำอะไร | Download |
+|-----------|----------|---------|
+| Node.js >= 18 | รัน Frontend / Backend โดยตรง | [nodejs.org](https://nodejs.org) |
+| Git | Clone โปรเจค | [git-scm.com](https://git-scm.com) |
+| **Docker Desktop** | รันระบบทั้งหมดผ่าน Container | [docker.com](https://www.docker.com/products/docker-desktop) |
+| **Laragon** *(ทางเลือก)* | รัน MySQL + phpMyAdmin บน Windows แทน XAMPP | [laragon.org](https://laragon.org) |
+| XAMPP *(ทางเลือก)* | รัน MySQL + phpMyAdmin บน Windows | [apachefriends.org](https://www.apachefriends.org) |
+
+> 💡 เลือกวิธีรันได้ 2 แบบ: **Docker** (แนะนำ — ง่ายที่สุด ไม่ต้องติดตั้งอะไรเพิ่ม) หรือ **แยก Frontend/Backend** (สำหรับ Dev ที่ต้องการ HMR / Debug)
+
+---
 
 ### 1. Clone โปรเจค
 
@@ -437,65 +452,174 @@ git clone https://github.com/Rinious19/SE-PhotoClub-WebSystem.git
 cd SE-PhotoClub-WebSystem
 ```
 
+---
+
 ### 2. ตั้งค่า Environment
 
 ```bash
 cp .env.example .env
-# แก้ไขค่าต่างๆ ใน .env ตามเครื่องของคุณ
 ```
 
-### 3. รันด้วย Docker
+แก้ไขค่าใน `.env` ตามต้องการ:
 
-```bash
-docker-compose up --build
-```
+```env
+# Database
+DB_HOST=db
+DB_USER=photoclub
+DB_PASSWORD=photoclub1234
+DB_NAME=photoclub_db
+DB_PORT=3306
 
-### 4. หรือรันแยก Frontend / Backend
+# JWT
+JWT_SECRET=your_super_secret_jwt_key_change_this
+JWT_EXPIRES_IN=1d
 
-```bash
+# App (Backend)
+PORT=5000
+BASE_URL=http://localhost:5000
+
 # Frontend
-cd frontend
-npm install
-npm run dev
+VITE_API_URL=http://localhost:5000
+```
 
-# Backend
+> **หมายเหตุ:** ไฟล์ `.env` ชุดนี้ใช้ได้ทั้ง Docker และ XAMPP/Laragon จะเปลี่ยนค่าหรือไม่เปลี่ยนก็ได้ เพราะมีค่า Default อยู่ในโค้ด
+> - **Docker** — ใช้ค่านี้ได้ทันที ไม่ต้องเปลี่ยนอะไร
+> - **XAMPP/Laragon** — ให้เปลี่ยน `DB_HOST=localhost`, `DB_USER=root`, `DB_PASSWORD=` (ว่าง) เพราะ MySQL บน XAMPP/Laragon ใช้ root ไม่มีรหัสผ่านเป็น default
+
+---
+
+## 🐳 วิธีที่ 1 — รันด้วย Docker (แนะนำ)
+
+> ✅ ไม่ต้องติดตั้ง MySQL, Node.js หรือ phpMyAdmin แยก
+> ✅ ระบบจะสร้าง Database, ตาราง และ Seed ข้อมูลตัวอย่างให้อัตโนมัติ
+
+### รันระบบ
+
+```bash
+docker compose up -d --build
+```
+
+### Container ที่จะถูกสร้างขึ้น
+
+| Container | Port | หน้าที่ |
+|-----------|------|--------|
+| `photoclub_db` | 3306 | MySQL Database Server |
+| `photoclub_backend` | 5000 | Express API Server |
+| `photoclub_frontend` | 3000 | React App (ผ่าน Nginx) |
+| `photoclub_phpmyadmin` | 8080 | phpMyAdmin สำหรับจัดการ DB ผ่าน UI |
+
+### URL หลังรัน
+
+| Service | URL | หมายเหตุ |
+|---------|-----|---------|
+| 🌐 Frontend | http://localhost:3000 | หน้าเว็บหลัก |
+| ⚙️ Backend API | http://localhost:5000 | REST API |
+| 🗄️ phpMyAdmin | http://localhost:8080 | จัดการ Database |
+
+### ข้อมูล Login สำหรับทดสอบ (Seed Data)
+
+| Role | Username | Password |
+|------|----------|---------|
+| CLUB_PRESIDENT | `cp` | `123456` |
+| ADMIN | `admin` | `123456` |
+| EXTERNAL_USER | `user1` | `123456` |
+
+### คำสั่งที่ใช้บ่อย
+
+```bash
+# ดู log แบบ realtime
+docker logs -f photoclub_backend
+
+# หยุดระบบ (ข้อมูลยังอยู่)
+docker compose down
+
+# หยุดและลบข้อมูลทั้งหมด (reset DB)
+docker compose down -v
+
+# รันใหม่หลังแก้โค้ด
+docker compose up -d --build
+```
+
+> ⚠️ ข้อมูลใน Database จะถูกลบเมื่อใช้ `docker compose down -v` เท่านั้น การ build ใหม่ปกติข้อมูลจะยังคงอยู่
+
+---
+
+## 💻 วิธีที่ 2 — รันแยก Frontend / Backend (สำหรับ Dev)
+
+> ✅ รองรับ Hot Module Replacement (HMR) — เห็นการเปลี่ยนแปลงทันทีโดยไม่ต้อง build ใหม่
+> ⚠️ ต้องสร้าง Database และตารางเองผ่าน XAMPP หรือ Laragon ก่อน
+
+### ขั้นตอนที่ 1 — เตรียม Database (ทำครั้งแรกครั้งเดียว)
+
+**ใช้ XAMPP:**
+```
+1. เปิด XAMPP Control Panel → Start Apache และ MySQL
+2. เปิดเบราว์เซอร์ไปที่ http://localhost/phpmyadmin
+```
+
+**ใช้ Laragon:**
+```
+1. เปิด Laragon → Start All
+2. เปิดเบราว์เซอร์ไปที่ http://localhost/phpmyadmin
+   หรือคลิก Database → phpMyAdmin จาก Laragon Menu
+```
+
+**สร้าง Database และตาราง (ทำเหมือนกันทั้ง XAMPP และ Laragon):**
+```
+1. คลิก "New" ที่แถบซ้าย
+2. ตั้งชื่อ Database: photoclub_db → คลิก Create
+3. เลือก photoclub_db → คลิกแท็บ "Import"
+4. เลือกไฟล์ database/schema.sql → คลิก Go
+   (ระบบจะสร้างตารางทั้งหมดให้อัตโนมัติ)
+5. (ทำซ้ำขั้นตอน Import) เลือกไฟล์ database/migrations/010_seed_data.sql → คลิก Go
+   (ระบบจะเพิ่มข้อมูลตัวอย่างให้)
+```
+
+### ขั้นตอนที่ 2 — แก้ไขไฟล์ `.env`
+
+```env
+# เปลี่ยนค่าเหล่านี้สำหรับ XAMPP/Laragon
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=photoclub_db
+DB_PORT=3306
+```
+
+### ขั้นตอนที่ 3 — รัน Backend
+
+```bash
 cd backend
 npm install
 npm run dev
 ```
 
-### 5. จัดการฐานข้อมูลผ่าน phpMyAdmin (XAMPP)
+### ขั้นตอนที่ 4 — รัน Frontend (Terminal ใหม่)
 
-> ใช้ XAMPP เป็น local server สำหรับจัดการ Database ผ่าน phpMyAdmin
-
-```
-1. เปิด XAMPP Control Panel
-2. Start Apache และ MySQL
-3. เปิดเบราว์เซอร์ไปที่ http://localhost/phpmyadmin
-4. สร้าง Database ชื่อ photoclub_db ใช้คำสั่ง CREATE DATABASE photoclub_db;
-5. Import ไฟล์ schema: database/schema.sql นำคำสั่ง sql มาทำการ execute เพื่อสร้าง Table ทั้งหมดใน Database
-```
-
-> 💡 ตั้งค่า connection ใน `.env` ให้ตรงกับ XAMPP
-
-```env
-DB_HOST = localhost
-DB_PORT = 3306
-DB_NAME = photoclub_db
-DB_USER = root
-DB_PASSWORD = 
-📌 หมายเหตุ DB_PASSWORD เป็นค่าว่าง
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 ### URL หลังรัน
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:3000 |
-| phpMyAdmin | http://localhost/phpmyadmin |
+| Service | URL | หมายเหตุ |
+|---------|-----|---------|
+| 🌐 Frontend | http://localhost:5173 | Vite Dev Server (HMR) |
+| ⚙️ Backend API | http://localhost:5000 | Express API Server |
+| 🗄️ phpMyAdmin | http://localhost/phpmyadmin | XAMPP/Laragon |
 
 ---
+
+## 🔄 เปรียบเทียบ 2 วิธี
+
+| | Docker | แยก Frontend/Backend |
+|--|--------|---------------------|
+| ติดตั้งง่าย | ✅ ง่ายมาก | ⚠️ ต้องตั้งค่าเพิ่ม |
+| Hot Reload | ❌ ต้อง build ใหม่ | ✅ HMR ทันที |
+| สร้าง DB อัตโนมัติ | ✅ | ❌ ต้อง Import เอง |
+| เหมาะสำหรับ | Demo / ทดสอบระบบ | พัฒนา / Debug |
 
 ## 📡 API Contract
 
