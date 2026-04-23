@@ -40,6 +40,7 @@
 - [🧩 Design Patterns](#-design-patterns)
 - [👥 การแบ่งหน้าที่ทีม](#-การแบ่งหน้าที่ทีม)
 - [🚀 วิธีติดตั้งและรัน](#-วิธีติดตั้งและรัน)
+- [☁️ การนำขึ้นระบบ](#-การนำขึ้นระบบ)
 - [📡 API Contract](#-api-contract)
 - [📐 มาตรฐานการพัฒนา](#-มาตรฐานการพัฒนา)
 - [🌿 Git Workflow](#-git-workflow)
@@ -620,6 +621,16 @@ npm run dev
 | Hot Reload | ❌ ต้อง build ใหม่ | ✅ HMR ทันที |
 | สร้าง DB อัตโนมัติ | ✅ | ❌ ต้อง Import เอง |
 | เหมาะสำหรับ | Demo / ทดสอบระบบ | พัฒนา / Debug |
+
+## ☁️ การนำขึ้นระบบ
+
+โปรเจคนี้ได้รับการนำขึ้นทำงานบน Cloud Server จริง ตามโครงสร้างแบบแยกส่วน:
+
+| ส่วน | Platform | ลิงก์ |
+|---|---|---|
+| **Frontend** | Vercel | 🔗 https://photoclub-web.vercel.app/ |
+| **Backend** | Render | 🔗 https://photoclub-backend-api.onrender.com/ |
+| **Database** | Railway | 🔒 Private  |
 
 ## 📡 API Contract
 
