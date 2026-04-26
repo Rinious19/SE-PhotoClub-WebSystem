@@ -142,11 +142,9 @@
 ├── 📁 backend
 ├── 📁 database
 ├── 📁 frontend
-├── ⚙️ .env
-├── ⚙️ .env.example
 ├── ⚙️ .gitignore
 ├── 📝 README.md
-├── 🐳 .dockerignore
+├── ⚙️ .dockerignore
 └── 🐳 docker-compose.yml
 ```
 
@@ -229,6 +227,7 @@
 │   ├── 📄 App.tsx
 │   ├── 🎨 index.css
 │   └── 📄 main.tsx
+├── ⚙️ .env.example
 ├── ⚙️ .nvmrc
 ├── 🐳 Dockerfile
 ├── 📄 eslint.config.js
@@ -326,6 +325,7 @@
 │   │   └── 🖼️ ...
 │   └── 📁 thumbnails
 │       └── 🖼️ ...
+├── ⚙️ .env.example
 ├── 🐳 Dockerfile
 ├── ⚙️ package-lock.json
 ├── ⚙️ package.json
@@ -457,13 +457,15 @@ cd SE-PhotoClub-WebSystem
 
 ### 2. ตั้งค่า Environment
 
+โปรเจกต์นี้มีการแยกไฟล์ Environment สำหรับ Backend และ Frontend ออกจากกัน
+
+**ตั้งค่าฝั่ง Backend:**
 ```bash
+cd backend
 cp .env.example .env
 ```
-
-แก้ไขค่าใน `.env` ตามต้องการ:
-
-```env
+ในไฟล์ backend/.env จะมีค่าดังนี้:
+```bash
 # Database
 DB_HOST=db
 DB_USER=photoclub
@@ -478,7 +480,15 @@ JWT_EXPIRES_IN=1d
 # App (Backend)
 PORT=5000
 BASE_URL=http://localhost:5000
+```
 
+**ตั้งค่าฝั่ง Frontend:**
+```bash
+cd frontend
+cp .env.example .env
+```
+ในไฟล์ frontend/.env จะมีค่าดังนี้:
+```bash
 # Frontend
 VITE_API_URL=http://localhost:5000
 ```
