@@ -3,19 +3,21 @@
 > ระบบเว็บไซต์สำหรับชมรมถ่ายภาพ — อัปโหลดรูป จัดกิจกรรม โหวต และดูสรุปผลแบบ Real-time
 
 <!-- Frontend -->
-![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=flat-square&logo=vite&logoColor=white)
-![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?style=flat-square&logo=bootstrap&logoColor=white)
-![React Router](https://img.shields.io/badge/React_Router-v7-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
+![React](https://img.shields.io/badge/React-19.2.0-61DAFB?style=flat-square&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-7.3.1-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.8-7952B3?style=flat-square&logo=bootstrap&logoColor=white)
+![React Bootstrap](https://img.shields.io/badge/React_Bootstrap-2.10.10-7952B3?style=flat-square&logo=bootstrap&logoColor=white)
+![React Router](https://img.shields.io/badge/React_Router-v7.13.1-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
 ![Axios](https://img.shields.io/badge/Axios-1.13.5-5A29E4?style=flat-square&logo=axios&logoColor=white)
+![React Icons](https://img.shields.io/badge/React_Icons-5.6.0-E91E63?style=flat-square&logo=react&logoColor=white)
 ![jwt-decode](https://img.shields.io/badge/jwt--decode-4.0.0-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)
 <!-- Backend -->
-![Node.js](https://img.shields.io/badge/Node.js-25-339933?style=flat-square&logo=node.js&logoColor=white)
-![Express](https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![JWT](https://img.shields.io/badge/JWT-9-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)
-![bcrypt](https://img.shields.io/badge/bcrypt-6-FF6C37?style=flat-square&logo=letsencrypt&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-22.22.0-339933?style=flat-square&logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5.2.1-000000?style=flat-square&logo=express&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-9.0.3-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)
+![bcrypt](https://img.shields.io/badge/bcrypt-6.0.0-FF6C37?style=flat-square&logo=letsencrypt&logoColor=white)
 ![dotenv](https://img.shields.io/badge/dotenv-17.3.1-ECD53F?style=flat-square&logo=dotenv&logoColor=black)
 ![cors](https://img.shields.io/badge/cors-2.8.6-00ADD8?style=flat-square&logo=node.js&logoColor=white)
 ![multer](https://img.shields.io/badge/multer-2.1.0-FF6C37?style=flat-square&logo=node.js&logoColor=white)
@@ -25,7 +27,7 @@
 ![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square&logo=mysql&logoColor=white)
 ![XAMPP](https://img.shields.io/badge/XAMPP-phpMyAdmin-FB7A24?style=flat-square&logo=xampp&logoColor=white)
 <!-- Tools -->
-![ESLint](https://img.shields.io/badge/ESLint-9-4B32C3?style=flat-square&logo=eslint&logoColor=white)
+![ESLint](https://img.shields.io/badge/ESLint-9.10.0-4B32C3?style=flat-square&logo=eslint&logoColor=white)
 ![Prettier](https://img.shields.io/badge/Prettier-3-F7B93E?style=flat-square&logo=prettier&logoColor=black)
 ![Git](https://img.shields.io/badge/Git-Conventional_Commits-F05032?style=flat-square&logo=git&logoColor=white)
 
@@ -72,23 +74,25 @@
 
 | Badge | เทคโนโลยี | เหตุผลที่เลือก |
 |-------|-----------|--------------|
-| ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black) | React 19 | Component-based UI, Virtual DOM |
-| ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white) | TypeScript 5 | Type-safe ลด bug จาก type mismatch |
-| ![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=flat-square&logo=vite&logoColor=white) | Vite 7 | Build tool เร็ว พร้อม HMR |
-| ![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?style=flat-square&logo=bootstrap&logoColor=white) | Bootstrap 5 | Responsive Design ครบในตัว |
-| ![React Router](https://img.shields.io/badge/React_Router-v7-CA4245?style=flat-square&logo=reactrouter&logoColor=white) | React Router v7 | Client-side Routing |
+| ![React](https://img.shields.io/badge/React-19.2.0-61DAFB?style=flat-square&logo=react&logoColor=black) | React 19.2.0 | Component-based UI, Virtual DOM |
+| ![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?style=flat-square&logo=typescript&logoColor=white) | TypeScript 5.9.3 | Type-safe ลด bug จาก type mismatch |
+| ![Vite](https://img.shields.io/badge/Vite-7.3.1-646CFF?style=flat-square&logo=vite&logoColor=white) | Vite 7.3.1 | Build tool เร็ว พร้อม HMR |
+| ![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.8-7952B3?style=flat-square&logo=bootstrap&logoColor=white) | Bootstrap 5.3.8 | Responsive Design ครบในตัว |
+| ![React Bootstrap](https://img.shields.io/badge/React_Bootstrap-2.10.10-7952B3?style=flat-square&logo=bootstrap&logoColor=white) | React Bootstrap 2.10.10 | Bootstrap Components สำหรับ React |
+| ![React Router](https://img.shields.io/badge/React_Router-v7.13.1-CA4245?style=flat-square&logo=reactrouter&logoColor=white) | React Router v7.13.1 | Client-side Routing |
 | ![Axios](https://img.shields.io/badge/Axios-1.13.5-5A29E4?style=flat-square&logo=axios&logoColor=white) | Axios 1.13.5 | HTTP Client สำหรับเรียก API |
+| ![React Icons](https://img.shields.io/badge/React_Icons-5.6.0-E91E63?style=flat-square&logo=react&logoColor=white) | React Icons 5.6.0 | Icon library ครอบคลุมหลาย icon set |
 | ![jwt-decode](https://img.shields.io/badge/jwt--decode-4.0.0-000000?style=flat-square&logo=jsonwebtokens&logoColor=white) | jwt-decode 4.0.0 | Decode JWT token ฝั่ง Frontend |
 
 ### 🟥 Backend
 
 | Badge | เทคโนโลยี | เหตุผลที่เลือก |
 |-------|-----------|--------------|
-| ![Node.js](https://img.shields.io/badge/Node.js-25-339933?style=flat-square&logo=node.js&logoColor=white) | Node.js 25 | JavaScript runtime ฝั่ง server |
-| ![Express](https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white) | Express 5 | REST API framework ที่เบาและยืดหยุ่น |
-| ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white) | TypeScript 5 | Type-safe ทั้ง Frontend + Backend |
-| ![JWT](https://img.shields.io/badge/JWT-9-000000?style=flat-square&logo=jsonwebtokens&logoColor=white) | JWT 9 | Stateless Authentication & Authorization |
-| ![bcrypt](https://img.shields.io/badge/bcrypt-6-FF6C37?style=flat-square&logo=letsencrypt&logoColor=white) | bcrypt 6 | Password Hashing ที่ปลอดภัย |
+| ![Node.js](https://img.shields.io/badge/Node.js-22.22.0-339933?style=flat-square&logo=node.js&logoColor=white) | Node.js 22.22.0 | JavaScript runtime ฝั่ง server |
+| ![Express](https://img.shields.io/badge/Express-5.2.1-000000?style=flat-square&logo=express&logoColor=white) | Express 5.2.1 | REST API framework ที่เบาและยืดหยุ่น |
+| ![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?style=flat-square&logo=typescript&logoColor=white) | TypeScript 5.9.3 | Type-safe ทั้ง Frontend + Backend |
+| ![JWT](https://img.shields.io/badge/JWT-9.0.3-000000?style=flat-square&logo=jsonwebtokens&logoColor=white) | JWT 9.0.3 | Stateless Authentication & Authorization |
+| ![bcrypt](https://img.shields.io/badge/bcrypt-6.0.0-FF6C37?style=flat-square&logo=letsencrypt&logoColor=white) | bcrypt 6.0.0 | Password Hashing ที่ปลอดภัย |
 | ![dotenv](https://img.shields.io/badge/dotenv-17.3.1-ECD53F?style=flat-square&logo=dotenv&logoColor=black) | dotenv 17.3.1 | โหลด Environment Variables จาก .env |
 | ![cors](https://img.shields.io/badge/cors-2.8.6-00ADD8?style=flat-square&logo=node.js&logoColor=white) | cors 2.8.6 | จัดการ Cross-Origin Resource Sharing |
 | ![multer](https://img.shields.io/badge/multer-2.1.0-FF6C37?style=flat-square&logo=node.js&logoColor=white) | multer 2.1.0 | จัดการ File Upload (multipart/form-data) |
@@ -106,7 +110,7 @@
 
 | Badge | เครื่องมือ | หน้าที่ |
 |-------|----------|--------|
-| ![ESLint](https://img.shields.io/badge/ESLint-9-4B32C3?style=flat-square&logo=eslint&logoColor=white) | ESLint 9 | Code quality & linting rules |
+| ![ESLint](https://img.shields.io/badge/ESLint-9.10.0-4B32C3?style=flat-square&logo=eslint&logoColor=white) | ESLint 9.10.0 | Code quality & linting rules |
 | ![Prettier](https://img.shields.io/badge/Prettier-3-F7B93E?style=flat-square&logo=prettier&logoColor=black) | Prettier 3 | Code formatting ให้เหมือนกันทั้งทีม |
 | ![Git](https://img.shields.io/badge/Git-Conventional_Commits-F05032?style=flat-square&logo=git&logoColor=white) | Git + Conventional Commits | Version control มาตรฐาน |
 | ![Better Comments](https://img.shields.io/badge/Better_Comments-VSCode_Extension-brightgreen?style=flat-square&logo=visualstudiocode&logoColor=white) | Better Comments | Comment style แบบมีสีสัน |
