@@ -644,7 +644,7 @@ npm run dev
 |---|---|---|
 | **Frontend** | Vercel | 🔗 https://photoclub-web.vercel.app/ |
 | **Backend** | Render | 🔗 https://photoclub-backend-api.onrender.com/ |
-| **Database** | Railway | 🔒 Private  |
+| **Database** | Aiven | 🔒 Private  |
 
 ## 📡 API Contract
 
