@@ -461,29 +461,35 @@ cd SE-PhotoClub-WebSystem
 
 ### 2. ตั้งค่า Environment
 
-โปรเจกต์นี้มีการแยกไฟล์ Environment สำหรับ Backend และ Frontend ออกจากกัน
-
-**ตั้งค่าฝั่ง Backend:**
+**ตั้งค่าฝั่ง Backend** (ไฟล์นี้ใช้ร่วมกันโดย db, backend และ phpmyadmin):
 ```bash
 cd backend
 cp .env.example .env
 ```
-ในไฟล์ backend/.env จะมีค่าดังนี้:
-```bash
-# Database
+ในไฟล์ `backend/.env` จะมีค่าดังนี้:
+```env
+# ค่าสำหรับ Backend 
 DB_HOST=db
 DB_USER=photoclub
 DB_PASSWORD=photoclub1234
 DB_NAME=photoclub_db
 DB_PORT=3306
-
-# JWT
 JWT_SECRET=your_super_secret_jwt_key_change_this
 JWT_EXPIRES_IN=1d
-
-# App (Backend)
 PORT=5000
 BASE_URL=http://localhost:5000
+
+# ค่าสำหรับ Database (MySQL จะใช้อันนี้) 
+MYSQL_ROOT_PASSWORD=photoclub1234
+MYSQL_DATABASE=photoclub_db
+MYSQL_USER=photoclub
+MYSQL_PASSWORD=photoclub1234
+
+# ค่าสำหรับ phpMyAdmin 
+PMA_HOST=db
+PMA_PORT=3306
+PMA_USER=root
+PMA_PASSWORD=photoclub1234
 ```
 
 **ตั้งค่าฝั่ง Frontend:**
@@ -491,8 +497,8 @@ BASE_URL=http://localhost:5000
 cd frontend
 cp .env.example .env
 ```
-ในไฟล์ frontend/.env จะมีค่าดังนี้:
-```bash
+ในไฟล์ `frontend/.env` จะมีค่าดังนี้:
+```env
 # Frontend
 VITE_API_URL=http://localhost:5000
 ```
@@ -504,15 +510,17 @@ VITE_API_URL=http://localhost:5000
 ---
 
 ## 🐳 วิธีที่ 1 — รันด้วย Docker (แนะนำ)
-
-> ✅ ไม่ต้องติดตั้ง MySQL, Node.js หรือ phpMyAdmin แยก
-> ✅ ระบบจะสร้าง Database, ตาราง และ Seed ข้อมูลตัวอย่างให้อัตโนมัติ
+- ✅ ไม่ต้องติดตั้ง MySQL, Node.js หรือ phpMyAdmin แยก
+- ✅ ระบบจะสร้าง Database, ตาราง และ Seed ข้อมูลตัวอย่างให้อัตโนมัติ
+- ✅ Image พร้อมใช้งานบน Docker Hub — ไม่ต้อง Build เอง
 
 ### รันระบบ
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
+
+> Docker จะ Pull Image ล่าสุดจาก Registry (`rinious19/photoclub-backend` และ `rinious19/photoclub-frontend`) แล้วรันทันที
 
 ### Container ที่จะถูกสร้างขึ้น
 
@@ -551,8 +559,8 @@ docker compose down
 # หยุดและลบข้อมูลทั้งหมด (reset DB)
 docker compose down -v
 
-# รันใหม่หลังแก้โค้ด
-docker compose up -d --build
+# อัปเดต Image เป็นเวอร์ชันล่าสุด
+docker compose pull && docker compose up -d
 ```
 
 > ⚠️ ข้อมูลใน Database จะถูกลบเมื่อใช้ `docker compose down -v` เท่านั้น การ build ใหม่ปกติข้อมูลจะยังคงอยู่
@@ -561,8 +569,8 @@ docker compose up -d --build
 
 ## 💻 วิธีที่ 2 — รันแยก Frontend / Backend (สำหรับ Dev)
 
-> ✅ รองรับ Hot Module Replacement (HMR) — เห็นการเปลี่ยนแปลงทันทีโดยไม่ต้อง build ใหม่
-> ⚠️ ต้องสร้าง Database และตารางเองผ่าน XAMPP หรือ Laragon ก่อน
+- ✅ รองรับ Hot Module Replacement (HMR) — เห็นการเปลี่ยนแปลงทันทีโดยไม่ต้อง build ใหม่
+- ⚠️ ต้องสร้าง Database และตารางเองผ่าน XAMPP หรือ Laragon ก่อน
 
 ### ขั้นตอนที่ 1 — เตรียม Database (ทำครั้งแรกครั้งเดียว)
 
@@ -575,8 +583,7 @@ docker compose up -d --build
 **ใช้ Laragon:**
 ```
 1. เปิด Laragon → Start All
-2. เปิดเบราว์เซอร์ไปที่ http://localhost/phpmyadmin
-   หรือคลิก Database → phpMyAdmin จาก Laragon Menu
+2. เปิดเบราว์เซอร์ไปที่ http://localhost/phpmyadmin หรือคลิก Database → phpMyAdmin จาก Laragon Menu
 ```
 
 **สร้าง Database และตาราง (ทำเหมือนกันทั้ง XAMPP และ Laragon):**
@@ -584,10 +591,8 @@ docker compose up -d --build
 1. คลิก "New" ที่แถบซ้าย
 2. ตั้งชื่อ Database: photoclub_db → คลิก Create
 3. เลือก photoclub_db → คลิกแท็บ "Import"
-4. เลือกไฟล์ database/schema.sql → คลิก Go
-   (ระบบจะสร้างตารางทั้งหมดให้อัตโนมัติ)
-5. (ทำซ้ำขั้นตอน Import) เลือกไฟล์ database/migrations/010_seed_data.sql → คลิก Go
-   (ระบบจะเพิ่มข้อมูลตัวอย่างให้)
+4. เลือกไฟล์ database/schema.sql → คลิก Go (ระบบจะสร้างตารางทั้งหมดให้อัตโนมัติ)
+5. (ทำซ้ำขั้นตอน Import) เลือกไฟล์ database/migrations/010_seed_data.sql → คลิก Go (ระบบจะเพิ่มข้อมูลตัวอย่างให้)
 ```
 
 ### ขั้นตอนที่ 2 — แก้ไขไฟล์ `.env`
